@@ -60,7 +60,7 @@ const SidebarLeft = ({ mobileOpen, setMobileOpen }) => {
             )}
 
             <div className={`
-                fixed top-0 left-0 bottom-0 w-64 bg-white border-r z-50 overflow-y-auto transition-transform duration-300
+                fixed top-0 left-0 bottom-0 w-64 bg-white border-r border-gray-100 z-50 overflow-y-auto transition-transform duration-300
                 lg:translate-x-0
                 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
             `}>

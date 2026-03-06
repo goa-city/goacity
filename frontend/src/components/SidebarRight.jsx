@@ -154,7 +154,7 @@ const SidebarRight = () => {
     return (
         <div className="flex flex-col bg-white p-6 
             w-full xl:w-80
-            xl:fixed xl:right-0 xl:top-0 xl:h-screen xl:border-l xl:overflow-y-auto
+            xl:fixed xl:right-0 xl:top-0 xl:h-screen xl:border-l xl:border-gray-50 xl:overflow-y-auto
             border-t xl:border-t-0 mt-8 xl:mt-0 pb-20
         ">
             {/* Header */}
