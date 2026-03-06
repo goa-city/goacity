@@ -25,3 +25,12 @@ yarn-error.log*
 backend_node/uploads/*
 !backend_node/uploads/.gitkeep
 !backend_node/uploads/**/.gitkeep
+
+# SSH Keys
+*.key
+*.pub
+goacity_key
+
+# Local Setup & Commands
+*.command
+LOCAL_SETUP.md
