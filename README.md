@@ -1,12 +1,12 @@
 # Goa.City Community Platform
 
-Goa.City is a modern, full-stack community platform designed to connect residents and organizations in Goa. It provides a comprehensive suite of tools for networking, professional development, and community engagement.
+Goa.City is a modern, full-stack community platform built for the Goa Transformation Network and Coalition. It offers a comprehensive set of tools that enable networking, professional development, and community engagement across the various streams within the coalition.
 
 ## 🚀 Overview
 
 The platform is divided into two major sections:
-- **Member Portal**: A collaborative space for members to share news, find jobs, join mentorship programs, and attend community meetings.
-- **Admin Console**: A powerful management interface for administrators to oversee the platform, moderate content, and manage the underlying data structures.
+- **Member Portal**:  A collaborative space where members can share updates, learn, collaborate, and participate in community meetings.
+- **Admin Console**: A robust management dashboard that enables administrators to oversee operations, moderate content, and manage the platform’s underlying data and structures.
 
 ---
 
@@ -23,13 +23,13 @@ The platform is divided into two major sections:
     - **Job Board**: Post and browse local employment opportunities.
     - **Resource Hub**: A shared library for documents, videos, and guides.
     - **Meetings**: Discover and RSVP for community events with integrated payment support.
-- **Onboarding**: Dynamic, multi-step onboarding customized for different interest "streams".
+- **Onboarding**: Dynamic, multi-step onboarding customized for different "streams".
 
 ### 🛠️ Admin Management Console
 - **Analytics**: Real-time overview of platform growth and engagement.
 - **Member Management**: Detailed directory with role assignment and profile moderation.
 - **System Configuration**:
-    - **Stream Management**: Define interest groups and access levels.
+    - **Stream Management**: Define streams and access levels.
     - **Dynamic Form Builder**: DRAG-and-drop style creator for onboarding and survey forms.
 - **Moderation**: Full oversight of Jobs, Resources, News, and Incubator submissions.
 - **Event Management**: Create meetings, manage attendance, and configure payment QR codes.
@@ -59,7 +59,7 @@ The platform is divided into two major sections:
 This platform is developed and maintained by:
 
 **Stevens Dumpala**
-
+https://stevensdumpala.com
 ---
 
 © 2026 Goa.City. All rights reserved.
