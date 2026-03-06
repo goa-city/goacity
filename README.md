@@ -54,12 +54,12 @@ The platform is divided into two major sections:
 
 ---
 
-## 👨‍💻 Developer Credits
+**👨‍💻 Developer Credits**
 
 This platform is developed and maintained by:
+Stevens Dumpala  
+[stevensdumpala.com](https://stevensdumpala.com)
 
-**Stevens Dumpala**
-https://stevensdumpala.com
 ---
 
 © 2026 Goa.City. All rights reserved.
