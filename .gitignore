@@ -34,3 +34,11 @@ goacity_key
 # Local Setup & Commands
 *.command
 LOCAL_SETUP.md
+Untitled.rtf
+FRONTEND_FEATURES.md
+
+# Backend temporary files
+backend_node/*.sql
+backend_node/*.js
+backend_node/test-collab.ts
+!backend_node/src/**/*.js
