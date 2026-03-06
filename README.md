@@ -1,2 +1,1 @@
-# goacity
-Goa.city Dashboard
+# goacity - Goa.city Dashboard

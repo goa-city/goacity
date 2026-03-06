@@ -1,0 +1,127 @@
+import { useState } from 'react';
+import { useAdminAuth } from '../context/AdminAuthContext';
+import { useNavigate, useLocation, Outlet } from 'react-router-dom';
+import { 
+    HomeIcon, 
+    UsersIcon, 
+    CalendarDaysIcon, 
+    DocumentTextIcon, 
+    ArrowRightOnRectangleIcon,
+    BriefcaseIcon,
+    BookOpenIcon,
+    InboxStackIcon,
+    PowerIcon,
+    SparklesIcon,
+    HeartIcon,
+    LightBulbIcon,
+    HandRaisedIcon,
+    UserGroupIcon,
+    NewspaperIcon
+} from '@heroicons/react/24/outline';
+
+const AdminLayout = () => {
+    const { logout, adminUser } = useAdminAuth();
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    // Determine active tab based on path
+    const getActiveTab = (path) => {
+        if (path === '/admin') return 'overview';
+        if (path.includes('/admin/members')) return 'members';
+        if (path.includes('/admin/forms')) return 'forms';
+        if (path.includes('/admin/meetings')) return 'meetings';
+        if (path.includes('/admin/jobs')) return 'jobs';
+        if (path.includes('/admin/resources')) return 'resources';
+        if (path.includes('/admin/news')) return 'news';
+        if (path.includes('/admin/pages')) return 'pages';
+        if (path.includes('/admin/streams')) return 'streams';
+        if (path.includes('/admin/stewardship')) return 'stewardship';
+        if (path.includes('/admin/admins')) return 'admins';
+        return 'overview';
+    };
+
+    const activeTab = getActiveTab(location.pathname);
+
+    const navigation = [
+        { name: 'Overview', icon: HomeIcon, id: 'overview', path: '/admin' },
+        { name: 'Members', icon: UsersIcon, id: 'members', path: '/admin/members' },
+        { name: 'Streams', icon: InboxStackIcon, id: 'streams', path: '/admin/streams' },
+        { name: 'Meetings', icon: CalendarDaysIcon, id: 'meetings', path: '/admin/meetings' },
+        { name: 'Forms', icon: DocumentTextIcon, id: 'forms', path: '/admin/forms' },
+        { name: 'Stewardship', icon: SparklesIcon, id: 'stewardship', path: '/admin/stewardship' },
+        { name: 'Mentorship', icon: HeartIcon, id: 'mentorship', path: '/admin/mentorship' },
+        { name: 'Incubator', icon: LightBulbIcon, id: 'incubator', path: '/admin/incubator' },
+        { name: 'Collab Desk', icon: HandRaisedIcon, id: 'collabs', path: '/admin/collabs' },
+        { name: 'Job Board', icon: BriefcaseIcon, id: 'jobs', path: '/admin/jobs' },
+        { name: 'Resources', icon: BookOpenIcon, id: 'resources', path: '/admin/resources' },
+        { name: 'News Feed', icon: NewspaperIcon, id: 'news', path: '/admin/news' },
+        { name: 'Custom Pages', icon: DocumentTextIcon, id: 'pages', path: '/admin/pages' },
+        { name: 'Admin Users', icon: UserGroupIcon, id: 'admins', path: '/admin/admins' },
+    ];
+
+    return (
+        <div className="flex h-screen bg-[#F8FAFC] font-sans overflow-hidden">
+            {/* Sidebar */}
+            <div className="w-72 bg-slate-950 text-white flex flex-col flex-shrink-0 shadow-[4px_0_24px_rgba(0,0,0,0.1)] relative z-20">
+                <div className="p-8">
+                    <div className="flex items-center gap-3 mb-2">
+                        <div className="w-8 h-8 bg-sky-500 rounded-lg flex items-center justify-center font-black text-white text-lg tracking-tighter italic">G</div>
+                        <h1 className="text-xl font-black tracking-widest text-white uppercase italic">GOA.CITY</h1>
+                    </div>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] ml-11">Admin Console</p>
+                </div>
+
+                <nav className="flex-1 px-4 mt-4 space-y-1.5 overflow-y-auto custom-scrollbar">
+                    {navigation.map((item) => (
+                        <button
+                            key={item.id}
+                            onClick={() => navigate(item.path)}
+                            className={`flex w-full items-center gap-3.5 px-5 py-3.5 rounded-2xl transition-all duration-200 group relative ${
+                                activeTab === item.id 
+                                    ? 'bg-sky-500/10 text-sky-400 font-bold' 
+                                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                            }`}
+                        >
+                            {activeTab === item.id && (
+                                <div className="absolute left-0 w-1 h-6 bg-sky-500 rounded-r-full"></div>
+                            )}
+                            <item.icon className={`h-5 w-5 ${activeTab === item.id ? 'text-sky-400' : 'text-slate-600 group-hover:text-slate-200'}`} />
+                            <span className="text-sm tracking-tight">{item.name}</span>
+                        </button>
+                    ))}
+                </nav>
+
+                <div className="p-6 border-t border-slate-900 bg-slate-1000/50">
+                    <div className="flex items-center gap-4 px-2 mb-6">
+                        <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-sky-500 font-bold">
+                            {(adminUser?.full_name || 'A')[0]}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[10px] text-slate-600 font-black uppercase tracking-widest">Administrator</p>
+                            <p className="text-sm font-bold text-slate-200 truncate">{adminUser?.full_name || adminUser?.email || 'System Admin'}</p>
+                        </div>
+                    </div>
+                    
+                    <button
+                        onClick={logout}
+                        className="flex w-full items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-rose-400 hover:border-rose-900/50 hover:bg-rose-950/10 transition-all duration-300 font-bold text-xs uppercase tracking-widest"
+                    >
+                        <PowerIcon className="h-4 w-4" />
+                        Logout  
+                    </button>
+                </div>
+            </div>
+
+            {/* Main Content Area */}
+            <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+                <main className="flex-1 overflow-y-auto px-4 sm:px-8 lg:px-12 py-8 bg-slate-50 relative">
+                    <div className="max-w-7xl mx-auto">
+                        <Outlet />
+                    </div>
+                </main>
+            </div>
+        </div>
+    );
+};
+
+export default AdminLayout;

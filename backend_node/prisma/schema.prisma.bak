@@ -1,0 +1,259 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Member {
+  id            Int       @id @default(autoincrement())
+  email         String?   @unique @db.VarChar(255)
+  phone         String?   @unique @db.VarChar(50)
+  dob           DateTime? @db.Date
+  gender        String?   @db.VarChar(50)
+  location      String?   @db.VarChar(255)
+  role          String?   @default("member") @db.VarChar(50)
+  created_at    DateTime? @default(now()) @db.Timestamp(6)
+  updated_at    DateTime? @default(now()) @db.Timestamp(6)
+  password_hash String?
+  is_onboarded  Int?      @default(0) @db.SmallInt
+  bio           String?
+  profile_photo String?   @db.VarChar(255)
+  linkedin_url  String?   @db.VarChar(255)
+  intro_video   String?   @db.VarChar(255)
+  village       String?   @db.VarChar(100)
+  address       String?
+  age           Int?
+  first_name    String?   @db.VarChar(255)
+  last_name     String?   @db.VarChar(255)
+
+  @@map("members")
+}
+
+model Admin {
+  id            Int       @id @default(autoincrement())
+  full_name     String?   @db.VarChar(255)
+  email         String?   @unique @db.VarChar(255)
+  password_hash String    @db.VarChar(255)
+  role          String?   @default("admin") @db.VarChar(50)
+  created_at    DateTime? @default(now()) @db.Timestamp(6)
+  updated_at    DateTime? @default(now()) @db.Timestamp(6)
+
+  @@map("admins")
+}
+
+model Stream {
+  id          Int       @id @default(autoincrement())
+  name        String    @db.VarChar(100)
+  description String?
+  color       String?   @default("#6366f1") @db.VarChar(7)
+  created_at  DateTime? @default(now()) @db.Timestamp(6)
+  form_id     Int?
+
+  @@map("streams")
+}
+
+model StreamMember {
+  stream_id Int
+  user_id   Int
+
+  @@id([stream_id, user_id])
+  @@map("stream_members")
+}
+
+model Otp {
+  id             Int       @id @default(autoincrement())
+  email_or_phone String    @db.VarChar(255)
+  otp_code       String    @db.VarChar(10)
+  expires_at     DateTime  @db.Timestamp(6)
+  attempts       Int?      @default(0)
+  created_at     DateTime? @default(now()) @db.Timestamp(6)
+
+  @@map("otp_table")
+}
+
+model Post {
+  id         Int       @id @default(autoincrement())
+  user_id    Int?
+  content    String?
+  media_url  String?   @db.VarChar(255)
+  media_type String?   @default("none") @db.VarChar(50)
+  link_title String?   @db.VarChar(255)
+  link_desc  String?   @db.VarChar(255)
+  link_image String?   @db.VarChar(255)
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+
+  @@map("posts")
+}
+
+model FormResponse {
+  id           Int       @id @default(autoincrement())
+  form_id      Int?
+  user_id      Int?
+  submitted_at DateTime? @default(now()) @db.Timestamp(6)
+  status       String?   @default("draft") @db.VarChar(50)
+
+  @@map("form_responses")
+}
+
+model MemberProfile {
+  id            Int       @id @default(autoincrement())
+  user_id       Int?
+  profile_key   String    @db.VarChar(100)
+  profile_value String?
+  updated_at    DateTime? @default(now()) @db.Timestamp(6)
+
+  @@map("member_profiles")
+}
+
+model Business {
+  id                 Int     @id @default(autoincrement())
+  user_id            Int?
+  business_name      String? @db.VarChar(255)
+  business_type      String? @db.VarChar(100)
+  industry           String? @db.VarChar(100)
+  years_in_operation Int?
+  employees_count    Int?
+  website            String? @db.VarChar(255)
+  summary            String?
+
+  @@map("businesses")
+}
+
+model attendance {
+  id         Int       @id @default(autoincrement())
+  meeting_id Int?
+  user_id    Int?
+  status     String?   @default("absent") @db.VarChar(50)
+  marked_by  Int?
+  marked_at  DateTime? @default(now()) @db.Timestamp(6)
+}
+
+model form_answers {
+  id           Int     @id @default(autoincrement())
+  response_id  Int?
+  field_key    String  @db.VarChar(100)
+  answer_value String?
+}
+
+model form_fields {
+  id           Int     @id @default(autoincrement())
+  form_id      Int?
+  field_key    String  @db.VarChar(100)
+  field_type   String  @db.VarChar(50)
+  label        String? @db.VarChar(255)
+  subtitle     String?
+  placeholder  String? @db.VarChar(255)
+  options      Json?
+  is_required  Int?    @default(0) @db.SmallInt
+  is_optional  Int?    @default(0) @db.SmallInt
+  is_profile   Int?    @default(0) @db.SmallInt
+  sort_order   Int?    @default(0)
+  section      String? @db.VarChar(100)
+  conditions   Json?
+  group_fields Json?
+  button_text  String? @default("Next") @db.VarChar(50)
+}
+
+model forms {
+  id          Int       @id @default(autoincrement())
+  code        String    @unique @db.VarChar(50)
+  title       String    @db.VarChar(255)
+  description String?
+  is_active   Int?      @default(1) @db.SmallInt
+  created_at  DateTime? @default(now()) @db.Timestamp(6)
+  updated_at  DateTime? @default(now()) @db.Timestamp(6)
+  created_by  Int?
+}
+
+model jobs {
+  id            Int       @id @default(autoincrement())
+  title         String    @db.VarChar(255)
+  company       String    @db.VarChar(255)
+  location      String    @db.VarChar(255)
+  category      String?   @db.VarChar(100)
+  type          String?   @default("Full Time") @db.VarChar(50)
+  description   String?
+  url           String?   @db.VarChar(500)
+  contact_email String?   @db.VarChar(255)
+  posted_by     Int?
+  status        String?   @default("pending") @db.VarChar(50)
+  created_at    DateTime? @default(now()) @db.Timestamp(6)
+  updated_at    DateTime? @default(now()) @db.Timestamp(6)
+}
+
+model meeting_responses {
+  id             Int       @id @default(autoincrement())
+  meeting_id     Int?
+  user_id        Int?
+  rsvp_status    String?   @default("none") @db.VarChar(50)
+  checked_in     Int?      @default(0) @db.SmallInt
+  payment_status String?   @default("pending") @db.VarChar(50)
+  paid_amount    Decimal?  @default(0.00) @db.Decimal(10, 2)
+  created_at     DateTime? @default(now()) @db.Timestamp(6)
+  updated_at     DateTime? @default(now()) @db.Timestamp(6)
+}
+
+model meetings {
+  id               Int       @id @default(autoincrement())
+  title            String    @db.VarChar(255)
+  description      String?
+  meeting_date     DateTime? @db.Date
+  start_time       DateTime? @db.Time(6)
+  end_time         DateTime? @db.Time(6)
+  location_name    String?   @db.VarChar(255)
+  map_link         String?
+  is_paid          Int?      @default(0) @db.SmallInt
+  payment_qr_image String?   @db.VarChar(255)
+  feedback_form_id Int?
+  archived         Int?      @default(0) @db.SmallInt
+  created_at       DateTime? @default(now()) @db.Timestamp(6)
+  updated_at       DateTime? @default(now()) @db.Timestamp(6)
+  stream_id        Int?
+  payment_amount   Decimal?  @default(0.00) @db.Decimal(10, 2)
+}
+
+model needs {
+  id          Int       @id @default(autoincrement())
+  user_id     Int?
+  need_type   String?   @db.VarChar(100)
+  description String?
+  created_at  DateTime? @default(now()) @db.Timestamp(6)
+}
+
+model offers {
+  id          Int       @id @default(autoincrement())
+  user_id     Int?
+  offer_type  String?   @db.VarChar(100)
+  description String?
+  created_at  DateTime? @default(now()) @db.Timestamp(6)
+}
+
+model post_likes {
+  id         Int       @id @default(autoincrement())
+  post_id    Int?
+  user_id    Int?
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+}
+
+model resources {
+  id           Int       @id @default(autoincrement())
+  title        String    @db.VarChar(255)
+  category     String    @db.VarChar(100)
+  author       String    @db.VarChar(255)
+  url          String?   @db.VarChar(500)
+  file_path    String?   @db.VarChar(500)
+  file_name    String?   @db.VarChar(255)
+  description  String?
+  submitted_by Int?
+  status       String?   @default("pending") @db.VarChar(50)
+  created_at   DateTime? @default(now()) @db.Timestamp(6)
+  updated_at   DateTime? @default(now()) @db.Timestamp(6)
+}
+
+model skills {
+  id         Int     @id @default(autoincrement())
+  skill_name String? @db.VarChar(100)
+}
