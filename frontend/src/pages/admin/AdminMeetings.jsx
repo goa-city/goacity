@@ -148,7 +148,7 @@ const AdminMeetings = () => {
                                         )}
                                     </td>
                                     <td className="px-5 py-4 hidden lg:table-cell">
-                                        <p className="text-xs text-gray-700">{meeting.meeting_date}</p>
+                                        <p className="text-xs text-gray-700">{meeting.meeting_date ? meeting.meeting_date.split('-').reverse().join('/') : '-'}</p>
                                         <p className="text-[10px] text-gray-500">{meeting.start_time?.substring(0,5)} - {meeting.end_time?.substring(0,5)}</p>
                                     </td>
                                     <td className="px-5 py-4">

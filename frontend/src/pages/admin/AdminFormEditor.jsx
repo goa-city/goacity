@@ -307,16 +307,7 @@ const AdminFormEditor = () => {
                 </div>
             </div>
 
-            {/* Persistent Save Bar */}
-            <div className="fixed bottom-0 left-0 right-0 p-4 pl-72 bg-white/80 backdrop-blur-md border-t border-gray-100 flex justify-center z-40">
-                <button 
-                    onClick={handleSave} 
-                    disabled={saving}
-                    className="admin-button-primary px-16 py-3 text-base shadow-xl hover:scale-105 active:scale-95 transition-all"
-                >
-                    {saving ? 'Saving...' : 'Save Changes'}
-                </button>
-            </div>
+         
         </div>
     );
 };

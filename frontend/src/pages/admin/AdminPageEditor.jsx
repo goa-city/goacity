@@ -14,16 +14,15 @@ const AdminPageEditor = () => {
     const [form, setForm] = useState({ title: '', slug: '', content: '' });
 
     useEffect(() => {
-        api.get('/admin/pages')
+        api.get(`/admin/pages/${id}`)
             .then(res => {
-                const p = res.data.find(page => page.id === Number(id));
-                if (p) {
-                    setForm({ title: p.title, slug: p.slug, content: p.content || '' });
-                } else {
-                    navigate('/admin/pages');
-                }
+                const p = res.data;
+                setForm({ title: p.title || '', slug: p.slug || '', content: p.content || '' });
             })
-            .catch(() => navigate('/admin/pages'))
+            .catch(err => {
+                console.error("Fetch page error:", err);
+                navigate('/admin/pages');
+            })
             .finally(() => setLoading(false));
     }, [id, navigate]);
 
@@ -71,12 +70,7 @@ const AdminPageEditor = () => {
                             </div>
                         </div>
                         <div className="flex gap-3">
-                            <a 
-                                href={`/pages/${form.slug}`} target="_blank" rel="noreferrer"
-                                className="admin-button-secondary border-emerald-200 hover:border-emerald-400 text-emerald-700 px-4 flex items-center gap-2"
-                            >
-                                <GlobeAltIcon className="w-4 h-4" /> View Live
-                            </a>
+                          
                             <button 
                                 onClick={handleSave} disabled={saving}
                                 className="admin-button-primary bg-emerald-600 hover:bg-emerald-700 px-8"
@@ -118,19 +112,18 @@ const AdminPageEditor = () => {
                             style={{ minHeight: '600px' }}
                         />
                     </div>
+                    <div className="mt-6 flex justify-end">
+                        <button 
+                            onClick={handleSave} 
+                            disabled={saving}
+                            className="admin-button-primary bg-emerald-600 hover:bg-emerald-700 px-12 py-2.5"
+                        >
+                            {saving ? 'Saving...' : 'Save All Changes'}
+                        </button>
+                    </div>
                 </div>
             </div>
-            
-            <div className="fixed bottom-0 left-0 right-0 p-4 pl-72 bg-white/80 backdrop-blur-md border-t border-gray-100 flex justify-center z-40">
-                <button 
-                    onClick={handleSave} 
-                    disabled={saving}
-                    className="admin-button-primary bg-emerald-600 hover:bg-emerald-700 px-16 py-3 text-base shadow-xl hover:scale-105 active:scale-95 transition-all"
-                >
-                    {saving ? 'Saving...' : 'Save All Changes'}
-                </button>
-            </div>
-        </div>
+         </div>
     );
 };
 

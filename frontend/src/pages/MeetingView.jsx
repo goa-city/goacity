@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../api/axios';
 import DashboardLayout from '../layouts/DashboardLayout';
-import { CheckCircleIcon, DocumentTextIcon, LinkIcon } from '@heroicons/react/24/outline';
+import { CheckCircleIcon, DocumentTextIcon, LinkIcon, VideoCameraIcon } from '@heroicons/react/24/outline';
 import Onboarding from './Onboarding';
 
 const MeetingView = () => {
@@ -53,7 +53,18 @@ const MeetingView = () => {
             <div className="mb-8 flex justify-between items-start">
                 <div>
                     <h1 className="text-3xl font-extrabold text-[#2D2D46]">{meeting.title}</h1>
-                    <p className="text-gray-500 mt-2">{meeting.meeting_date} at {meeting.location_name}</p>
+                    <p className="text-gray-500 mt-2">{meeting.meeting_date ? meeting.meeting_date.split('-').reverse().join('/') : '-'} at {meeting.location_name}</p>
+                    {meeting.zoom_link && (
+                        <a 
+                            href={meeting.zoom_link} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="mt-4 inline-flex items-center gap-2 px-6 py-2.5 bg-sky-600 text-white rounded-xl font-bold hover:bg-sky-700 transition-all shadow-lg shadow-sky-100"
+                        >
+                            <VideoCameraIcon className="w-5 h-5" />
+                            Join via Zoom
+                        </a>
+                    )}
                 </div>
                 {isDev && (
                     <button onClick={handleDevTest} className="px-4 py-2 bg-purple-100 text-purple-700 rounded-md font-bold text-sm">
@@ -62,41 +73,46 @@ const MeetingView = () => {
                 )}
             </div>
 
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 mb-8">
-                <h2 className="text-xl font-bold mb-4">Meeting Description</h2>
-                <p className="text-gray-700">{meeting.description || "No description provided."}</p>
-            </div>
+            {meeting.recap_content && (
+                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 mb-8">
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                        <DocumentTextIcon className="w-6 h-6 text-indigo-500" />
+                        Meeting Recap / Notes
+                    </h2>
+                    <div 
+                        className="prose prose-indigo max-w-none text-gray-700"
+                        dangerouslySetInnerHTML={{ __html: meeting.recap_content }}
+                    />
+                </div>
+            )}
 
             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 mb-8">
                 <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                    <DocumentTextIcon className="w-6 h-6 text-indigo-500" />
+                    <LinkIcon className="w-6 h-6 text-indigo-500" />
                     Resources
                 </h2>
-                {!hasCheckedIn ? (
-                    <div className="bg-gray-50 border border-dashed border-gray-200 rounded-xl p-8 text-center">
-                        <CheckCircleIcon className="w-12 h-12 mx-auto text-gray-400 mb-3" />
-                        <h3 className="text-lg font-bold text-gray-700">Check-In Required</h3>
-                        <p className="text-gray-500 mt-1">Please check in to this meeting to access available resources.</p>
-                    </div>
-                ) : (
-                    <div>
-                        {meeting.resources && meeting.resources.length > 0 ? (
-                            <ul className="space-y-3">
-                                {meeting.resources.map((res) => (
-                                    <li key={res.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                                        <LinkIcon className="w-5 h-5 text-gray-400" />
-                                        <a href={res.url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 font-medium hover:underline">
-                                            {res.title}
-                                        </a>
-                                        <span className="text-xs text-gray-400 uppercase tracking-widest bg-gray-200 px-2 py-1 rounded">{res.type}</span>
-                                    </li>
-                                ))}
-                            </ul>
-                        ) : (
-                            <p className="text-gray-500">No resources have been added for this meeting yet.</p>
-                        )}
-                    </div>
-                )}
+                <div>
+                    {meeting.resources && meeting.resources.length > 0 ? (
+                        <ul className="space-y-3">
+                            {meeting.resources.map((res) => (
+                                <li key={res.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                                    <LinkIcon className="w-5 h-5 text-gray-400" />
+                                    <a 
+                                        href={`${import.meta.env.VITE_API_URL || ''}/uploads/${res.url}`} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer" 
+                                        className="text-indigo-600 font-medium hover:underline flex-1"
+                                    >
+                                        {res.title}
+                                    </a>
+                                    <span className="text-[10px] text-gray-400 uppercase font-bold tracking-widest bg-gray-200 px-2 py-1 rounded">{res.url.split('.').pop()}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    ) : (
+                        <p className="text-gray-500">No resources have been added for this meeting yet.</p>
+                    )}
+                </div>
             </div>
 
             {meeting.feedback_form_id && hasCheckedIn && (

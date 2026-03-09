@@ -54,13 +54,40 @@ export const updatePage = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         const { title, slug, content } = req.body;
+        
+        console.log('Update Page Request:', { id, title, slug, contentLength: content?.length });
+
+        if (!id) return res.status(400).json({ message: 'Missing page ID' });
+
         const page = await prisma.page.update({
             where: { id: Number(id) },
-            data: { title, slug, content, updated_at: new Date() }
+            data: { 
+                title, 
+                slug, 
+                content, 
+                updated_at: new Date() 
+            }
         });
+
+        console.log('Page Updated Successfully:', page.id);
         return res.json({ message: 'Page updated', page });
     } catch (error: any) {
         console.error('updatePage Error:', error);
+        return res.status(500).json({ message: error.message });
+    }
+};
+
+// GET /api/admin/pages/:id - get a single page by ID
+export const getAdminPageById = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const page = await prisma.page.findUnique({
+            where: { id: Number(id) }
+        });
+        if (!page) return res.status(404).json({ message: 'Page not found' });
+        return res.json(page);
+    } catch (error: any) {
+        console.error('getAdminPageById Error:', error);
         return res.status(500).json({ message: error.message });
     }
 };

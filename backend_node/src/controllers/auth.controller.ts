@@ -46,10 +46,31 @@ export const sendOtp = async (req: Request, res: Response) => {
         const isEmail = identifier.includes('@');
         if (isEmail) {
             console.log(`[AUTH] Attempting to send OTP email to ${identifier}`);
+            
+            // Try to get template from DB
+            let emailSubject = 'Your Goa.City Login Code';
+            let emailContent = `<p>Your login code is: <strong>${otpCode}</strong></p><p>This code will expire in 10 minutes.</p>`;
+
+            try {
+                const template = await prisma.emailTemplate.findUnique({
+                    where: { title: 'OTP Login' }
+                });
+
+                if (template) {
+                    emailSubject = template.subject;
+                    emailContent = template.message.replace('{{otp_code}}', otpCode);
+                    // Add more common elements if needed
+                    emailContent = emailContent.replace('{{first_name}}', member.first_name || '');
+                    emailContent = emailContent.replace('{{last_name}}', member.last_name || '');
+                }
+            } catch (err) {
+                console.warn('[AUTH] Could not fetch OTP template, using default:', err);
+            }
+
             const emailSent = await sendEmail(
                 identifier, 
-                'Your Goa.City Login Code', 
-                `<p>Your login code is: <strong>${otpCode}</strong></p><p>This code will expire in 10 minutes.</p>`
+                emailSubject, 
+                emailContent
             );
 
             if (!emailSent) {

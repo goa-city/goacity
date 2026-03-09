@@ -4,8 +4,11 @@ import api from '../../api/axios';
 import { useForm } from 'react-hook-form';
 import { 
     CalendarDaysIcon, ArrowLeftIcon, MapPinIcon, 
-    CurrencyRupeeIcon, BeakerIcon, SwatchIcon, ClockIcon
+    CurrencyRupeeIcon, BeakerIcon, SwatchIcon, ClockIcon,
+    CloudArrowUpIcon, TrashIcon, DocumentIcon, DocumentTextIcon,
+    VideoCameraIcon, EnvelopeIcon
 } from '@heroicons/react/24/outline';
+import QuillEditor from '../../components/QuillEditor';
 
 const AdminMeetingEditor = () => {
     const { id } = useParams();
@@ -20,6 +23,10 @@ const AdminMeetingEditor = () => {
     const [toast, setToast] = useState('');
     const [responses, setResponses] = useState([]);
     const [meetingActions, setMeetingActions] = useState([]);
+    const [recapContent, setRecapContent] = useState('');
+    const [meetingResources, setMeetingResources] = useState([]);
+    const [uploadingResource, setUploadingResource] = useState(false);
+    const [notifying, setNotifying] = useState(false);
 
     useEffect(() => {
         const fetchResources = async () => {
@@ -41,12 +48,15 @@ const AdminMeetingEditor = () => {
                     const data = res.data;
                     reset({
                         ...data,
+                        meeting_date: data.meeting_date ? data.meeting_date.split('T')[0] : '', // ISO YYYY-MM-DD for native picker
                         is_paid: data.is_paid == 1,
                         archived: data.archived == 1,
                         feedback_form_id: data.feedback_form_id || '',
                         stream_id: data.stream_id || '',
                     });
                     if (data.payment_qr_image_url) setQrPreview(data.payment_qr_image_url);
+                    setRecapContent(data.recap_content || '');
+                    setMeetingResources(data.resources || []);
                 })
                 .finally(() => setLoading(false));
 
@@ -72,7 +82,7 @@ const AdminMeetingEditor = () => {
             if (isEdit) formData.append('id', id);
             
             Object.keys(data).forEach(key => {
-                if (key === 'id' || key === 'payment_qr_image_url' || key === 'resources') return; // skip id (sent manually), and skip readonly fields
+                if (key === 'id' || key === 'payment_qr_image_url' || key === 'resources' || key === 'description') return; 
                 if (key === 'payment_qr_image') {
                     if (data[key] && data[key].length > 0) formData.append(key, data[key][0]);
                 } else if (key === 'is_paid' || key === 'archived') {
@@ -81,6 +91,9 @@ const AdminMeetingEditor = () => {
                     formData.append(key, data[key] === null || data[key] === undefined ? '' : data[key]);
                 }
             });
+            
+            formData.append('recap_content', recapContent);
+            formData.delete('description'); // Explicitly ensure description is not sent
 
             const res = await api.post('/admin/meetings', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
@@ -95,6 +108,42 @@ const AdminMeetingEditor = () => {
             alert("Failed to save meeting.");
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleResourceUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        setUploadingResource(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('title', file.name);
+
+            const res = await api.post(`/admin/meetings/${id}/resources`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            setMeetingResources([...meetingResources, res.data.resource]);
+            showToast("Resource uploaded!");
+        } catch (error) {
+            console.error("Upload failed", error);
+            alert("Failed to upload file.");
+        } finally {
+            setUploadingResource(false);
+            e.target.value = ''; // Reset input
+        }
+    };
+
+    const handleResourceDelete = async (resId) => {
+        if (!window.confirm("Delete this resource?")) return;
+        try {
+            await api.delete(`/admin/meetings/resources/${resId}`);
+            setMeetingResources(meetingResources.filter(r => r.id !== resId));
+            showToast("Resource deleted");
+        } catch (error) {
+            alert("Delete failed");
         }
     };
 
@@ -128,8 +177,32 @@ const AdminMeetingEditor = () => {
                                 <p className="text-xs text-gray-400 mt-0.5">{isEdit ? `ID: ${id}` : 'Create a new event'}</p>
                             </div>
                         </div>
-                        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold ${isArchived ? 'bg-gray-100 text-gray-600 border-gray-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
-                            {isArchived ? 'Archived' : 'Active'}
+                        <div className="flex items-center gap-3">
+                            {isEdit && watch('stream_id') && (
+                                <button
+                                    type="button"
+                                    onClick={async () => {
+                                        if (!window.confirm("Send update notification to all stream members?")) return;
+                                        setNotifying(true);
+                                        try {
+                                            await api.post(`/admin/meetings/${id}/notify`);
+                                            showToast("Notifications sent successfully!");
+                                        } catch (e) {
+                                            alert("Failed to send notifications.");
+                                        } finally {
+                                            setNotifying(false);
+                                        }
+                                    }}
+                                    disabled={notifying}
+                                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 transition-all disabled:opacity-50"
+                                >
+                                    <EnvelopeIcon className="w-4 h-4" />
+                                    {notifying ? 'Sending...' : 'Notify Members'}
+                                </button>
+                            )}
+                            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold ${isArchived ? 'bg-gray-100 text-gray-600 border-gray-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                                {isArchived ? 'Archived' : 'Active'}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -144,9 +217,9 @@ const AdminMeetingEditor = () => {
                         </div>
 
                         <div>
-                            <label className="admin-label">Date <span className="text-red-400">*</span></label>
+                            <label className="admin-label">Meeting Date <span className="text-red-400">*</span></label>
                             <input {...register('meeting_date', { required: true })} type="date" className="admin-input" />
-                        </div>
+                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
@@ -170,6 +243,14 @@ const AdminMeetingEditor = () => {
                         <div>
                             <label className="admin-label">Map Link</label>
                             <input {...register('map_link')} className="admin-input" placeholder="Google Maps URL" />
+                        </div>
+
+                        <div className="md:col-span-2">
+                            <label className="admin-label">Zoom Meeting URL</label>
+                            <div className="relative">
+                                <VideoCameraIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                <input {...register('zoom_link')} className="admin-input pl-10" placeholder="https://zoom.us/j/..." />
+                            </div>
                         </div>
 
                         <div>
@@ -228,13 +309,81 @@ const AdminMeetingEditor = () => {
                         </div>
                     )}
 
-                    {/* Archive Toggle */}
                     <div className="p-4 bg-red-50/30 rounded-2xl border border-red-100 flex items-center justify-between">
                         <div>
                             <p className="text-sm font-semibold text-gray-700">Archive Meeting</p>
                             <p className="text-xs text-gray-500">Hide this meeting from the public site</p>
                         </div>
                         <input {...register('archived')} type="checkbox" className="w-5 h-5 rounded border-red-300 text-red-500 focus:ring-red-500" />
+                    </div>
+                </div>
+
+                {/* Recap & Resources Section */}
+                <div className="admin-card">
+                    <div className="p-6 border-b border-gray-100 bg-sky-50/20">
+                        <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                            <DocumentTextIcon className="w-5 h-5 text-sky-500" />
+                            Meeting Recap & Notes
+                        </h2>
+                    </div>
+                    <div className="p-6 space-y-6">
+                        <div>
+                            <label className="admin-label">Recap Content (Rich Text)</label>
+                            <div className="border border-gray-200 rounded-xl overflow-hidden bg-white">
+                                <QuillEditor
+                                    value={recapContent}
+                                    onChange={setRecapContent}
+                                    placeholder="Summarize the meeting highlights, decisions, and next steps..."
+                                    style={{ minHeight: '300px' }}
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="admin-label">Upload Presentation / Notes (PDF, Word, PPT)</label>
+                            <div className="mt-2">
+                                <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-2xl cursor-pointer transition-all ${uploadingResource ? 'bg-gray-50 border-gray-200' : 'bg-sky-50/30 border-sky-200 hover:bg-sky-50 hover:border-sky-300'}`}>
+                                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                        {uploadingResource ? (
+                                            <div className="flex items-center gap-2 text-sky-600 font-semibold">
+                                                <div className="w-4 h-4 border-2 border-sky-600 border-t-transparent rounded-full animate-spin"></div>
+                                                Uploading...
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <CloudArrowUpIcon className="w-8 h-8 mb-2 text-sky-500" />
+                                                <p className="text-sm text-sky-700 font-medium">Click to upload files</p>
+                                                <p className="text-xs text-sky-500 mt-1">Word, PPT or PDF</p>
+                                            </>
+                                        )}
+                                    </div>
+                                    <input type="file" className="hidden" disabled={uploadingResource || !isEdit} onChange={handleResourceUpload} />
+                                </label>
+                                {!isEdit && <p className="mt-2 text-[10px] text-red-400">Save the meeting first to upload resource files.</p>}
+                            </div>
+
+                            {meetingResources.length > 0 && (
+                                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    {meetingResources.map((res) => (
+                                        <div key={res.id} className="flex items-center justify-between p-3 bg-white border border-gray-100 rounded-xl shadow-sm">
+                                            <div className="flex items-center gap-3 overflow-hidden">
+                                                <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 text-gray-400">
+                                                    <DocumentIcon className="w-4 h-4" />
+                                                </div>
+                                                <span className="text-sm font-medium text-gray-700 truncate">{res.title}</span>
+                                            </div>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => handleResourceDelete(res.id)}
+                                                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                            >
+                                                <TrashIcon className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 

@@ -23,6 +23,8 @@ import AdminAdmins from './pages/admin/AdminAdmins';
 import AdminNews from './pages/admin/AdminNews';
 import AdminPages from './pages/admin/AdminPages';
 import AdminPageEditor from './pages/admin/AdminPageEditor';
+import AdminEmailTemplates from './pages/admin/AdminEmailTemplates';
+import AdminEmailTemplateEditor from './pages/admin/AdminEmailTemplateEditor';
 import PageView from './pages/PageView';
 
 import Dashboard from './pages/Dashboard';
@@ -108,6 +110,9 @@ function App() {
                                 <Route path="news" element={<AdminNews />} />
                                 <Route path="pages" element={<AdminPages />} />
                                 <Route path="pages/:id" element={<AdminPageEditor />} />
+                                <Route path="email-templates" element={<AdminEmailTemplates />} />
+                                <Route path="email-templates/create" element={<AdminEmailTemplateEditor />} />
+                                <Route path="email-templates/:id" element={<AdminEmailTemplateEditor />} />
                                 <Route path="admins" element={<AdminAdmins />} />
                             </Route>
                         </Routes>

@@ -9,13 +9,14 @@ import { sendOtp, verifyOtp, adminLogin } from './controllers/auth.controller.js
 import { getUsers, createUser, updateUser, getAdmins, createAdmin, updateAdmin, getAdminJobs, updateJob, deleteJob, getAdminResources, updateResource, deleteResource, getAdminPosts, deletePost } from './controllers/admin.controller.js';
 import { getStreams, createStream, updateStream, deleteStream } from './controllers/streams.controller.js';
 import { getForms, createForm, updateForm, getFormWithFields, submitOnboarding, submitForm, archiveForm, deleteForm } from './controllers/forms.controller.js';
-import { getMeetings, getMemberMeetings, createMeeting, getStats, getPosts, archiveMeeting, deleteMeeting, getMeeting, getMeetingResponses, getMeetingActions } from './controllers/meetings.controller.js';
+import { getMeetings, getMemberMeetings, createMeeting, getStats, getPosts, archiveMeeting, deleteMeeting, getMeeting, getMeetingResponses, getMeetingActions, uploadMeetingResource, deleteMeetingResource, notifyMeetingMembers } from './controllers/meetings.controller.js';
 import { getDashboard, getProfile, updateProfile, meetingAction, createPost, createJob, createResource, getJobs, getResources } from './controllers/member.controller.js';
 import { getStewardshipSummary, getMemberLogs, getVerifiedOrgs, getMemberDirectory, createStewardshipLog, getAllLogs, getAdminRecipients, updateRecipientStatus, approveLog, addImpactNote, createAdminRecipient } from './controllers/stewardship.controller.js';
 import { requestMentorship, getMyMentorships, getMentorshipById, updateMentorshipGoals, getAdminMentorships, updateMentorshipStatus, exportMentorshipReport } from './controllers/mentorship.controller.js';
 import { submitIdea, getActiveIdeas, submitFeedback, getAdminIdeas, updateIdeaStatus, getIdeaMatches } from './controllers/incubator.controller.js';
 import { getMyPeople, getMemberProfile, requestCollaboration, getAdminCollabs, updateCollabStatus, getDashboardCollabs, devAutoTestCollab } from './controllers/collab.controller.js';
-import { getPage, getAdminPages, createPage, updatePage, deletePage } from './controllers/pages.controller.js';
+import { getPage, getAdminPages, createPage, updatePage, deletePage, getAdminPageById } from './controllers/pages.controller.js';
+import { getTemplates, createTemplate, updateTemplate, deleteTemplate, getTemplateById } from './controllers/email-template.controller.js';
 import { authMiddleware } from './middleware/auth.js';
 
 const app = express();
@@ -41,12 +42,17 @@ const storage = multer.diskStorage({
 const fileFilter = (_req: any, file: any, cb: any) => {
     const allowedMimeTypes = [
         'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
-        'video/mp4', 'video/mpeg', 'video/quicktime', 'video/webm', 'video/x-msvideo'
+        'video/mp4', 'video/mpeg', 'video/quicktime', 'video/webm', 'video/x-msvideo',
+        'application/pdf', 
+        'application/msword', 
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation'
     ];
     if (allowedMimeTypes.includes(file.mimetype)) {
         cb(null, true);
     } else {
-        cb(new Error('Invalid file type. Only images and videos are allowed.'), false);
+        cb(new Error(`Invalid file type: ${file.mimetype}. Images, videos, PDF, Word, and PPT are allowed.`), false);
     }
 };
 
@@ -57,8 +63,8 @@ const upload = multer({
 });
 
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use('/uploads', express.static('uploads'));
 
 // ---- Auth Routes (Public) ----
@@ -96,6 +102,9 @@ app.post('/api/admin/meetings/archive', authMiddleware, archiveMeeting);
 app.delete('/api/admin/meetings', authMiddleware, deleteMeeting);
 app.get('/api/admin/meetings/:id/responses', authMiddleware, getMeetingResponses);
 app.get('/api/admin/meetings/:id/actions', authMiddleware, getMeetingActions);
+app.post('/api/admin/meetings/:id/notify', authMiddleware, notifyMeetingMembers);
+app.post('/api/admin/meetings/:id/resources', authMiddleware, upload.single('file'), uploadMeetingResource);
+app.delete('/api/admin/meetings/resources/:id', authMiddleware, deleteMeetingResource);
 
 // Stats
 app.get('/api/admin/stats', authMiddleware, getStats);
@@ -138,9 +147,17 @@ app.put('/api/admin/collabs/:id/status', authMiddleware, updateCollabStatus);
 
 // Pages (Admin)
 app.get('/api/admin/pages', authMiddleware, getAdminPages);
+app.get('/api/admin/pages/:id', authMiddleware, getAdminPageById);
 app.post('/api/admin/pages', authMiddleware, createPage);
 app.put('/api/admin/pages/:id', authMiddleware, updatePage);
 app.delete('/api/admin/pages/:id', authMiddleware, deletePage);
+
+// Email Templates
+app.get('/api/admin/email-templates', authMiddleware, getTemplates);
+app.get('/api/admin/email-templates/:id', authMiddleware, getTemplateById);
+app.post('/api/admin/email-templates', authMiddleware, createTemplate);
+app.put('/api/admin/email-templates/:id', authMiddleware, updateTemplate);
+app.delete('/api/admin/email-templates/:id', authMiddleware, deleteTemplate);
 
 // ---- Member Routes (Protected) ----
 app.get('/api/member/dashboard', authMiddleware, getDashboard);

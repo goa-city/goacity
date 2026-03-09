@@ -113,7 +113,7 @@ export const getMeeting = async (req: Request, res: Response) => {
 // POST /api/admin/meetings (Handles both Create and Update)
 export const createMeeting = async (req: Request, res: Response) => {
     try {
-        let { id, title, description, meeting_date, start_time, end_time, location_name, map_link, is_paid, payment_amount, feedback_form_id, stream_id, archived } = req.body;
+        let { id, title, description, meeting_date, start_time, end_time, location_name, map_link, is_paid, payment_amount, feedback_form_id, stream_id, archived, recap_content, zoom_link } = req.body;
         const filename = req.file ? req.file.filename : null;
         
         meeting_date = meeting_date || null;
@@ -134,7 +134,9 @@ export const createMeeting = async (req: Request, res: Response) => {
                         feedback_form_id = ${feedback_form_id && feedback_form_id !== 'null' && feedback_form_id !== '' ? Number(feedback_form_id) : null}, 
                         stream_id = ${stream_id && stream_id !== 'null' && stream_id !== '' ? Number(stream_id) : null}, 
                         archived = ${archived === 'true' || archived === true || archived === '1' || Number(archived) === 1 ? 1 : 0},
-                        payment_qr_image = ${filename}
+                        payment_qr_image = ${filename},
+                        recap_content = ${recap_content || null},
+                        zoom_link = ${zoom_link || null}
                     WHERE id = ${mId}
                 `;
             } else {
@@ -147,7 +149,9 @@ export const createMeeting = async (req: Request, res: Response) => {
                         payment_amount = ${Number(payment_amount) || 0}, 
                         feedback_form_id = ${feedback_form_id && feedback_form_id !== 'null' && feedback_form_id !== '' ? Number(feedback_form_id) : null}, 
                         stream_id = ${stream_id && stream_id !== 'null' && stream_id !== '' ? Number(stream_id) : null}, 
-                        archived = ${archived === 'true' || archived === true || archived === '1' || Number(archived) === 1 ? 1 : 0}
+                        archived = ${archived === 'true' || archived === true || archived === '1' || Number(archived) === 1 ? 1 : 0},
+                        recap_content = ${recap_content || null},
+                        zoom_link = ${zoom_link || null}
                     WHERE id = ${mId}
                 `;
             }
@@ -155,8 +159,8 @@ export const createMeeting = async (req: Request, res: Response) => {
         } else {
             // Create
             const result = await prisma.$queryRaw`
-                INSERT INTO meetings (title, description, meeting_date, start_time, end_time, location_name, map_link, is_paid, payment_amount, feedback_form_id, stream_id, archived, payment_qr_image)
-                VALUES (${title}, ${description || null}, ${meeting_date}::date, ${start_time}::time, ${end_time}::time, ${location_name || null}, ${map_link || null}, ${is_paid === 'true' || is_paid === true || is_paid === '1' || Number(is_paid) === 1 ? 1 : 0}, ${Number(payment_amount) || 0}, ${feedback_form_id && feedback_form_id !== 'null' && feedback_form_id !== '' ? Number(feedback_form_id) : null}, ${stream_id && stream_id !== 'null' && stream_id !== '' ? Number(stream_id) : null}, ${archived === 'true' || archived === true || archived === '1' || Number(archived) === 1 ? 1 : 0}, ${filename})
+                INSERT INTO meetings (title, description, meeting_date, start_time, end_time, location_name, map_link, is_paid, payment_amount, feedback_form_id, stream_id, archived, payment_qr_image, recap_content, zoom_link)
+                VALUES (${title}, ${description || null}, ${meeting_date}::date, ${start_time}::time, ${end_time}::time, ${location_name || null}, ${map_link || null}, ${is_paid === 'true' || is_paid === true || is_paid === '1' || Number(is_paid) === 1 ? 1 : 0}, ${Number(payment_amount) || 0}, ${feedback_form_id && feedback_form_id !== 'null' && feedback_form_id !== '' ? Number(feedback_form_id) : null}, ${stream_id && stream_id !== 'null' && stream_id !== '' ? Number(stream_id) : null}, ${archived === 'true' || archived === true || archived === '1' || Number(archived) === 1 ? 1 : 0}, ${filename}, ${recap_content || null}, ${zoom_link || null})
                 RETURNING id
             `;
             return res.json({ message: 'Meeting created', id: (result as any)[0]?.id });
@@ -288,6 +292,105 @@ export const deleteMeeting = async (req: Request, res: Response) => {
         return res.json({ message: 'Meeting deleted' });
     } catch (error: any) {
         console.error('deleteMeeting Error:', error);
+        return res.status(500).json({ message: error.message });
+    }
+};
+// POST /api/admin/meetings/:id/resources
+export const uploadMeetingResource = async (req: Request, res: Response) => {
+    try {
+        const meetingId = Number(req.params.id);
+        const { title } = req.body;
+        const file = req.file;
+
+        if (!file) return res.status(400).json({ message: 'No file uploaded' });
+
+        const resource = await (prisma as any).meetingResource.create({
+            data: {
+                meeting_id: meetingId,
+                title: title || file.originalname,
+                url: file.filename,
+                type: 'file'
+            }
+        });
+
+        return res.json({ success: true, resource });
+    } catch (error: any) {
+        console.error('uploadMeetingResource Error:', error);
+        return res.status(500).json({ message: error.message });
+    }
+};
+
+// DELETE /api/admin/meetings/resources/:id
+export const deleteMeetingResource = async (req: Request, res: Response) => {
+    try {
+        const id = Number(req.params.id);
+        await (prisma as any).meetingResource.delete({
+            where: { id }
+        });
+        return res.json({ success: true, message: 'Resource deleted' });
+    } catch (error: any) {
+        console.error('deleteMeetingResource Error:', error);
+        return res.status(500).json({ message: error.message });
+    }
+};
+
+import { sendEmail } from '../utils/email.js';
+
+// POST /api/admin/meetings/:id/notify
+export const notifyMeetingMembers = async (req: Request, res: Response) => {
+    try {
+        const id = Number(req.params.id);
+        const meeting: any = await prisma.meetings.findUnique({
+            where: { id },
+            include: { resources: true }
+        });
+
+        if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
+        if (!meeting.stream_id) return res.status(400).json({ message: 'Meeting is not linked to any stream' });
+
+        // Get members in context stream
+        const members: any[] = await prisma.$queryRaw`
+            SELECT m.email, m.first_name, m.last_name 
+            FROM members m
+            INNER JOIN stream_members sm ON sm.user_id = m.id
+            WHERE sm.stream_id = ${meeting.stream_id} AND m.email IS NOT NULL
+        `;
+
+        const subject = `New Update: ${meeting.title}`;
+        const html = `
+            <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                <h2 style="color: #6366f1;">${meeting.title}</h2>
+                <p>Hello,</p>
+                <p>An update has been posted for the meeting <b>${meeting.title}</b> scheduled for ${new Date(meeting.meeting_date).toLocaleDateString()}.</p>
+                
+                ${meeting.zoom_link ? `<p><b>Zoom Meeting:</b> <a href="${meeting.zoom_link}">${meeting.zoom_link}</a></p>` : ''}
+                
+                ${meeting.recap_content ? `
+                    <div style="background: #f9fafb; padding: 15px; border-radius: 8px; margin-top: 20px;">
+                        <h3 style="margin-top: 0;">Meeting Recap / Notes:</h3>
+                        <div>${meeting.recap_content}</div>
+                    </div>
+                ` : ''}
+
+                <p style="margin-top: 30px;">
+                    <a href="https://goa.city/meetings/${meeting.id}" style="background: #6366f1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">View Meeting Details</a>
+                </p>
+                <hr style="border: 0; border-top: 1px solid #eee; margin-top: 40px;" />
+                <p style="font-size: 12px; color: #999;">You are receiving this because you are part of the stream linked to this meeting.</p>
+            </div>
+        `;
+
+        let successCount = 0;
+        for (const m of members) {
+            if (m.email) {
+                const sent = await sendEmail(m.email, subject, html);
+                if (sent) successCount++;
+            }
+        }
+
+        return res.json({ success: true, message: `Notification sent to ${successCount} members.` });
+    } catch (error: any) {
+        console.error('notifyMeetingMembers Error:', error);
         return res.status(500).json({ message: error.message });
     }
 };

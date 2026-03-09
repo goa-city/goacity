@@ -16,7 +16,8 @@ import {
     LightBulbIcon,
     HandRaisedIcon,
     UserGroupIcon,
-    NewspaperIcon
+    NewspaperIcon,
+    EnvelopeIcon
 } from '@heroicons/react/24/outline';
 
 const AdminLayout = () => {
@@ -34,6 +35,7 @@ const AdminLayout = () => {
         if (path.includes('/admin/resources')) return 'resources';
         if (path.includes('/admin/news')) return 'news';
         if (path.includes('/admin/pages')) return 'pages';
+        if (path.includes('/admin/email-templates')) return 'email-templates';
         if (path.includes('/admin/streams')) return 'streams';
         if (path.includes('/admin/stewardship')) return 'stewardship';
         if (path.includes('/admin/admins')) return 'admins';
@@ -56,6 +58,7 @@ const AdminLayout = () => {
         { name: 'Resources', icon: BookOpenIcon, id: 'resources', path: '/admin/resources' },
         { name: 'News Feed', icon: NewspaperIcon, id: 'news', path: '/admin/news' },
         { name: 'Custom Pages', icon: DocumentTextIcon, id: 'pages', path: '/admin/pages' },
+        { name: 'Email Templates', icon: EnvelopeIcon, id: 'email-templates', path: '/admin/email-templates' },
         { name: 'Admin Users', icon: UserGroupIcon, id: 'admins', path: '/admin/admins' },
     ];
 
