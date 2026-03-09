@@ -390,6 +390,53 @@ export const notifyMeetingMembers = async (req: Request, res: Response) => {
             console.warn('[MEETINGS] Could not fetch Meeting Notification template:', err);
         }
 
+        // Generate .ics attachment
+        let icsAttachment: any[] = [];
+        try {
+            const dtStart = new Date(meeting.meeting_date);
+            if (meeting.start_time) {
+                const st = new Date(meeting.start_time);
+                dtStart.setHours(st.getHours(), st.getMinutes(), 0);
+            }
+            
+            const dtEnd = new Date(meeting.meeting_date);
+            if (meeting.end_time) {
+                const et = new Date(meeting.end_time);
+                dtEnd.setHours(et.getHours(), et.getMinutes(), 0);
+            } else {
+                dtEnd.setHours(dtStart.getHours() + 1); // Default 1 hour
+            }
+
+            const formatICSDate = (date: Date) => date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+
+            const icsContent = [
+                'BEGIN:VCALENDAR',
+                'VERSION:2.0',
+                'PRODID:-//Goa.City//Meeting Notification//EN',
+                'CALSCALE:GREGORIAN',
+                'METHOD:REQUEST',
+                'BEGIN:VEVENT',
+                `UID:meeting_${meeting.id}@goa.city`,
+                `DTSTAMP:${formatICSDate(new Date())}`,
+                `DTSTART:${formatICSDate(dtStart)}`,
+                `DTEND:${formatICSDate(dtEnd)}`,
+                `SUMMARY:${meeting.title}`,
+                `DESCRIPTION:${(meeting.description || '').replace(/<[^>]*>?/gm, '').replace(/\n/g, '\\n')}`,
+                `LOCATION:${meeting.location_name || ''}`,
+                'STATUS:CONFIRMED',
+                'SEQUENCE:0',
+                'END:VEVENT',
+                'END:VCALENDAR'
+            ].join('\r\n');
+
+            icsAttachment = [{
+                filename: 'invite.ics',
+                content: icsContent
+            }];
+        } catch (icsErr) {
+            console.warn('[MEETINGS] Failed to generate ICS:', icsErr);
+        }
+
         let successCount = 0;
         for (const m of members) {
             if (m.email) {
@@ -397,12 +444,19 @@ export const notifyMeetingMembers = async (req: Request, res: Response) => {
                 let html = defaultHtml;
 
                 if (template) {
-                    subject = template.subject.replace('{{meeting_title}}', meeting.title);
+                    subject = template.subject.replace(/{{meeting_title}}/g, meeting.title);
                     html = template.message;
                     
+                    const timeStr = meeting.start_time ? 
+                        `${new Date(meeting.start_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}${meeting.end_time ? ' - ' + new Date(meeting.end_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : ''}` 
+                        : '';
+
                     // Replace Placeholders
                     html = html.replace(/{{meeting_title}}/g, meeting.title);
                     html = html.replace(/{{meeting_date}}/g, new Date(meeting.meeting_date).toLocaleDateString());
+                    html = html.replace(/{{meeting_time}}/g, timeStr);
+                    html = html.replace(/{{location_name}}/g, meeting.location_name || '');
+                    html = html.replace(/{{map_link}}/g, meeting.map_link || '');
                     html = html.replace(/{{zoom_link}}/g, meeting.zoom_link || '');
                     html = html.replace(/{{recap_content}}/g, meeting.recap_content || '');
                     html = html.replace(/{{meeting_url}}/g, `https://goa.city/meetings/${meeting.id}`);
@@ -410,7 +464,7 @@ export const notifyMeetingMembers = async (req: Request, res: Response) => {
                     html = html.replace(/{{last_name}}/g, m.last_name || '');
                 }
 
-                const sent = await sendEmail(m.email, subject, html);
+                const sent = await sendEmail(m.email, subject, html, icsAttachment);
                 if (sent) successCount++;
             }
         }

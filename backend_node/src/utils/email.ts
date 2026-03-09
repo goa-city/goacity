@@ -3,7 +3,7 @@ import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-export const sendEmail = async (to: string, subject: string, html: string) => {
+export const sendEmail = async (to: string, subject: string, html: string, attachments?: any[]) => {
     try {
         console.log(`[EMAIL] Attempting to send via Resend to ${to}`);
         const { data, error } = await resend.emails.send({
@@ -11,6 +11,7 @@ export const sendEmail = async (to: string, subject: string, html: string) => {
             to,
             subject,
             html,
+            attachments: attachments || []
         });
 
         if (error) {
