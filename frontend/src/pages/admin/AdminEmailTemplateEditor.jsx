@@ -24,6 +24,11 @@ const AdminEmailTemplateEditor = () => {
         { label: 'First Name', value: '{{first_name}}' },
         { label: 'Last Name', value: '{{last_name}}' },
         { label: 'OTP Code (Login Only)', value: '{{otp_code}}' },
+        { label: 'Meeting Title', value: '{{meeting_title}}' },
+        { label: 'Meeting Date', value: '{{meeting_date}}' },
+        { label: 'Zoom Link', value: '{{zoom_link}}' },
+        { label: 'Meeting Recap', value: '{{recap_content}}' },
+        { label: 'Meeting URL', value: '{{meeting_url}}' },
         { label: 'Current Date', value: '{{current_date}}' }
     ];
 
@@ -148,7 +153,7 @@ const AdminEmailTemplateEditor = () => {
                                 <button
                                     type="submit"
                                     disabled={saving}
-                                    className="w-full admin-button-primary justify-center py-4 text-base shadow-lg shadow-indigo-500/20"
+                                    className="admin-button-primary justify-center py-4 text-base shadow-lg shadow-indigo-500/20"
                                 >
                                     {saving ? 'Saving Changes...' : 'Save Template'}
                                 </button>

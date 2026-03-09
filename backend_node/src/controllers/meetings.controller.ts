@@ -356,8 +356,8 @@ export const notifyMeetingMembers = async (req: Request, res: Response) => {
             WHERE sm.stream_id = ${meeting.stream_id} AND m.email IS NOT NULL
         `;
 
-        const subject = `New Update: ${meeting.title}`;
-        const html = `
+        const defaultSubject = `New Update: ${meeting.title}`;
+        const defaultHtml = `
             <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
                 <h2 style="color: #6366f1;">${meeting.title}</h2>
                 <p>Hello,</p>
@@ -380,9 +380,36 @@ export const notifyMeetingMembers = async (req: Request, res: Response) => {
             </div>
         `;
 
+        // Attempt to fetch template from DB
+        let template: any = null;
+        try {
+            template = await prisma.emailTemplate.findUnique({
+                where: { title: 'Meeting Notification' }
+            });
+        } catch (err) {
+            console.warn('[MEETINGS] Could not fetch Meeting Notification template:', err);
+        }
+
         let successCount = 0;
         for (const m of members) {
             if (m.email) {
+                let subject = defaultSubject;
+                let html = defaultHtml;
+
+                if (template) {
+                    subject = template.subject.replace('{{meeting_title}}', meeting.title);
+                    html = template.message;
+                    
+                    // Replace Placeholders
+                    html = html.replace(/{{meeting_title}}/g, meeting.title);
+                    html = html.replace(/{{meeting_date}}/g, new Date(meeting.meeting_date).toLocaleDateString());
+                    html = html.replace(/{{zoom_link}}/g, meeting.zoom_link || '');
+                    html = html.replace(/{{recap_content}}/g, meeting.recap_content || '');
+                    html = html.replace(/{{meeting_url}}/g, `https://goa.city/meetings/${meeting.id}`);
+                    html = html.replace(/{{first_name}}/g, m.first_name || '');
+                    html = html.replace(/{{last_name}}/g, m.last_name || '');
+                }
+
                 const sent = await sendEmail(m.email, subject, html);
                 if (sent) successCount++;
             }
