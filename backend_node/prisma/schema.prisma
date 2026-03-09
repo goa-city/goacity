@@ -239,6 +239,7 @@ model meetings {
   payment_amount   Decimal?  @default(0.00) @db.Decimal(10, 2)
   recap_content    String?   @db.Text
   zoom_link        String?   @db.VarChar(500)
+  google_event_id  String?   @db.VarChar(255)
   
   resources        MeetingResource[]
 }

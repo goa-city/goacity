@@ -65,16 +65,43 @@ export const createGoogleCalendarEvent = async (meeting: any) => {
 
         console.log(`[CALENDAR] Syncing ${meeting.title} to goacity26@gmail.com...`);
         
-        // This attempts to sync to a specific calendar if Calendar ID is set in .env
         const calendarId = process.env.GOOGLE_CALENDAR_ID || 'primary';
+        
+        let response;
+        if (meeting.google_event_id) {
+            console.log(`[CALENDAR] Updating existing event ${meeting.google_event_id} for ${meeting.title}...`);
+            response = await calendar.events.patch({
+                auth,
+                calendarId,
+                eventId: meeting.google_event_id,
+                requestBody: event,
+            });
+        } else {
+            console.log(`[CALENDAR] Creating new event for ${meeting.title}...`);
+            response = await calendar.events.insert({
+                auth,
+                calendarId,
+                requestBody: event,
+            });
 
-        const response = await calendar.events.insert({
-            auth,
-            calendarId,
-            requestBody: event,
-        });
+            // Save the newly created event ID to our database
+            const eventId = response.data.id;
+            if (eventId) {
+                try {
+                    const prismaImport = await import('../lib/prisma.js');
+                    const prisma = prismaImport.default;
+                    await prisma.meetings.update({
+                        where: { id: meeting.id },
+                        data: { google_event_id: eventId }
+                    });
+                    console.log(`[CALENDAR] Saved new event ID ${eventId} to database.`);
+                } catch (dbErr) {
+                    console.error('[CALENDAR] Failed to save event ID to database:', dbErr);
+                }
+            }
+        }
 
-        console.log(`[CALENDAR] Success! Created event ID: ${response.data.id}`);
+        console.log(`[CALENDAR] Success: ${response.data.id}`);
         return response.data;
     } catch (error: any) {
         console.error('[CALENDAR] Sync Error:', error.message);
