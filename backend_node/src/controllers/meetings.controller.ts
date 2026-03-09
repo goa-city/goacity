@@ -110,6 +110,8 @@ export const getMeeting = async (req: Request, res: Response) => {
     }
 };
 
+import { createGoogleCalendarEvent } from '../utils/google-calendar.js';
+
 // POST /api/admin/meetings (Handles both Create and Update)
 export const createMeeting = async (req: Request, res: Response) => {
     try {
@@ -120,9 +122,12 @@ export const createMeeting = async (req: Request, res: Response) => {
         start_time = start_time || null;
         end_time = end_time || null;
 
+        let finalId: number;
+
         if (id) {
             // Update
             const mId = Array.isArray(id) ? Number(id[0]) : Number(id);
+            finalId = mId;
             if (filename) {
                 await prisma.$queryRaw`
                     UPDATE meetings 
@@ -155,7 +160,6 @@ export const createMeeting = async (req: Request, res: Response) => {
                     WHERE id = ${mId}
                 `;
             }
-            return res.json({ message: 'Meeting updated', id: mId });
         } else {
             // Create
             const result = await prisma.$queryRaw`
@@ -163,8 +167,24 @@ export const createMeeting = async (req: Request, res: Response) => {
                 VALUES (${title}, ${description || null}, ${meeting_date}::date, ${start_time}::time, ${end_time}::time, ${location_name || null}, ${map_link || null}, ${is_paid === 'true' || is_paid === true || is_paid === '1' || Number(is_paid) === 1 ? 1 : 0}, ${Number(payment_amount) || 0}, ${feedback_form_id && feedback_form_id !== 'null' && feedback_form_id !== '' ? Number(feedback_form_id) : null}, ${stream_id && stream_id !== 'null' && stream_id !== '' ? Number(stream_id) : null}, ${archived === 'true' || archived === true || archived === '1' || Number(archived) === 1 ? 1 : 0}, ${filename}, ${recap_content || null}, ${zoom_link || null})
                 RETURNING id
             `;
-            return res.json({ message: 'Meeting created', id: (result as any)[0]?.id });
+            finalId = (result as any)[0]?.id;
         }
+
+        // --- ASYNC Google Calendar Update ---
+        try {
+            const meeting = await prisma.meetings.findUnique({
+                where: { id: finalId }
+            });
+            if (meeting) {
+                createGoogleCalendarEvent(meeting).catch(err => {
+                    console.error('[CALENDAR] Background error:', err);
+                });
+            }
+        } catch (calErr) {
+            console.warn('[CALENDAR] Failed to trigger background update:', calErr);
+        }
+
+        return res.json({ message: id ? 'Meeting updated' : 'Meeting created', id: finalId });
     } catch (error: any) {
         console.error('createMeeting Error:', error);
         return res.status(500).json({ message: error.message });
@@ -409,7 +429,7 @@ export const notifyMeetingMembers = async (req: Request, res: Response) => {
 
             const formatICSDate = (date: Date) => date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
 
-            const icsContent = [
+            const icsLines = [
                 'BEGIN:VCALENDAR',
                 'VERSION:2.0',
                 'PRODID:-//Goa.City//Meeting Notification//EN',
@@ -421,13 +441,22 @@ export const notifyMeetingMembers = async (req: Request, res: Response) => {
                 `DTSTART:${formatICSDate(dtStart)}`,
                 `DTEND:${formatICSDate(dtEnd)}`,
                 `SUMMARY:${meeting.title}`,
-                `DESCRIPTION:${(meeting.description || '').replace(/<[^>]*>?/gm, '').replace(/\n/g, '\\n')}`,
-                `LOCATION:${meeting.location_name || ''}`,
-                'STATUS:CONFIRMED',
-                'SEQUENCE:0',
-                'END:VEVENT',
-                'END:VCALENDAR'
-            ].join('\r\n');
+            ];
+
+            if (meeting.description) {
+                icsLines.push(`DESCRIPTION:${meeting.description.replace(/<[^>]*>?/gm, '').replace(/\n/g, '\\n')}`);
+            }
+            if (meeting.location_name) {
+                icsLines.push(`LOCATION:${meeting.location_name}`);
+            }
+
+            icsLines.push(`URL:https://goa.city/meetings/${meeting.id}`);
+            icsLines.push('STATUS:CONFIRMED');
+            icsLines.push('SEQUENCE:0');
+            icsLines.push('END:VEVENT');
+            icsLines.push('END:VCALENDAR');
+
+            const icsContent = icsLines.join('\r\n');
 
             icsAttachment = [{
                 filename: 'invite.ics',
@@ -455,8 +484,22 @@ export const notifyMeetingMembers = async (req: Request, res: Response) => {
                     html = html.replace(/{{meeting_title}}/g, meeting.title);
                     html = html.replace(/{{meeting_date}}/g, new Date(meeting.meeting_date).toLocaleDateString());
                     html = html.replace(/{{meeting_time}}/g, timeStr);
-                    html = html.replace(/{{location_name}}/g, meeting.location_name || '');
-                    html = html.replace(/{{map_link}}/g, meeting.map_link || '');
+                    
+                    // Conditional Location / Map handling
+                    if (meeting.location_name) {
+                        html = html.replace(/{{location_name}}/g, meeting.location_name);
+                    } else {
+                        html = html.replace(/<p><b>📍 Location:<\/b> {{location_name}}<\/p>/g, '');
+                        html = html.replace(/{{location_name}}/g, '');
+                    }
+
+                    if (meeting.map_link) {
+                        html = html.replace(/{{map_link}}/g, meeting.map_link);
+                    } else {
+                        html = html.replace(/<p><b>🔗 Map:<\/b> <a href=\"{{map_link}}\">{{map_link}}<\/a><\/p>/g, '');
+                        html = html.replace(/{{map_link}}/g, '');
+                    }
+
                     html = html.replace(/{{zoom_link}}/g, meeting.zoom_link || '');
                     html = html.replace(/{{recap_content}}/g, meeting.recap_content || '');
                     html = html.replace(/{{meeting_url}}/g, `https://goa.city/meetings/${meeting.id}`);
