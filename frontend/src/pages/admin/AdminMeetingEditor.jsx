@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/axios';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
+import DatePicker from 'react-datepicker';
+import "react-datepicker/dist/react-datepicker.css";
 import { 
     CalendarDaysIcon, ArrowLeftIcon, MapPinIcon, 
     CurrencyRupeeIcon, BeakerIcon, SwatchIcon, ClockIcon,
@@ -14,7 +16,7 @@ const AdminMeetingEditor = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const isEdit = !!id;
-    const { register, handleSubmit, setValue, reset, watch, formState: { errors } } = useForm();
+    const { register, handleSubmit, setValue, reset, watch, control, formState: { errors } } = useForm();
     const [loading, setLoading] = useState(false);
     const [forms, setForms] = useState([]); // For Feedback form select
     const [streams, setStreams] = useState([]); // For Stream select
@@ -48,7 +50,7 @@ const AdminMeetingEditor = () => {
                     const data = res.data;
                     reset({
                         ...data,
-                        meeting_date: data.meeting_date ? data.meeting_date.split('T')[0] : '', // ISO YYYY-MM-DD for native picker
+                        meeting_date: data.meeting_date ? new Date(data.meeting_date) : null,
                         is_paid: data.is_paid == 1,
                         archived: data.archived == 1,
                         feedback_form_id: data.feedback_form_id || '',
@@ -85,6 +87,15 @@ const AdminMeetingEditor = () => {
                 if (key === 'id' || key === 'payment_qr_image_url' || key === 'resources' || key === 'description') return; 
                 if (key === 'payment_qr_image') {
                     if (data[key] && data[key].length > 0) formData.append(key, data[key][0]);
+                } else if (key === 'meeting_date') {
+                    if (data[key]) {
+                        const date = new Date(data[key]);
+                        const offset = date.getTimezoneOffset();
+                        const adjustedDate = new Date(date.getTime() - (offset * 60 * 1000));
+                        formData.append(key, adjustedDate.toISOString().split('T')[0]);
+                    } else {
+                        formData.append(key, '');
+                    }
                 } else if (key === 'is_paid' || key === 'archived') {
                     formData.append(key, data[key] ? 1 : 0);
                 } else {
@@ -218,7 +229,24 @@ const AdminMeetingEditor = () => {
 
                         <div>
                             <label className="admin-label">Meeting Date <span className="text-red-400">*</span></label>
-                            <input {...register('meeting_date', { required: true })} type="date" className="admin-input" />
+                            <div className="relative">
+                                <Controller
+                                    name="meeting_date"
+                                    control={control}
+                                    rules={{ required: true }}
+                                    render={({ field }) => (
+                                        <DatePicker
+                                            selected={field.value ? new Date(field.value) : null}
+                                            onChange={(date) => field.onChange(date)}
+                                            dateFormat="dd/MM/yyyy"
+                                            className="admin-input"
+                                            placeholderText="dd/mm/yyyy"
+                                            autoComplete="off"
+                                        />
+                                    )}
+                                />
+                            </div>
+                            {errors.meeting_date && <p className="mt-1 text-xs text-red-500">Date is required</p>}
                          </div>
 
                         <div className="grid grid-cols-2 gap-4">

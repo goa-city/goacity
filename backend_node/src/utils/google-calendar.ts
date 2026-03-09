@@ -61,6 +61,10 @@ export const createGoogleCalendarEvent = async (meeting: any) => {
                 dateTime: formatIST(end),
                 timeZone: 'Asia/Kolkata',
             },
+            organizer: {
+                displayName: 'Goa City',
+                email: 'goacity26@gmail.com',
+            },
         };
 
         console.log(`[CALENDAR] Syncing ${meeting.title} to goacity26@gmail.com...`);

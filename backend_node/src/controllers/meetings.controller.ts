@@ -427,7 +427,18 @@ export const notifyMeetingMembers = async (req: Request, res: Response) => {
                 dtEnd.setHours(dtStart.getHours() + 1); // Default 1 hour
             }
 
-            const formatICSDate = (date: Date) => date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+            const formatICSDate = (date: Date) => {
+                const pad = (n: number) => n.toString().padStart(2, '0');
+                const year = date.getFullYear();
+                const month = pad(date.getMonth() + 1);
+                const day = pad(date.getDate());
+                const hours = pad(date.getHours());
+                const minutes = pad(date.getMinutes());
+                const seconds = pad(date.getSeconds());
+                return `${year}${month}${day}T${hours}${minutes}${seconds}`;
+            };
+
+            const dtStamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
 
             const icsLines = [
                 'BEGIN:VCALENDAR',
@@ -437,9 +448,10 @@ export const notifyMeetingMembers = async (req: Request, res: Response) => {
                 'METHOD:REQUEST',
                 'BEGIN:VEVENT',
                 `UID:meeting_${meeting.id}@goa.city`,
-                `DTSTAMP:${formatICSDate(new Date())}`,
-                `DTSTART:${formatICSDate(dtStart)}`,
-                `DTEND:${formatICSDate(dtEnd)}`,
+                `DTSTAMP:${dtStamp}`,
+                `DTSTART;TZID=Asia/Kolkata:${formatICSDate(dtStart)}`,
+                `DTEND;TZID=Asia/Kolkata:${formatICSDate(dtEnd)}`,
+                'ORGANIZER;CN="Goa City":mailto:admin@goa.city',
                 `SUMMARY:${meeting.title}`,
             ];
 
