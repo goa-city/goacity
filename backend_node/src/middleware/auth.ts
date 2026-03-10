@@ -21,10 +21,10 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
         // Sync with context
         const store = requestContext.getStore();
         if (store) {
-           store.adminId = decoded.role === 'admin' ? Number(decoded.id) : undefined;
-           store.memberId = decoded.role === 'member' ? Number(decoded.id) : undefined;
-           // Super Admin logic: specific email or a 'super' flag in JWT
-           store.isSuperAdmin = decoded.role === 'admin' && (decoded.email === 'admin@goa.city' || decoded.super === true);
+            store.adminId = decoded.role === 'admin' ? Number(decoded.id) : undefined;
+            store.memberId = decoded.role === 'member' ? Number(decoded.id) : undefined;
+            // Use the flag from the JWT payload
+            store.isSuperAdmin = decoded.isSuperAdmin === true;
         }
 
         // Security check: if accessing a /member/ route, ensure role is member
@@ -43,4 +43,16 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
         console.error('[AUTH] Token verification failed:', error);
         return res.status(401).json({ message: 'Invalid token' });
     }
+};
+
+export const superAdminMiddleware = (req: Request, res: Response, next: NextFunction) => {
+    authMiddleware(req, res, () => {
+        const store = requestContext.getStore();
+        if (store?.isSuperAdmin) {
+            next();
+        } else {
+            console.warn(`[SECURITY] Unauthorized SuperAdmin access attempt by Admin ID: ${store?.adminId}`);
+            return res.status(403).json({ message: 'Forbidden: Super Admin access required' });
+        }
+    });
 };

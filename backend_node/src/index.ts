@@ -20,7 +20,7 @@ import { getTemplates, createTemplate, updateTemplate, deleteTemplate, getTempla
 import { getCities, createCity, updateCity } from './controllers/city.controller.js';
 import { handleGoogleCalendarWebhook } from './controllers/webhooks.controller.js';
 import { watchCalendar } from './utils/google-calendar.js';
-import { authMiddleware } from './middleware/auth.js';
+import { authMiddleware, superAdminMiddleware } from './middleware/auth.js';
 import { cityMiddleware } from './middleware/city.js';
 
 const app = express();
@@ -234,10 +234,10 @@ app.get('/api/pages/:slug', getPage);
 // Webhooks
 app.post('/api/webhooks/google-calendar', handleGoogleCalendarWebhook);
 
-// ---- City Routes (New) ----
-app.get('/api/admin/cities', authMiddleware, getCities);
-app.post('/api/admin/cities', authMiddleware, createCity);
-app.put('/api/admin/cities', authMiddleware, updateCity);
+// ---- City Management (Super Admin Only) ----
+app.get('/api/admin/cities', superAdminMiddleware, getCities);
+app.post('/api/admin/cities', superAdminMiddleware, createCity);
+app.put('/api/admin/cities', superAdminMiddleware, updateCity);
 
 // Health
 app.get('/health', (_req: express.Request, res: express.Response) => {
