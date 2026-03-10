@@ -17,9 +17,11 @@ import { submitIdea, getActiveIdeas, submitFeedback, getAdminIdeas, updateIdeaSt
 import { getMyPeople, getMemberProfile, requestCollaboration, getAdminCollabs, updateCollabStatus, getDashboardCollabs, devAutoTestCollab } from './controllers/collab.controller.js';
 import { getPage, getAdminPages, createPage, updatePage, deletePage, getAdminPageById } from './controllers/pages.controller.js';
 import { getTemplates, createTemplate, updateTemplate, deleteTemplate, getTemplateById } from './controllers/email-template.controller.js';
+import { getCities, createCity, updateCity } from './controllers/city.controller.js';
 import { handleGoogleCalendarWebhook } from './controllers/webhooks.controller.js';
 import { watchCalendar } from './utils/google-calendar.js';
 import { authMiddleware } from './middleware/auth.js';
+import { cityMiddleware } from './middleware/city.js';
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -68,6 +70,9 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use('/uploads', express.static('uploads'));
+
+// Apply city context to ALL API requests
+app.use('/api', cityMiddleware);
 
 // ---- Auth Routes (Public) ----
 app.post('/api/auth/send-otp', sendOtp);
@@ -228,6 +233,11 @@ app.get('/api/pages/:slug', getPage);
 
 // Webhooks
 app.post('/api/webhooks/google-calendar', handleGoogleCalendarWebhook);
+
+// ---- City Routes (New) ----
+app.get('/api/admin/cities', authMiddleware, getCities);
+app.post('/api/admin/cities', authMiddleware, createCity);
+app.put('/api/admin/cities', authMiddleware, updateCity);
 
 // Health
 app.get('/health', (_req: express.Request, res: express.Response) => {

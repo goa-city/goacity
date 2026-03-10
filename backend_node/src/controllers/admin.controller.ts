@@ -79,11 +79,18 @@ export const getUsers = async (req: Request, res: Response) => {
         const singleId = req.query.id;
         
         if (singleId) {
-            const member = await prisma.member.findUnique({
+            const member = await (prisma.member as any).findUnique({
                 where: { id: Number(singleId) },
                 include: { 
                     streams: { include: { stream: true } },
-                    profiles: true
+                    profiles: true,
+                    form_responses: {
+                        include: {
+                            form: true,
+                            answers: true // If we need them all at once
+                        },
+                        orderBy: { submitted_at: 'desc' }
+                    }
                 }
             });
             if (!member) return res.status(404).json({ message: 'Member not found' });
@@ -102,48 +109,33 @@ export const getUsers = async (req: Request, res: Response) => {
                 member_profile[p.profile_key] = p.profile_value;
             });
 
-            // Get form responses with answers
-            const formResponses = await prisma.$queryRaw`
-                SELECT fr.id as response_id, fr.form_id, fr.submitted_at, fr.status,
-                    f.title as form_title
-                FROM form_responses fr
-                JOIN forms f ON f.id = fr.form_id
-                WHERE fr.user_id = ${Number(singleId)}
-                ORDER BY fr.submitted_at DESC
-            ` as any[];
-
-            for (const resp of formResponses) {
-                const answers = await prisma.$queryRaw`
-                    SELECT fa.field_key, fa.answer_value,
-                        ff.label, ff.field_type
-                    FROM form_answers fa
-                    LEFT JOIN form_fields ff ON ff.field_key = fa.field_key AND ff.form_id = ${resp.form_id}
-                    WHERE fa.response_id = ${resp.response_id}
-                    ORDER BY ff.sort_order ASC
-                ` as any[];
-                resp.answers = answers.map((a: any) => ({
+            // Format form responses
+            const formattedResponses = (member as any).form_responses.map((fr: any) => ({
+                response_id: fr.id,
+                form_id: fr.form_id,
+                submitted_at: fr.submitted_at,
+                status: fr.status,
+                form_title: fr.form?.title || 'Unknown Form',
+                answers: fr.answers.map((a: any) => ({
                     key: a.field_key,
-                    label: a.label || a.field_key.replace(/_/g, ' '),
-                    value: a.answer_value,
-                    type: a.field_type
-                }));
-            }
+                    label: a.field_key.replace(/_/g, ' '),
+                    value: a.answer_value
+                }))
+            }));
 
-            const stats = await prisma.$queryRaw`
-                SELECT COUNT(*)::int as count 
-                FROM meeting_responses 
-                WHERE user_id = ${Number(singleId)} AND checked_in = 1
-            ` as any[];
-            const meetingCount = stats[0]?.count || 0;
+            const stats = await prisma.meeting_responses.count({
+                where: { user_id: Number(singleId), checked_in: 1 }
+            });
 
             const result = {
                 ...member,
                 streams: streamsFormatted,
                 stream_ids,
                 member_profile,
-                form_responses: formResponses,
-                meeting_count: meetingCount,
-                profiles: undefined  // remove raw profiles from response
+                form_responses: formattedResponses,
+                meeting_count: stats,
+                profiles: undefined,  // remove raw profiles from response
+                form_responses_raw: undefined
             };
             return res.json(result);
         }
@@ -226,25 +218,18 @@ export const getAdminJobs = async (req: Request, res: Response) => {
     try {
         const id = req.query.id;
         if (id) {
-            const jobs = await prisma.$queryRawUnsafe(
-                `SELECT j.*, m.first_name, m.last_name, m.email as member_email
-                 FROM jobs j LEFT JOIN members m ON m.id = j.posted_by
-                 WHERE j.id = $1`, Number(id)
-            ) as any[];
-            if (!jobs.length) return res.status(404).json({ message: 'Job not found' });
-            return res.json(jobs[0]);
+            const job = await (prisma.jobs as any).findUnique({
+                where: { id: Number(id) },
+                include: { city: true } // Assuming we might want city info
+            });
+            if (!job) return res.status(404).json({ message: 'Job not found' });
+            return res.json(job);
         }
         const status = req.query.status as string || 'all';
-        let query = `
-            SELECT j.*, m.first_name, m.last_name, m.email as member_email
-            FROM jobs j
-            LEFT JOIN members m ON m.id = j.posted_by
-        `;
-        if (status !== 'all') {
-            query += ` WHERE j.status = '${status}'`;
-        }
-        query += ` ORDER BY j.created_at DESC`;
-        const jobs = await prisma.$queryRawUnsafe(query);
+        const jobs = await (prisma.jobs as any).findMany({
+            where: status !== 'all' ? { status } : {},
+            orderBy: { created_at: 'desc' }
+        });
         return res.json(jobs);
     } catch (error: any) {
         console.error('getAdminJobs Error:', error);
@@ -257,19 +242,13 @@ export const updateJob = async (req: Request, res: Response) => {
     try {
         const { id, title, company, location, category, type, description, url, contact_email, status } = req.body;
         if (!id) return res.status(400).json({ message: 'id required' });
-        await prisma.$queryRaw`
-            UPDATE jobs SET
-                title = COALESCE(${title || null}, title),
-                company = COALESCE(${company || null}, company),
-                location = COALESCE(${location || null}, location),
-                category = COALESCE(${category || null}, category),
-                type = COALESCE(${type || null}, type),
-                description = COALESCE(${description || null}, description),
-                url = COALESCE(${url || null}, url),
-                contact_email = COALESCE(${contact_email || null}, contact_email),
-                status = COALESCE(${status || null}, status)
-            WHERE id = ${Number(id)}
-        `;
+        
+        await prisma.jobs.update({
+            where: { id: Number(id) },
+            data: {
+                title, company, location, category, type, description, url, contact_email, status
+            }
+        });
         return res.json({ message: 'Job updated' });
     } catch (error: any) {
         console.error('updateJob Error:', error);
@@ -282,7 +261,7 @@ export const deleteJob = async (req: Request, res: Response) => {
     try {
         const id = Number(req.query.id);
         if (!id) return res.status(400).json({ message: 'id required' });
-        await prisma.$queryRaw`DELETE FROM jobs WHERE id = ${id}`;
+        await prisma.jobs.delete({ where: { id } });
         return res.json({ message: 'Job deleted' });
     } catch (error: any) {
         console.error('deleteJob Error:', error);

@@ -53,7 +53,7 @@ export const handleGoogleCalendarWebhook = async (req: Request, res: Response) =
             if (!eventId) continue;
 
             // 1. Find the meeting in our DB
-            const meeting = await prisma.meetings.findFirst({
+            const meeting = await (prisma.meetings as any).findFirst({
                 where: { google_event_id: eventId }
             });
 

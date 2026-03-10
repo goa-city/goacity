@@ -40,6 +40,12 @@ api.interceptors.request.use(
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
+
+        const citySlug = localStorage.getItem('admin_active_city_slug');
+        if (citySlug) {
+            config.headers['X-City-Slug'] = citySlug;
+        }
+
         return config;
     },
     (error) => Promise.reject(error)

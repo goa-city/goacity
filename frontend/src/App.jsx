@@ -25,6 +25,7 @@ import AdminPages from './pages/admin/AdminPages';
 import AdminPageEditor from './pages/admin/AdminPageEditor';
 import AdminEmailTemplates from './pages/admin/AdminEmailTemplates';
 import AdminEmailTemplateEditor from './pages/admin/AdminEmailTemplateEditor';
+import AdminCities from './pages/admin/AdminCities';
 import PageView from './pages/PageView';
 
 import Dashboard from './pages/Dashboard';
@@ -74,6 +75,19 @@ const AdminProtectedRoute = ({ children }) => {
     return children;
 };
 
+// Super Admin Protected Route
+const SuperAdminProtectedRoute = ({ children }) => {
+    const { adminUser, loading } = useAdminAuth();
+    
+    if (loading) return <div className="min-h-screen flex items-center justify-center font-black animate-pulse uppercase tracking-[0.3em] text-slate-400">Authenticating...</div>;
+    // Check if user is logged in and is a super admin
+    if (!adminUser || !adminUser.isSuperAdmin) {
+        return <Navigate to="/admin" />;
+    }
+    
+    return children;
+};
+
 function App() {
   return (
     <AuthProvider>
@@ -114,6 +128,19 @@ function App() {
                                 <Route path="email-templates/create" element={<AdminEmailTemplateEditor />} />
                                 <Route path="email-templates/:id" element={<AdminEmailTemplateEditor />} />
                                 <Route path="admins" element={<AdminAdmins />} />
+                            </Route>
+                        </Routes>
+                    </AdminAuthProvider>
+                } />
+
+                {/* Super Admin Routes (Directly under /superadmin as requested) */}
+                <Route path="/superadmin/*" element={
+                    <AdminAuthProvider>
+                        <Routes>
+                            <Route element={<SuperAdminProtectedRoute><AdminLayout><Outlet /></AdminLayout></SuperAdminProtectedRoute>}>
+                                <Route path="/" element={<AdminCities />} />
+                                <Route path="cities" element={<AdminCities />} />
+                                {/* Potentially other global controls can go here */}
                             </Route>
                         </Routes>
                     </AdminAuthProvider>

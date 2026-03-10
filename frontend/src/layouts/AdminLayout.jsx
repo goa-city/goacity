@@ -19,14 +19,16 @@ import {
     NewspaperIcon,
     EnvelopeIcon,
     ChevronDownIcon,
-    WindowIcon
+    WindowIcon,
+    GlobeAltIcon
 } from '@heroicons/react/24/outline';
 
 const AdminLayout = () => {
-    const { logout, adminUser } = useAdminAuth();
+    const { logout, adminUser, activeCity, citiesList, changeCity } = useAdminAuth();
     const navigate = useNavigate();
     const location = useLocation();
     const [openGroup, setOpenGroup] = useState('communications');
+    const [showCityMenu, setShowCityMenu] = useState(false);
 
     const toggleGroup = (groupId) => {
         setOpenGroup(prev => prev === groupId ? null : groupId);
@@ -49,6 +51,7 @@ const AdminLayout = () => {
         if (path.includes('/admin/mentorship')) return 'mentorship';
         if (path.includes('/admin/incubator')) return 'incubator';
         if (path.includes('/admin/collabs')) return 'collabs';
+        if (path.includes('/superadmin/cities') || path.includes('/superadmin')) return 'super-cities';
         return 'overview';
     };
 
@@ -100,20 +103,58 @@ const AdminLayout = () => {
         } 
      ];
 
+    // Build sidebar menu with conditional Super Admin section
+    const sidebarGroups = [...navigation];
+    if (adminUser?.isSuperAdmin) {
+        sidebarGroups.unshift({
+            name: 'Super Admin Dashboard',
+            id: 'super-admin',
+            icon: GlobeAltIcon,
+            subItems: [
+                { name: 'Cities Management', icon: GlobeAltIcon, id: 'super-cities', path: '/superadmin/cities' },
+            ]
+        });
+    }
+
     return (
         <div className="flex h-screen bg-[#F8FAFC] font-sans overflow-hidden">
             {/* Sidebar */}
             <div className="w-72 bg-slate-950 text-white flex flex-col flex-shrink-0 shadow-[4px_0_24px_rgba(0,0,0,0.1)] relative z-20">
                 <div className="p-8 pb-4">
-                    <div className="flex items-center gap-3 mb-2">
-                        <div className="w-8 h-8 bg-sky-500 rounded-lg flex items-center justify-center font-black text-white text-lg tracking-tighter italic">G</div>
-                        <h1 className="text-xl font-black tracking-widest text-white uppercase italic">GOA.CITY</h1>
+                    <div className="flex items-center gap-3 mb-2 relative">
+                        <div 
+                            className="bg-sky-500 rounded-lg flex items-center justify-center font-black text-white text-lg tracking-tighter italic cursor-pointer group px-2 py-1 min-w-[32px] h-8 transition-all hover:bg-sky-600"
+                            onClick={() => setShowCityMenu(!showCityMenu)}
+                        >
+                            { (activeCity?.name || 'G')[0].toUpperCase() }
+                        </div>
+                        <div className="flex-1">
+                            <h1 className="text-xl font-black tracking-widest text-white uppercase italic truncate">
+                                {(activeCity?.name || 'GOA')}.CITY
+                            </h1>
+                        </div>
+
+                        {showCityMenu && citiesList.length > 1 && (
+                            <div className="absolute top-10 left-0 w-full bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-2 z-50">
+                                <p className="text-[10px] font-black tracking-[0.2em] text-slate-500 uppercase px-2 py-1">Switch City</p>
+                                {citiesList.map(city => (
+                                    <button
+                                        key={city.id}
+                                        onClick={() => { changeCity(city); setShowCityMenu(false); }}
+                                        className={`flex w-full items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all hover:bg-slate-800 ${city.id === activeCity?.id ? 'text-sky-400 bg-sky-500/5' : 'text-slate-300'}`}
+                                    >
+                                        <div className="w-2 h-2 rounded-full bg-current opacity-50" />
+                                        {city.name}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
                     <p className="text-slate-500 font-bold uppercase tracking-[0.2em] ml-11">Admin Console</p>
                 </div>
 
                 <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto custom-scrollbar">
-                    {navigation.map((group) => (
+                    {sidebarGroups.map((group) => (
                         <div key={group.id} className="space-y-1">
                             {group.subItems ? (
                                 <>

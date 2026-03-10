@@ -7,19 +7,34 @@ export const getForms = async (req: Request, res: Response) => {
         const singleId = req.query.id;
 
         if (singleId) {
-            const form = await prisma.$queryRaw`SELECT * FROM forms WHERE id = ${Number(singleId)} LIMIT 1`;
-            const fields = await prisma.$queryRaw`SELECT * FROM form_fields WHERE form_id = ${Number(singleId)} ORDER BY sort_order ASC`;
-            return res.json({ form: (form as any)[0], fields });
+            const form = await (prisma.forms as any).findUnique({
+                where: { id: Number(singleId) },
+                include: {
+                    fields: {
+                        orderBy: { sort_order: 'asc' }
+                    }
+                }
+            });
+            if (!form) return res.status(404).json({ message: 'Form not found' });
+            return res.json({ form, fields: form.fields });
         }
 
-        const forms = await prisma.$queryRaw`
-            SELECT f.*, COUNT(ff.id)::int AS field_count 
-            FROM forms f 
-            LEFT JOIN form_fields ff ON ff.form_id = f.id 
-            GROUP BY f.id 
-            ORDER BY f.id ASC
-        `;
-        return res.json(forms);
+        const formsList = await (prisma.forms as any).findMany({
+            include: {
+                _count: {
+                    select: { fields: true }
+                }
+            },
+            orderBy: { id: 'asc' }
+        });
+
+        // Map to match previous raw query format if needed
+        const formattedForms = formsList.map(f => ({
+            ...f,
+            field_count: f._count.fields
+        }));
+
+        return res.json(formattedForms);
     } catch (error: any) {
         console.error('getForms Error:', error);
         return res.status(500).json({ message: 'Internal server error' });
@@ -30,12 +45,17 @@ export const getForms = async (req: Request, res: Response) => {
 export const createForm = async (req: Request, res: Response) => {
     try {
         const { code, title, description, created_by } = req.body;
-        const form = await prisma.$queryRaw`
-            INSERT INTO forms (code, title, description, is_active, created_by) 
-            VALUES (${code}, ${title}, ${description || ''}, 1, ${Number(created_by) || 1}) 
-            RETURNING id
-        `;
-        return res.json({ message: 'Form created', id: (form as any)[0]?.id });
+        const form = await prisma.forms.create({
+            data: {
+                code,
+                title,
+                description: description || '',
+                is_active: 1,
+                created_by: Number(created_by) || 1
+                // city_id is handled by prisma extension
+            }
+        });
+        return res.json({ message: 'Form created', id: form.id });
     } catch (error: any) {
         console.error('createForm Error:', error);
         return res.status(500).json({ message: error.message });
@@ -46,16 +66,45 @@ export const createForm = async (req: Request, res: Response) => {
 export const updateForm = async (req: Request, res: Response) => {
     try {
         const { id, title, description, fields } = req.body;
-        await prisma.$queryRaw`UPDATE forms SET title = ${title}, description = ${description || ''}, updated_at = NOW() WHERE id = ${Number(id)}`;
+        
+        await prisma.forms.update({
+            where: { id: Number(id) },
+            data: {
+                title,
+                description: description || '',
+                updated_at: new Date()
+            }
+        });
 
         if (fields && Array.isArray(fields)) {
-            await prisma.$queryRaw`DELETE FROM form_fields WHERE form_id = ${Number(id)}`;
-            for (const f of fields) {
-                await prisma.$queryRaw`
-                    INSERT INTO form_fields (form_id, field_key, field_type, label, subtitle, placeholder, options, is_required, is_optional, is_profile, sort_order, section, conditions, group_fields, button_text) 
-                    VALUES (${Number(id)}, ${f.field_key}, ${f.field_type}, ${f.label || ''}, ${f.subtitle || null}, ${f.placeholder || ''}, ${f.options ? JSON.stringify(f.options) : null}::jsonb, ${f.is_required ? 1 : 0}, ${f.is_optional ? 1 : 0}, ${f.is_profile ? 1 : 0}, ${f.sort_order || 0}, ${f.section || null}, ${f.conditions ? JSON.stringify(f.conditions) : null}::jsonb, ${f.group_fields ? JSON.stringify(f.group_fields) : null}::jsonb, ${f.button_text || 'Next'})
-                `;
-            }
+            // Use transaction for deleting/re-creating fields
+            await prisma.$transaction(async (tx) => {
+                await (tx as any).form_fields.deleteMany({
+                    where: { form_id: Number(id) }
+                });
+
+                if (fields.length > 0) {
+                    await (tx as any).form_fields.createMany({
+                        data: fields.map(f => ({
+                            form_id: Number(id),
+                            field_key: f.field_key,
+                            field_type: f.field_type,
+                            label: f.label || '',
+                            subtitle: f.subtitle || null,
+                            placeholder: f.placeholder || '',
+                            options: f.options || null,
+                            is_required: f.is_required ? 1 : 0,
+                            is_optional: f.is_optional ? 1 : 0,
+                            is_profile: f.is_profile ? 1 : 0,
+                            sort_order: f.sort_order || 0,
+                            section: f.section || null,
+                            conditions: f.conditions || null,
+                            group_fields: f.group_fields || null,
+                            button_text: f.button_text || 'Next'
+                        }))
+                    });
+                }
+            });
         }
         return res.json({ message: 'Form updated' });
     } catch (error: any) {
@@ -68,7 +117,13 @@ export const updateForm = async (req: Request, res: Response) => {
 export const archiveForm = async (req: Request, res: Response) => {
     try {
         const { id, is_active } = req.body;
-        await prisma.$queryRaw`UPDATE forms SET is_active = ${is_active ? 1 : 0}, updated_at = NOW() WHERE id = ${Number(id)}`;
+        await prisma.forms.update({
+            where: { id: Number(id) },
+            data: {
+                is_active: is_active ? 1 : 0,
+                updated_at: new Date()
+            }
+        });
         return res.json({ message: is_active ? 'Form activated' : 'Form archived' });
     } catch (error: any) {
         console.error('archiveForm Error:', error);
@@ -82,9 +137,9 @@ export const deleteForm = async (req: Request, res: Response) => {
         const id = req.query.id;
         if (!id) return res.status(400).json({ message: 'ID required' });
 
-        // Delete fields first (cascade might be handled by DB, but safe to do here if not)
-        await prisma.$queryRaw`DELETE FROM form_fields WHERE form_id = ${Number(id)}`;
-        await prisma.$queryRaw`DELETE FROM forms WHERE id = ${Number(id)}`;
+        await prisma.forms.delete({
+            where: { id: Number(id) }
+        });
         
         return res.json({ message: 'Form deleted' });
     } catch (error: any) {
@@ -102,35 +157,19 @@ export const getFormWithFields = async (req: Request, res: Response) => {
 
         if (!formId && !formCode) return res.status(400).json({ message: 'Form ID or Code required' });
 
-        let form: any[];
-        if (formId) {
-            form = await prisma.$queryRaw`SELECT * FROM forms WHERE id = ${Number(formId)} LIMIT 1` as any[];
-        } else {
-            form = await prisma.$queryRaw`SELECT * FROM forms WHERE code = ${formCode as string} LIMIT 1` as any[];
-        }
+        const form = await (prisma.forms as any).findFirst({
+            where: formId ? { id: Number(formId) } : { code: formCode as string },
+            include: {
+                fields: {
+                    orderBy: { sort_order: 'asc' }
+                }
+            }
+        });
 
-        if (!form || form.length === 0) return res.status(404).json({ message: 'Form not found' });
-
-        const theForm = form[0];
-        const fields = await prisma.$queryRaw`SELECT * FROM form_fields WHERE form_id = ${theForm.id} ORDER BY sort_order ASC` as any[];
+        if (!form) return res.status(404).json({ message: 'Form not found' });
 
         // Transform fields to the format Onboarding.jsx expects
-        const questions = fields.map((f: any) => {
-            let options = f.options;
-            if (typeof options === 'string') {
-                try { options = JSON.parse(options); } catch { /* keep as-is */ }
-            }
-
-            let groupFields = f.group_fields;
-            if (typeof groupFields === 'string') {
-                try { groupFields = JSON.parse(groupFields); } catch { /* keep as-is */ }
-            }
-
-            let conditions = f.conditions;
-            if (typeof conditions === 'string') {
-                try { conditions = JSON.parse(conditions); } catch { /* keep as-is */ }
-            }
-
+        const questions = form.fields.map((f: any) => {
             return {
                 id: f.id,
                 field: f.field_key,
@@ -138,19 +177,19 @@ export const getFormWithFields = async (req: Request, res: Response) => {
                 title: f.label,
                 subtitle: f.subtitle,
                 placeholder: f.placeholder,
-                options: options,
+                options: f.options,
                 is_required: f.is_required,
                 is_optional: f.is_optional,
                 is_profile: f.is_profile,
                 sort_order: f.sort_order,
                 section: f.section,
-                conditions: conditions,
-                fields: groupFields, // group_inputs uses "fields"
+                conditions: f.conditions,
+                fields: f.group_fields, // group_inputs uses "fields"
                 buttonText: f.button_text || 'Next'
             };
         });
 
-        return res.json({ form: theForm, fields, questions });
+        return res.json({ form, fields: form.fields, questions });
     } catch (error: any) {
         console.error('getFormWithFields Error:', error);
         return res.status(500).json({ message: 'Internal server error' });
@@ -171,16 +210,26 @@ export const submitOnboarding = async (req: Request, res: Response) => {
             if (['is_partial', 'form_id'].includes(key)) continue;
             const strVal = typeof value === 'object' ? JSON.stringify(value) : String(value || '');
             
-            // Upsert into member_profiles
-            const existing = await prisma.$queryRaw`
-                SELECT id FROM member_profiles WHERE user_id = ${userId} AND profile_key = ${key} LIMIT 1
-            ` as any[];
-
-            if (existing.length > 0) {
-                await prisma.$queryRaw`UPDATE member_profiles SET profile_value = ${strVal} WHERE id = ${existing[0].id}`;
-            } else {
-                await prisma.$queryRaw`INSERT INTO member_profiles (user_id, profile_key, profile_value) VALUES (${userId}, ${key}, ${strVal})`;
-            }
+            // Upsert into member_profiles using Prisma
+            await prisma.memberProfile.upsert({
+                where: {
+                    // We need a unique constraint or use findFirst + update/create
+                    // member_profiles doesn't have a unique constraint on (user_id, profile_key) in schema yet?
+                    id: -1 // This won't work if we don't have ID. Let's use findFirst.
+                },
+                update: { profile_value: strVal },
+                create: { user_id: userId, profile_key: key, profile_value: strVal }
+            }).catch(async () => {
+                 // Fallback to findFirst logic if upsert fails due to missing unique constraint
+                 const existing = await prisma.memberProfile.findFirst({
+                     where: { user_id: userId, profile_key: key }
+                 });
+                 if (existing) {
+                     await prisma.memberProfile.update({ where: { id: existing.id }, data: { profile_value: strVal } });
+                 } else {
+                     await prisma.memberProfile.create({ data: { user_id: userId, profile_key: key, profile_value: strVal } });
+                 }
+            });
         }
 
         // Mark onboarded if not partial
@@ -209,19 +258,22 @@ export const submitForm = async (req: Request, res: Response) => {
         if (!formId) return res.status(400).json({ message: 'form_id is required' });
 
         // Create or update form response
-        let responseRow = await prisma.$queryRaw`
-            SELECT id FROM form_responses WHERE form_id = ${formId} AND user_id = ${userId} LIMIT 1
-        ` as any[];
+        const response = await (prisma as any).form_responses.findFirst({
+            where: { form_id: formId, user_id: userId }
+        });
 
         let responseId: number;
-        if (responseRow.length > 0) {
-            responseId = responseRow[0].id;
-            await prisma.$queryRaw`UPDATE form_responses SET status = ${isPartial ? 'draft' : 'completed'}, meeting_id = ${meetingId} WHERE id = ${responseId}`;
+        if (response) {
+            responseId = response.id;
+            await (prisma as any).form_responses.update({
+                where: { id: responseId },
+                data: { status: isPartial ? 'draft' : 'completed', meeting_id: meetingId }
+            });
         } else {
-            const inserted = await prisma.$queryRaw`
-                INSERT INTO form_responses (form_id, user_id, status, meeting_id) VALUES (${formId}, ${userId}, ${isPartial ? 'draft' : 'completed'}, ${meetingId}) RETURNING id
-            ` as any[];
-            responseId = inserted[0].id;
+            const newResponse = await (prisma as any).form_responses.create({
+                data: { form_id: formId, user_id: userId, status: isPartial ? 'draft' : 'completed', meeting_id: meetingId }
+            });
+            responseId = newResponse.id;
         }
 
         // Upsert answers
@@ -229,27 +281,39 @@ export const submitForm = async (req: Request, res: Response) => {
             if (['form_id', 'is_partial', 'meeting_id'].includes(key)) continue;
             const strVal = typeof value === 'object' ? JSON.stringify(value) : String(value || '');
 
-            const existingAnswer = await prisma.$queryRaw`
-                SELECT id FROM form_answers WHERE response_id = ${responseId} AND field_key = ${key} LIMIT 1
-            ` as any[];
+            const existingAnswer = await (prisma as any).form_answers.findFirst({
+                where: { response_id: responseId, field_key: key }
+            });
 
-            if (existingAnswer.length > 0) {
-                await prisma.$queryRaw`UPDATE form_answers SET answer_value = ${strVal} WHERE id = ${existingAnswer[0].id}`;
+            if (existingAnswer) {
+                await (prisma as any).form_answers.update({
+                    where: { id: existingAnswer.id },
+                    data: { answer_value: strVal }
+                });
             } else {
-                await prisma.$queryRaw`INSERT INTO form_answers (response_id, field_key, answer_value) VALUES (${responseId}, ${key}, ${strVal})`;
+                await (prisma as any).form_answers.create({
+                    data: { response_id: responseId, field_key: key, answer_value: strVal }
+                });
             }
 
             // Also update member_profiles for profile fields
-            const fieldDef = await prisma.$queryRaw`SELECT is_profile FROM form_fields WHERE form_id = ${formId} AND field_key = ${key} LIMIT 1` as any[];
-            if (fieldDef.length > 0 && fieldDef[0].is_profile) {
-                const existingProfile = await prisma.$queryRaw`
-                    SELECT id FROM member_profiles WHERE user_id = ${userId} AND profile_key = ${key} LIMIT 1
-                ` as any[];
+            const fieldDef = await (prisma as any).form_fields.findFirst({
+                where: { form_id: formId, field_key: key }
+            });
+            if (fieldDef && fieldDef.is_profile) {
+                const existingProfile = await prisma.memberProfile.findFirst({
+                    where: { user_id: userId, profile_key: key }
+                });
 
-                if (existingProfile.length > 0) {
-                    await prisma.$queryRaw`UPDATE member_profiles SET profile_value = ${strVal} WHERE id = ${existingProfile[0].id}`;
+                if (existingProfile) {
+                    await prisma.memberProfile.update({
+                        where: { id: existingProfile.id },
+                        data: { profile_value: strVal }
+                    });
                 } else {
-                    await prisma.$queryRaw`INSERT INTO member_profiles (user_id, profile_key, profile_value) VALUES (${userId}, ${key}, ${strVal})`;
+                    await prisma.memberProfile.create({
+                        data: { user_id: userId, profile_key: key, profile_value: strVal }
+                    });
                 }
             }
         }

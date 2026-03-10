@@ -240,7 +240,12 @@ export const adminLogin = async (req: Request, res: Response) => {
         }
 
         // 4. Generate Token
-        const token = generateToken({ id: admin.id, role: admin.role });
+        const token = generateToken({ 
+            id: admin.id, 
+            role: admin.role, 
+            isSuperAdmin: (admin as any).is_super_admin,
+            email: admin.email 
+        });
 
         return res.json({
             success: true,
@@ -250,7 +255,8 @@ export const adminLogin = async (req: Request, res: Response) => {
                 id: admin.id,
                 full_name: admin.full_name,
                 email: admin.email,
-                role: admin.role
+                role: admin.role,
+                isSuperAdmin: (admin as any).is_super_admin
             }
         });
 
