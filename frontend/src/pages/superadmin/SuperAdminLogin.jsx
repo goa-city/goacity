@@ -1,20 +1,31 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSuperAdminAuth } from '../../context/SuperAdminAuthContext';
+import { useNavigate } from 'react-router-dom';
 import { GlobeAltIcon } from '@heroicons/react/24/outline';
 
 const SuperAdminLogin = () => {
-    const { login } = useSuperAdminAuth();
+    const { login, superAdminUser } = useSuperAdminAuth();
+    const navigate = useNavigate();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+
+    // If already logged in, redirect
+    useEffect(() => {
+        if (superAdminUser) {
+            navigate('/superadmin/cities', { replace: true });
+        }
+    }, [superAdminUser, navigate]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         setError('');
         const res = await login(email, password);
-        if (!res.success) {
+        if (res.success) {
+            navigate('/superadmin/cities', { replace: true });
+        } else {
             setError(res.message);
         }
         setLoading(false);

@@ -29,7 +29,7 @@ export const getForms = async (req: Request, res: Response) => {
         });
 
         // Map to match previous raw query format if needed
-        const formattedForms = formsList.map(f => ({
+        const formattedForms = formsList.map((f: any) => ({
             ...f,
             field_count: f._count.fields
         }));
