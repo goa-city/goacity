@@ -3,13 +3,40 @@ import { requestContext } from './context.js';
 
 const prismaClient = new PrismaClient();
 
+// Models that are GLOBAL and do NOT have a city_id column.
+// These should never be filtered by city scope.
+const UNSCOPED_MODELS = new Set([
+    'City',
+    'Admin',
+    'Otp',
+    'StreamMember',
+    'FormField',
+    'FormResponse',
+    'FormAnswer',
+    'MeetingResponse',
+    'MeetingResource',
+    'Attendance',
+    'MemberProfile',
+    'MemberService',
+    'PostLike',
+    'Skill',
+    'Need',
+    'Offer',
+    'Business',
+    'IdeaFeedback',
+    'MentorshipRelation',
+    'CollaborationRequest',
+    'StewardshipLog',
+    'StewardshipOrg',
+]);
+
 // Extension logic
 const prisma = prismaClient.$extends({
     query: {
         $allModels: {
             async $allOperations({ model, operation, args, query }: any) {
-                // Skip scoping for the City model itself
-                if (model === 'City') {
+                // Skip scoping for global/unscoped models
+                if (UNSCOPED_MODELS.has(model)) {
                     return query(args);
                 }
 
