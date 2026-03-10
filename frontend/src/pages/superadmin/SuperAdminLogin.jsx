@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useSuperAdminAuth } from '../context/SuperAdminAuthContext';
+import { useSuperAdminAuth } from '../../context/SuperAdminAuthContext';
 import { GlobeAltIcon } from '@heroicons/react/24/outline';
 
 const SuperAdminLogin = () => {
