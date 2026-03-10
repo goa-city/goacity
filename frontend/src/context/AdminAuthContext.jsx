@@ -36,7 +36,16 @@ export const AdminAuthProvider = ({ children }) => {
 
             if (token && storedUser) {
                 try {
-                    const user = JSON.parse(storedUser);
+                    let user = JSON.parse(storedUser);
+                    
+                    // Legacy check: If user object is stale and missing isSuperAdmin flag,
+                    // we can try to extract from JWT or just trust the next re-login.
+                    // For now, let's ensure we have the flag if the email matches the primary admin
+                    // as a fallback for the transition period.
+                    if (user.isSuperAdmin === undefined && user.email === 'admin@goa.city') {
+                        user.isSuperAdmin = true;
+                    }
+
                     setAdminUser(user);
                     // Fetch cities for admin
                     fetchCities();

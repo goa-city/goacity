@@ -95,52 +95,46 @@ function App() {
             <Routes>
                 <Route path="/" element={<Login />} />
                 <Route path="/home" element={<Home />} /> {/* Optional: Keep Home accessible if needed, or remove completely if intended ONLY as landing. User said "When accessed https://goa.city/ it should show the login page." */}
-                {/* Admin Routes */}
-                <Route path="/admin/*" element={
+                {/* Consolidated Admin Area */}
+                <Route path="/*" element={
                     <AdminAuthProvider>
                         <Routes>
-                            <Route path="login" element={<AdminLogin />} />
-                            
-                            {/* Admin Area */}
-                            <Route element={<AdminProtectedRoute><AdminLayout><Outlet /></AdminLayout></AdminProtectedRoute>}>
-                                <Route path="/" element={<AdminDashboard />} />
-                                <Route path="members" element={<AdminMembers />} />
-                                <Route path="members/create" element={<AdminMemberCreate />} />
-                                <Route path="members/:id" element={<AdminMemberDetail />} />
-                                <Route path="meetings" element={<AdminMeetings />} />
-                                <Route path="meetings/create" element={<AdminMeetingEditor />} />
-                                <Route path="meetings/:id" element={<AdminMeetingEditor />} />
-                                <Route path="streams" element={<AdminStreams />} />
-                                <Route path="forms" element={<AdminForms />} />
-                                <Route path="forms/:id" element={<AdminFormEditor />} />
-                                <Route path="stewardship" element={<AdminStewardship />} />
-                                <Route path="mentorship" element={<AdminMentorship />} />
-                                <Route path="incubator" element={<AdminIncubator />} />
-                                <Route path="collabs" element={<AdminCollabs />} />
-                                <Route path="jobs" element={<AdminJobs />} />
-                                <Route path="jobs/:id" element={<AdminJobEditor />} />
-                                <Route path="resources" element={<AdminResources />} />
-                                <Route path="resources/:id" element={<AdminResourceEditor />} />
-                                <Route path="news" element={<AdminNews />} />
-                                <Route path="pages" element={<AdminPages />} />
-                                <Route path="pages/:id" element={<AdminPageEditor />} />
-                                <Route path="email-templates" element={<AdminEmailTemplates />} />
-                                <Route path="email-templates/create" element={<AdminEmailTemplateEditor />} />
-                                <Route path="email-templates/:id" element={<AdminEmailTemplateEditor />} />
-                                <Route path="admins" element={<AdminAdmins />} />
-                            </Route>
-                        </Routes>
-                    </AdminAuthProvider>
-                } />
+                            {/* Public Admin Routes */}
+                            <Route path="/admin/login" element={<AdminLogin />} />
 
-                {/* Super Admin Routes (Directly under /superadmin as requested) */}
-                <Route path="/superadmin/*" element={
-                    <AdminAuthProvider>
-                        <Routes>
+                            {/* Standard Admin Area */}
+                            <Route element={<AdminProtectedRoute><AdminLayout><Outlet /></AdminLayout></AdminProtectedRoute>}>
+                                <Route path="/admin" element={<AdminDashboard />} />
+                                <Route path="/admin/members" element={<AdminMembers />} />
+                                <Route path="/admin/members/create" element={<AdminMemberCreate />} />
+                                <Route path="/admin/members/:id" element={<AdminMemberDetail />} />
+                                <Route path="/admin/meetings" element={<AdminMeetings />} />
+                                <Route path="/admin/meetings/create" element={<AdminMeetingEditor />} />
+                                <Route path="/admin/meetings/:id" element={<AdminMeetingEditor />} />
+                                <Route path="/admin/streams" element={<AdminStreams />} />
+                                <Route path="/admin/forms" element={<AdminForms />} />
+                                <Route path="/admin/forms/:id" element={<AdminFormEditor />} />
+                                <Route path="/admin/stewardship" element={<AdminStewardship />} />
+                                <Route path="/admin/mentorship" element={<AdminMentorship />} />
+                                <Route path="/admin/incubator" element={<AdminIncubator />} />
+                                <Route path="/admin/collabs" element={<AdminCollabs />} />
+                                <Route path="/admin/jobs" element={<AdminJobs />} />
+                                <Route path="/admin/jobs/:id" element={<AdminJobEditor />} />
+                                <Route path="/admin/resources" element={<AdminResources />} />
+                                <Route path="/admin/resources/:id" element={<AdminResourceEditor />} />
+                                <Route path="/admin/news" element={<AdminNews />} />
+                                <Route path="/admin/pages" element={<AdminPages />} />
+                                <Route path="/admin/pages/:id" element={<AdminPageEditor />} />
+                                <Route path="/admin/email-templates" element={<AdminEmailTemplates />} />
+                                <Route path="/admin/email-templates/create" element={<AdminEmailTemplateEditor />} />
+                                <Route path="/admin/email-templates/:id" element={<AdminEmailTemplateEditor />} />
+                                <Route path="/admin/admins" element={<AdminAdmins />} />
+                            </Route>
+
+                            {/* Super Admin Area */}
                             <Route element={<SuperAdminProtectedRoute><AdminLayout><Outlet /></AdminLayout></SuperAdminProtectedRoute>}>
-                                <Route path="/" element={<AdminCities />} />
-                                <Route path="cities" element={<AdminCities />} />
-                                {/* Potentially other global controls can go here */}
+                                <Route path="/superadmin" element={<AdminCities />} />
+                                <Route path="/superadmin/cities" element={<AdminCities />} />
                             </Route>
                         </Routes>
                     </AdminAuthProvider>
