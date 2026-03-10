@@ -111,7 +111,7 @@ const AdminLayout = () => {
             id: 'super-admin',
             icon: GlobeAltIcon,
             subItems: [
-                { name: 'Cities Management', icon: GlobeAltIcon, id: 'super-cities', path: '/superadmin/cities' },
+                { name: 'Cities Management', icon: GlobeAltIcon, id: 'super-cities', path: '/admin/superadmin/cities' },
             ]
         });
     }
