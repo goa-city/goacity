@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AdminAuthProvider, useAdminAuth } from './context/AdminAuthContext';
 import Login from './pages/Login';
@@ -50,124 +50,112 @@ import AdminCollabs from './pages/admin/AdminCollabs';
 import MeetingView from './pages/MeetingView';
 import MemberMeetings from './pages/MemberMeetings';
 
-// Member Protected Route
-const MemberProtectedRoute = ({ children }) => {
-    const { user, loading } = useAuth();
-    if (loading) return <div className="min-h-screen flex items-center justify-center font-black animate-pulse uppercase tracking-widest text-slate-400">Loading Session...</div>;
-    if (!user) return <Navigate to="/" />;
-    return <MemberOnboardingCheck>{children || <Outlet />}</MemberOnboardingCheck>;
-};
+// Helper for Admin Pages with Layout
+const AdminPage = ({ element }) => (
+    <AdminProtectedRoute>
+        <AdminLayout>
+            {element}
+        </AdminLayout>
+    </AdminProtectedRoute>
+);
 
-const MemberOnboardingCheck = ({ children }) => {
-    return children;
-};
+// Helper for Super Admin Pages with Layout
+const SuperAdminPage = ({ element }) => (
+    <SuperAdminProtectedRoute>
+        <AdminPage element={element} />
+    </SuperAdminProtectedRoute>
+);
 
-// Admin Protected Route
-const AdminProtectedRoute = ({ children }) => {
+// Guards
+const AdminProtectedRoute = ({ children, element }) => {
     const { adminUser, loading } = useAdminAuth();
-    
-    if (loading) return <div className="min-h-screen flex items-center justify-center font-black animate-pulse uppercase tracking-widest text-slate-400 font-sans">Authenticating Admin...</div>;
-    
-    if (!adminUser) {
-        console.log("[GUARD] Admin access denied - No user found");
-        return <Navigate to="/admin/login" />;
-    }
-    
-    console.log("[GUARD] Admin access granted for:", adminUser.email);
-    return children ? children : <Outlet />;
+    if (loading) return <div className="p-20 text-center font-bold animate-pulse text-slate-400">Loading Admin...</div>;
+    if (!adminUser) return <Navigate to="/admin/login" />;
+    return children || element || <Outlet />;
 };
 
-// Super Admin Protected Route
-const SuperAdminProtectedRoute = ({ children }) => {
+const SuperAdminProtectedRoute = ({ children, element }) => {
     const { adminUser, loading } = useAdminAuth();
-    
-    if (loading) return <div className="min-h-screen flex items-center justify-center font-black animate-pulse uppercase tracking-[0.3em] text-cyan-400">Verifying Super Privilege...</div>;
-    
+    if (loading) return <div className="p-20 text-center font-bold animate-pulse text-cyan-400">Verifying Super...</div>;
     const isSuper = adminUser?.isSuperAdmin || (adminUser?.email === 'admin@goa.city');
-    console.log("[GUARD] SuperAdmin check:", { email: adminUser?.email, isSuper, isSuperFlag: adminUser?.isSuperAdmin });
+    if (!adminUser || !isSuper) return <Navigate to="/admin" />;
+    return children || element || <Outlet />;
+};
 
-    if (!adminUser || !isSuper) {
-        console.warn("[GUARD] SuperAdmin access denied for:", adminUser?.email);
-        return <Navigate to="/admin" />;
-    }
-    
-    return children ? children : <Outlet />;
+const MemberProtectedRoute = ({ children, element }) => {
+    const { user, loading } = useAuth();
+    if (loading) return <div className="p-20 text-center font-bold animate-pulse text-slate-400">Loading Member...</div>;
+    if (!user) return <Navigate to="/" />;
+    return children || element || <Outlet />;
 };
 
 function App() {
+  console.log("App Mounting...");
   return (
     <AuthProvider>
       <AdminAuthProvider>
         <Router>
           <Routes>
-            {/* 1. Public Routes */}
+            {/* Public */}
             <Route path="/" element={<Login />} />
             <Route path="/home" element={<Home />} />
             <Route path="/admin/login" element={<AdminLogin />} />
 
-            {/* 2. Admin Protected Routes (Shared Sidebar Layout) */}
-            <Route element={<AdminProtectedRoute />}>
-              <Route element={<AdminLayout />}>
-                {/* Regular Admin Pages */}
-                <Route path="/admin" element={<AdminDashboard />} />
-                <Route path="/admin/members" element={<AdminMembers />} />
-                <Route path="/admin/members/create" element={<AdminMemberCreate />} />
-                <Route path="/admin/members/:id" element={<AdminMemberDetail />} />
-                <Route path="/admin/meetings" element={<AdminMeetings />} />
-                <Route path="/admin/meetings/create" element={<AdminMeetingEditor />} />
-                <Route path="/admin/meetings/:id" element={<AdminMeetingEditor />} />
-                <Route path="/admin/streams" element={<AdminStreams />} />
-                <Route path="/admin/forms" element={<AdminForms />} />
-                <Route path="/admin/forms/:id" element={<AdminFormEditor />} />
-                <Route path="/admin/stewardship" element={<AdminStewardship />} />
-                <Route path="/admin/mentorship" element={<AdminMentorship />} />
-                <Route path="/admin/incubator" element={<AdminIncubator />} />
-                <Route path="/admin/collabs" element={<AdminCollabs />} />
-                <Route path="/admin/jobs" element={<AdminJobs />} />
-                <Route path="/admin/jobs/:id" element={<AdminJobEditor />} />
-                <Route path="/admin/resources" element={<AdminResources />} />
-                <Route path="/admin/resources/:id" element={<AdminResourceEditor />} />
-                <Route path="/admin/news" element={<AdminNews />} />
-                <Route path="/admin/pages" element={<AdminPages />} />
-                <Route path="/admin/pages/:id" element={<AdminPageEditor />} />
-                <Route path="/admin/email-templates" element={<AdminEmailTemplates />} />
-                <Route path="/admin/email-templates/create" element={<AdminEmailTemplateEditor />} />
-                <Route path="/admin/email-templates/:id" element={<AdminEmailTemplateEditor />} />
-                <Route path="/admin/admins" element={<AdminAdmins />} />
+            {/* Admin (Flat Structure for Reliability) */}
+            <Route path="/admin" element={<AdminPage element={<AdminDashboard />} />} />
+            <Route path="/admin/members" element={<AdminPage element={<AdminMembers />} />} />
+            <Route path="/admin/members/create" element={<AdminPage element={<AdminMemberCreate />} />} />
+            <Route path="/admin/members/:id" element={<AdminPage element={<AdminMemberDetail />} />} />
+            <Route path="/admin/meetings" element={<AdminPage element={<AdminMeetings />} />} />
+            <Route path="/admin/meetings/create" element={<AdminPage element={<AdminMeetingEditor />} />} />
+            <Route path="/admin/meetings/:id" element={<AdminPage element={<AdminMeetingEditor />} />} />
+            <Route path="/admin/streams" element={<AdminPage element={<AdminStreams />} />} />
+            <Route path="/admin/forms" element={<AdminPage element={<AdminForms />} />} />
+            <Route path="/admin/forms/:id" element={<AdminPage element={<AdminFormEditor />} />} />
+            <Route path="/admin/stewardship" element={<AdminPage element={<AdminStewardship />} />} />
+            <Route path="/admin/mentorship" element={<AdminPage element={<AdminMentorship />} />} />
+            <Route path="/admin/incubator" element={<AdminPage element={<AdminIncubator />} />} />
+            <Route path="/admin/collabs" element={<AdminPage element={<AdminCollabs />} />} />
+            <Route path="/admin/jobs" element={<AdminPage element={<AdminJobs />} />} />
+            <Route path="/admin/jobs/:id" element={<AdminPage element={<AdminJobEditor />} />} />
+            <Route path="/admin/resources" element={<AdminPage element={<AdminResources />} />} />
+            <Route path="/admin/resources/:id" element={<AdminPage element={<AdminResourceEditor />} />} />
+            <Route path="/admin/news" element={<AdminPage element={<AdminNews />} />} />
+            <Route path="/admin/pages" element={<AdminPage element={<AdminPages />} />} />
+            <Route path="/admin/pages/:id" element={<AdminPage element={<AdminPageEditor />} />} />
+            <Route path="/admin/email-templates" element={<AdminPage element={<AdminEmailTemplates />} />} />
+            <Route path="/admin/email-templates/create" element={<AdminPage element={<AdminEmailTemplateEditor />} />} />
+            <Route path="/admin/email-templates/:id" element={<AdminPage element={<AdminEmailTemplateEditor />} />} />
+            <Route path="/admin/admins" element={<AdminPage element={<AdminAdmins />} />} />
 
-                {/* Super Admin Pages (Deep Access Required) */}
-                <Route element={<SuperAdminProtectedRoute />}>
-                  <Route path="/admin/superadmin" element={<AdminCities />} />
-                  <Route path="/admin/superadmin/cities" element={<AdminCities />} />
-                  <Route path="/superadmin" element={<AdminCities />} />
-                  <Route path="/superadmin/cities" element={<AdminCities />} />
-                </Route>
-              </Route>
-            </Route>
+            {/* Super Admin */}
+            <Route path="/superadmin" element={<SuperAdminPage element={<AdminCities />} />} />
+            <Route path="/superadmin/cities" element={<SuperAdminPage element={<AdminCities />} />} />
+            <Route path="/admin/superadmin" element={<SuperAdminPage element={<AdminCities />} />} />
+            <Route path="/admin/superadmin/cities" element={<SuperAdminPage element={<AdminCities />} />} />
 
-            {/* 3. Member Protected Routes */}
-            <Route element={<MemberProtectedRoute />}>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/news" element={<News />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/resources" element={<Resources />} />
-              <Route path="/resources/add" element={<ResourceEditor />} />
-              <Route path="/jobs" element={<Jobs />} />
-              <Route path="/jobs/post" element={<JobEditor />} />
-              <Route path="/stewardship" element={<StewardshipDashboard />} />
-              <Route path="/mentors" element={<Mentors />} />
-              <Route path="/dashboard/mentorship/:id" element={<MentorshipWorkspace />} />
-              <Route path="/my-people" element={<MyPeople />} />
-              <Route path="/profile/:id" element={<PublicProfile />} />
-              <Route path="/meetings" element={<MemberMeetings />} />
-              <Route path="/meetings/:id" element={<MeetingView />} />
-              <Route path="/incubator/submit" element={<IncubatorSubmit />} />
-              <Route path="/incubator/explore" element={<IncubatorExplore />} />
-              <Route path="/onboarding" element={<Onboarding />} />
-              <Route path="/debug-streams" element={<DebugStreams />} />
-              <Route path="/onboarding/form/:formId" element={<Onboarding />} />
-              <Route path="/pages/:slug" element={<PageView />} />
-            </Route>
+            {/* Member */}
+            <Route path="/dashboard" element={<MemberProtectedRoute element={<Dashboard />} />} />
+            {/* ... other member routes simplified for brevity in this fix ... */}
+            <Route path="/news" element={<MemberProtectedRoute><News /></MemberProtectedRoute>} />
+            <Route path="/profile" element={<MemberProtectedRoute><Profile /></MemberProtectedRoute>} />
+            <Route path="/resources" element={<MemberProtectedRoute><Resources /></MemberProtectedRoute>} />
+            <Route path="/resources/add" element={<MemberProtectedRoute><ResourceEditor /></MemberProtectedRoute>} />
+            <Route path="/jobs" element={<MemberProtectedRoute><Jobs /></MemberProtectedRoute>} />
+            <Route path="/jobs/post" element={<MemberProtectedRoute><JobEditor /></MemberProtectedRoute>} />
+            <Route path="/stewardship" element={<MemberProtectedRoute><StewardshipDashboard /></MemberProtectedRoute>} />
+            <Route path="/mentors" element={<MemberProtectedRoute><Mentors /></MemberProtectedRoute>} />
+            <Route path="/dashboard/mentorship/:id" element={<MemberProtectedRoute><MentorshipWorkspace /></MemberProtectedRoute>} />
+            <Route path="/my-people" element={<MemberProtectedRoute><MyPeople /></MemberProtectedRoute>} />
+            <Route path="/profile/:id" element={<MemberProtectedRoute><PublicProfile /></MemberProtectedRoute>} />
+            <Route path="/meetings" element={<MemberProtectedRoute><MemberMeetings /></MemberProtectedRoute>} />
+            <Route path="/meetings/:id" element={<MemberProtectedRoute><MeetingView /></MemberProtectedRoute>} />
+            <Route path="/incubator/submit" element={<MemberProtectedRoute><IncubatorSubmit /></MemberProtectedRoute>} />
+            <Route path="/incubator/explore" element={<MemberProtectedRoute><IncubatorExplore /></MemberProtectedRoute>} />
+            <Route path="/onboarding" element={<MemberProtectedRoute><Onboarding /></MemberProtectedRoute>} />
+            <Route path="/debug-streams" element={<MemberProtectedRoute><DebugStreams /></MemberProtectedRoute>} />
+            <Route path="/onboarding/form/:formId" element={<MemberProtectedRoute><Onboarding /></MemberProtectedRoute>} />
+            <Route path="/pages/:slug" element={<MemberProtectedRoute><PageView /></MemberProtectedRoute>} />
           </Routes>
         </Router>
       </AdminAuthProvider>
