@@ -53,14 +53,11 @@ import MemberMeetings from './pages/MemberMeetings';
 // Member Protected Route
 const MemberProtectedRoute = ({ children }) => {
     const { user, loading } = useAuth();
-    
-    if (loading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    if (loading) return <div className="min-h-screen flex items-center justify-center font-black animate-pulse uppercase tracking-widest text-slate-400">Loading Session...</div>;
     if (!user) return <Navigate to="/" />;
-    
-    return <MemberOnboardingCheck>{children}</MemberOnboardingCheck>;
+    return <MemberOnboardingCheck>{children || <Outlet />}</MemberOnboardingCheck>;
 };
 
-// Extracted inner component to use the useLocation hook
 const MemberOnboardingCheck = ({ children }) => {
     return children;
 };
@@ -69,9 +66,14 @@ const MemberOnboardingCheck = ({ children }) => {
 const AdminProtectedRoute = ({ children }) => {
     const { adminUser, loading } = useAdminAuth();
     
-    if (loading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
-    if (!adminUser) return <Navigate to="/admin/login" />;
+    if (loading) return <div className="min-h-screen flex items-center justify-center font-black animate-pulse uppercase tracking-widest text-slate-400 font-sans">Authenticating Admin...</div>;
     
+    if (!adminUser) {
+        console.log("[GUARD] Admin access denied - No user found");
+        return <Navigate to="/admin/login" />;
+    }
+    
+    console.log("[GUARD] Admin access granted for:", adminUser.email);
     return children ? children : <Outlet />;
 };
 
@@ -79,12 +81,13 @@ const AdminProtectedRoute = ({ children }) => {
 const SuperAdminProtectedRoute = ({ children }) => {
     const { adminUser, loading } = useAdminAuth();
     
-    if (loading) return <div className="min-h-screen flex items-center justify-center font-black animate-pulse uppercase tracking-[0.3em] text-slate-400">Authenticating...</div>;
+    if (loading) return <div className="min-h-screen flex items-center justify-center font-black animate-pulse uppercase tracking-[0.3em] text-cyan-400">Verifying Super Privilege...</div>;
     
     const isSuper = adminUser?.isSuperAdmin || (adminUser?.email === 'admin@goa.city');
+    console.log("[GUARD] SuperAdmin check:", { email: adminUser?.email, isSuper, isSuperFlag: adminUser?.isSuperAdmin });
 
     if (!adminUser || !isSuper) {
-        console.warn("[AUTH] SuperAdmin access denied for:", adminUser?.email);
+        console.warn("[GUARD] SuperAdmin access denied for:", adminUser?.email);
         return <Navigate to="/admin" />;
     }
     
@@ -97,15 +100,15 @@ function App() {
       <AdminAuthProvider>
         <Router>
           <Routes>
-            {/* Public/Shared Routes */}
+            {/* 1. Public Routes */}
             <Route path="/" element={<Login />} />
             <Route path="/home" element={<Home />} />
             <Route path="/admin/login" element={<AdminLogin />} />
 
-            {/* Combined Admin Protected Area */}
+            {/* 2. Admin Protected Routes (Shared Sidebar Layout) */}
             <Route element={<AdminProtectedRoute />}>
               <Route element={<AdminLayout />}>
-                {/* Standard Admin Routes */}
+                {/* Regular Admin Pages */}
                 <Route path="/admin" element={<AdminDashboard />} />
                 <Route path="/admin/members" element={<AdminMembers />} />
                 <Route path="/admin/members/create" element={<AdminMemberCreate />} />
@@ -132,7 +135,7 @@ function App() {
                 <Route path="/admin/email-templates/:id" element={<AdminEmailTemplateEditor />} />
                 <Route path="/admin/admins" element={<AdminAdmins />} />
 
-                {/* Super Admin Area (Nested in sidebar layout) */}
+                {/* Super Admin Pages (Deep Access Required) */}
                 <Route element={<SuperAdminProtectedRoute />}>
                   <Route path="/admin/superadmin" element={<AdminCities />} />
                   <Route path="/admin/superadmin/cities" element={<AdminCities />} />
@@ -142,7 +145,7 @@ function App() {
               </Route>
             </Route>
 
-            {/* Member Protected Routes */}
+            {/* 3. Member Protected Routes */}
             <Route element={<MemberProtectedRoute />}>
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/news" element={<News />} />
