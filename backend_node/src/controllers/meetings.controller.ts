@@ -451,7 +451,7 @@ export const notifyMeetingMembers = async (req: Request, res: Response) => {
                 `DTSTAMP:${dtStamp}`,
                 `DTSTART;TZID=Asia/Kolkata:${formatICSDate(dtStart)}`,
                 `DTEND;TZID=Asia/Kolkata:${formatICSDate(dtEnd)}`,
-                'ORGANIZER;CN="Goa City":mailto:admin@goa.city',
+                'ORGANIZER;CN="Goa.City":mailto:admin@goa.city',
                 `SUMMARY:${meeting.title}`,
             ];
 
@@ -522,6 +522,15 @@ export const notifyMeetingMembers = async (req: Request, res: Response) => {
                 const sent = await sendEmail(m.email, subject, html, icsAttachment);
                 if (sent) successCount++;
             }
+        }
+
+        // COLLECT EMAILS AND SYNC TO GOOGLE CALENDAR AS ATTENDEES
+        const attendeeEmails = members.filter(m => m.email).map(m => m.email);
+        if (attendeeEmails.length > 0) {
+            console.log(`[MEETINGS] Syncing ${attendeeEmails.length} attendees to Google Calendar...`);
+            createGoogleCalendarEvent(meeting, attendeeEmails).catch(err => {
+                console.error('[MEETINGS] Google Calendar Background Sync Error:', err);
+            });
         }
 
         return res.json({ success: true, message: `Notification sent to ${successCount} members.` });

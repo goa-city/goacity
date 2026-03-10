@@ -17,6 +17,8 @@ import { submitIdea, getActiveIdeas, submitFeedback, getAdminIdeas, updateIdeaSt
 import { getMyPeople, getMemberProfile, requestCollaboration, getAdminCollabs, updateCollabStatus, getDashboardCollabs, devAutoTestCollab } from './controllers/collab.controller.js';
 import { getPage, getAdminPages, createPage, updatePage, deletePage, getAdminPageById } from './controllers/pages.controller.js';
 import { getTemplates, createTemplate, updateTemplate, deleteTemplate, getTemplateById } from './controllers/email-template.controller.js';
+import { handleGoogleCalendarWebhook } from './controllers/webhooks.controller.js';
+import { watchCalendar } from './utils/google-calendar.js';
 import { authMiddleware } from './middleware/auth.js';
 
 const app = express();
@@ -159,6 +161,11 @@ app.post('/api/admin/email-templates', authMiddleware, createTemplate);
 app.put('/api/admin/email-templates/:id', authMiddleware, updateTemplate);
 app.delete('/api/admin/email-templates/:id', authMiddleware, deleteTemplate);
 
+app.post('/api/admin/calendar/watch', authMiddleware, async (req, res) => {
+    const result = await watchCalendar();
+    res.json(result);
+});
+
 // ---- Member Routes (Protected) ----
 app.get('/api/member/dashboard', authMiddleware, getDashboard);
 app.get('/api/member/profile', authMiddleware, getProfile);
@@ -218,6 +225,9 @@ app.post('/api/resources', upload.any(), createResource);
 
 // Public Pages
 app.get('/api/pages/:slug', getPage);
+
+// Webhooks
+app.post('/api/webhooks/google-calendar', handleGoogleCalendarWebhook);
 
 // Health
 app.get('/health', (_req: express.Request, res: express.Response) => {

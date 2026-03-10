@@ -2,12 +2,8 @@ import { google } from 'googleapis';
 
 const calendar = google.calendar('v3');
 
-/**
- * Creates or updates an event in Google Calendar.
- * 
- * TODO: Currently set up to use a Service Account from process.env.GOOGLE_SERVICE_ACCOUNT_JSON.
- */
-export const createGoogleCalendarEvent = async (meeting: any) => {
+// backend_node/src/utils/google-calendar.ts
+export const createGoogleCalendarEvent = async (meeting: any, attendeeEmails: string[] = []) => {
     try {
         const saJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
         if (!saJson) {
@@ -62,9 +58,10 @@ export const createGoogleCalendarEvent = async (meeting: any) => {
                 timeZone: 'Asia/Kolkata',
             },
             organizer: {
-                displayName: 'Goa City',
+                displayName: 'Goa.City',
                 email: 'goacity26@gmail.com',
             },
+            attendees: attendeeEmails.map(email => ({ email })),
         };
 
         console.log(`[CALENDAR] Syncing ${meeting.title} to goacity26@gmail.com...`);
@@ -79,6 +76,7 @@ export const createGoogleCalendarEvent = async (meeting: any) => {
                 calendarId,
                 eventId: meeting.google_event_id,
                 requestBody: event,
+                sendUpdates: 'all',
             });
         } else {
             console.log(`[CALENDAR] Creating new event for ${meeting.title}...`);
@@ -86,6 +84,7 @@ export const createGoogleCalendarEvent = async (meeting: any) => {
                 auth,
                 calendarId,
                 requestBody: event,
+                sendUpdates: 'all',
             });
 
             // Save the newly created event ID to our database
@@ -109,6 +108,48 @@ export const createGoogleCalendarEvent = async (meeting: any) => {
         return response.data;
     } catch (error: any) {
         console.error('[CALENDAR] Sync Error:', error.message);
+        return null;
+    }
+};
+
+/**
+ * Sets up a watch (webhook) on the Google Calendar.
+ * Google will notify our webhook URL whenever a change occurs.
+ */
+export const watchCalendar = async () => {
+    try {
+        const saJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+        if (!saJson) return null;
+
+        const credentials = JSON.parse(saJson);
+        const auth = new google.auth.JWT({
+            email: credentials.client_email,
+            key: credentials.private_key,
+            scopes: [
+                'https://www.googleapis.com/auth/calendar.events',
+                'https://www.googleapis.com/auth/calendar.readonly'
+            ]
+        });
+
+        const calendarId = process.env.GOOGLE_CALENDAR_ID || 'primary';
+        const webhookUrl = 'https://goa.city/api/webhooks/google-calendar';
+
+        console.log(`[CALENDAR] Setting up watch for ${calendarId} -> ${webhookUrl}`);
+
+        const response = await calendar.events.watch({
+            auth,
+            calendarId,
+            requestBody: {
+                id: `watch-${Date.now()}`, // Unique ID for this channel
+                type: 'web_hook',
+                address: webhookUrl,
+            },
+        });
+
+        console.log('[CALENDAR] Watch session created:', response.data);
+        return response.data;
+    } catch (err: any) {
+        console.error('[CALENDAR] Watch Error:', err.message);
         return null;
     }
 };

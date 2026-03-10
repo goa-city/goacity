@@ -17,13 +17,20 @@ import {
     HandRaisedIcon,
     UserGroupIcon,
     NewspaperIcon,
-    EnvelopeIcon
+    EnvelopeIcon,
+    ChevronDownIcon,
+    WindowIcon
 } from '@heroicons/react/24/outline';
 
 const AdminLayout = () => {
     const { logout, adminUser } = useAdminAuth();
     const navigate = useNavigate();
     const location = useLocation();
+    const [openGroup, setOpenGroup] = useState('communications');
+
+    const toggleGroup = (groupId) => {
+        setOpenGroup(prev => prev === groupId ? null : groupId);
+    };
 
     // Determine active tab based on path
     const getActiveTab = (path) => {
@@ -39,6 +46,9 @@ const AdminLayout = () => {
         if (path.includes('/admin/streams')) return 'streams';
         if (path.includes('/admin/stewardship')) return 'stewardship';
         if (path.includes('/admin/admins')) return 'admins';
+        if (path.includes('/admin/mentorship')) return 'mentorship';
+        if (path.includes('/admin/incubator')) return 'incubator';
+        if (path.includes('/admin/collabs')) return 'collabs';
         return 'overview';
     };
 
@@ -46,51 +56,118 @@ const AdminLayout = () => {
 
     const navigation = [
         { name: 'Overview', icon: HomeIcon, id: 'overview', path: '/admin' },
-        { name: 'Members', icon: UsersIcon, id: 'members', path: '/admin/members' },
-        { name: 'Streams', icon: InboxStackIcon, id: 'streams', path: '/admin/streams' },
-        { name: 'Meetings', icon: CalendarDaysIcon, id: 'meetings', path: '/admin/meetings' },
-        { name: 'Forms', icon: DocumentTextIcon, id: 'forms', path: '/admin/forms' },
-        { name: 'Stewardship', icon: SparklesIcon, id: 'stewardship', path: '/admin/stewardship' },
-        { name: 'Mentorship', icon: HeartIcon, id: 'mentorship', path: '/admin/mentorship' },
-        { name: 'Incubator', icon: LightBulbIcon, id: 'incubator', path: '/admin/incubator' },
-        { name: 'Collab Desk', icon: HandRaisedIcon, id: 'collabs', path: '/admin/collabs' },
-        { name: 'Job Board', icon: BriefcaseIcon, id: 'jobs', path: '/admin/jobs' },
-        { name: 'Resources', icon: BookOpenIcon, id: 'resources', path: '/admin/resources' },
-        { name: 'News Feed', icon: NewspaperIcon, id: 'news', path: '/admin/news' },
-        { name: 'Custom Pages', icon: DocumentTextIcon, id: 'pages', path: '/admin/pages' },
-        { name: 'Email Templates', icon: EnvelopeIcon, id: 'email-templates', path: '/admin/email-templates' },
-        { name: 'Admin Users', icon: UserGroupIcon, id: 'admins', path: '/admin/admins' },
-    ];
+              {
+            name: 'Controls',
+            id: 'controls',
+            icon: InboxStackIcon,
+            subItems: [
+                { name: 'Members', icon: UsersIcon, id: 'members', path: '/admin/members' },
+                { name: 'Streams', icon: InboxStackIcon, id: 'streams', path: '/admin/streams' },
+                { name: 'Admin Users', icon: UserGroupIcon, id: 'admins', path: '/admin/admins' },
+            ]
+        },
+         {
+            name: 'Communications',
+            id: 'communications',
+            icon: EnvelopeIcon,
+            subItems: [
+                { name: 'Meetings', icon: CalendarDaysIcon, id: 'meetings', path: '/admin/meetings' },
+                { name: 'Forms', icon: DocumentTextIcon, id: 'forms', path: '/admin/forms' },
+                { name: 'Email Templates', icon: EnvelopeIcon, id: 'email-templates', path: '/admin/email-templates' },
+            ]
+        },
+        {
+            name: 'Community',
+            id: 'community',
+            icon: UsersIcon,
+            subItems: [
+                { name: 'Stewardship', icon: SparklesIcon, id: 'stewardship', path: '/admin/stewardship' },
+                { name: 'Mentorship', icon: HeartIcon, id: 'mentorship', path: '/admin/mentorship' },
+                { name: 'Incubator', icon: LightBulbIcon, id: 'incubator', path: '/admin/incubator' },
+                { name: 'Collab Desk', icon: HandRaisedIcon, id: 'collabs', path: '/admin/collabs' },
+                { name: 'Job Board', icon: BriefcaseIcon, id: 'jobs', path: '/admin/jobs' },
+                { name: 'News Feed', icon: NewspaperIcon, id: 'news', path: '/admin/news' },
+            ]
+        },
+         {
+            name: 'Content',
+            id: 'content',
+            icon: WindowIcon,
+            subItems: [
+                { name: 'Resources', icon: BookOpenIcon, id: 'resources', path: '/admin/resources' },
+                { name: 'Custom Pages', icon: DocumentTextIcon, id: 'pages', path: '/admin/pages' },
+            ]
+        } 
+     ];
 
     return (
         <div className="flex h-screen bg-[#F8FAFC] font-sans overflow-hidden">
             {/* Sidebar */}
             <div className="w-72 bg-slate-950 text-white flex flex-col flex-shrink-0 shadow-[4px_0_24px_rgba(0,0,0,0.1)] relative z-20">
-                <div className="p-8">
+                <div className="p-8 pb-4">
                     <div className="flex items-center gap-3 mb-2">
                         <div className="w-8 h-8 bg-sky-500 rounded-lg flex items-center justify-center font-black text-white text-lg tracking-tighter italic">G</div>
                         <h1 className="text-xl font-black tracking-widest text-white uppercase italic">GOA.CITY</h1>
                     </div>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] ml-11">Admin Console</p>
+                    <p className="text-slate-500 font-bold uppercase tracking-[0.2em] ml-11">Admin Console</p>
                 </div>
 
-                <nav className="flex-1 px-4 mt-4 space-y-1.5 overflow-y-auto custom-scrollbar">
-                    {navigation.map((item) => (
-                        <button
-                            key={item.id}
-                            onClick={() => navigate(item.path)}
-                            className={`flex w-full items-center gap-3.5 px-5 py-3.5 rounded-2xl transition-all duration-200 group relative ${
-                                activeTab === item.id 
-                                    ? 'bg-sky-500/10 text-sky-400 font-bold' 
-                                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
-                            }`}
-                        >
-                            {activeTab === item.id && (
-                                <div className="absolute left-0 w-1 h-6 bg-sky-500 rounded-r-full"></div>
+                <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto custom-scrollbar">
+                    {navigation.map((group) => (
+                        <div key={group.id} className="space-y-1">
+                            {group.subItems ? (
+                                <>
+                                    <button
+                                        onClick={() => toggleGroup(group.id)}
+                                        className="flex w-full items-center justify-between gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative text-slate-400 hover:text-white hover:bg-slate-900"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <group.icon className={`h-5 w-5 text-slate-600 group-hover:text-slate-200`} />
+                                            <span className="text-sm font-bold tracking-tight">{group.name}</span>
+                                        </div>
+                                        <ChevronDownIcon className={`w-3 h-3 transition-transform duration-300 ${openGroup === group.id ? 'rotate-180' : ''}`} />
+                                    </button>
+                                    
+                                    {openGroup === group.id && (
+                                        <div className="space-y-1 mt-1">
+                                            {group.subItems.map((item) => (
+                                                <button
+                                                    key={item.id}
+                                                    onClick={() => navigate(item.path)}
+                                                    className={`flex w-full items-center gap-3 px-6 py-2.5 rounded-xl transition-all duration-200 group relative ${
+                                                        activeTab === item.id 
+                                                            ? 'bg-sky-500/10 text-sky-400 font-bold' 
+                                                            : 'text-slate-400 hover:text-white hover:bg-slate-900/50'
+                                                    }`}
+                                                >
+                                                    {activeTab === item.id && (
+                                                        <div className="absolute left-0 w-0.5 h-4 bg-sky-500 rounded-r-full"></div>
+                                                    )}
+                                                    <item.icon className={`h-4 w-4 ${activeTab === item.id ? 'text-sky-400' : 'text-slate-600 group-hover:text-slate-400'}`} />
+                                                    <span className="text-sm tracking-tight">{item.name}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                <button
+                                    key={group.id}
+                                    onClick={() => navigate(group.path)}
+                                    className={`flex w-full items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative ${
+                                        activeTab === group.id 
+                                            ? 'bg-sky-500/10 text-sky-400 font-bold' 
+                                            : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                                    }`}
+                                >
+                                    {activeTab === group.id && (
+                                        <div className="absolute left-0 w-0.5 h-6 bg-sky-500 rounded-r-full"></div>
+                                    )}
+                                    <group.icon className={`h-5 w-5 ${activeTab === group.id ? 'text-sky-400' : 'text-slate-600 group-hover:text-slate-200'}`} />
+                                    <span className="text-sm font-bold tracking-tight">{group.name}</span>
+                                </button>
                             )}
-                            <item.icon className={`h-5 w-5 ${activeTab === item.id ? 'text-sky-400' : 'text-slate-600 group-hover:text-slate-200'}`} />
-                            <span className="text-sm tracking-tight">{item.name}</span>
-                        </button>
+                        </div>
                     ))}
                 </nav>
 
@@ -100,7 +177,7 @@ const AdminLayout = () => {
                             {(adminUser?.full_name || 'A')[0]}
                         </div>
                         <div className="flex-1 min-w-0">
-                            <p className="text-[10px] text-slate-600 font-black uppercase tracking-widest">Administrator</p>
+                            <p className="text-slate-600 font-black uppercase tracking-widest">Administrator</p>
                             <p className="text-sm font-bold text-slate-200 truncate">{adminUser?.full_name || adminUser?.email || 'System Admin'}</p>
                         </div>
                     </div>
