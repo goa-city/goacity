@@ -72,7 +72,7 @@ const AdminProtectedRoute = ({ children }) => {
     if (loading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
     if (!adminUser) return <Navigate to="/admin/login" />;
     
-    return children;
+    return children ? children : <Outlet />;
 };
 
 // Super Admin Protected Route
@@ -81,8 +81,6 @@ const SuperAdminProtectedRoute = ({ children }) => {
     
     if (loading) return <div className="min-h-screen flex items-center justify-center font-black animate-pulse uppercase tracking-[0.3em] text-slate-400">Authenticating...</div>;
     
-    // Check if user is logged in and is a super admin
-    // Adding secondary check for specific email as a failsafe
     const isSuper = adminUser?.isSuperAdmin || (adminUser?.email === 'admin@goa.city');
 
     if (!adminUser || !isSuper) {
@@ -90,7 +88,7 @@ const SuperAdminProtectedRoute = ({ children }) => {
         return <Navigate to="/admin" />;
     }
     
-    return children;
+    return children ? children : <Outlet />;
 };
 
 function App() {
@@ -104,68 +102,69 @@ function App() {
             <Route path="/home" element={<Home />} />
             <Route path="/admin/login" element={<AdminLogin />} />
 
-            {/* Admin Area */}
-            <Route element={<AdminProtectedRoute><AdminLayout><Outlet /></AdminLayout></AdminProtectedRoute>}>
-              <Route path="/admin" element={<AdminDashboard />} />
-              <Route path="/admin/members" element={<AdminMembers />} />
-              <Route path="/admin/members/create" element={<AdminMemberCreate />} />
-              <Route path="/admin/members/:id" element={<AdminMemberDetail />} />
-              <Route path="/admin/meetings" element={<AdminMeetings />} />
-              <Route path="/admin/meetings/create" element={<AdminMeetingEditor />} />
-              <Route path="/admin/meetings/:id" element={<AdminMeetingEditor />} />
-              <Route path="/admin/streams" element={<AdminStreams />} />
-              <Route path="/admin/forms" element={<AdminForms />} />
-              <Route path="/admin/forms/:id" element={<AdminFormEditor />} />
-              <Route path="/admin/stewardship" element={<AdminStewardship />} />
-              <Route path="/admin/mentorship" element={<AdminMentorship />} />
-              <Route path="/admin/incubator" element={<AdminIncubator />} />
-              <Route path="/admin/collabs" element={<AdminCollabs />} />
-              <Route path="/admin/jobs" element={<AdminJobs />} />
-              <Route path="/admin/jobs/:id" element={<AdminJobEditor />} />
-              <Route path="/admin/resources" element={<AdminResources />} />
-              <Route path="/admin/resources/:id" element={<AdminResourceEditor />} />
-              <Route path="/admin/news" element={<AdminNews />} />
-              <Route path="/admin/pages" element={<AdminPages />} />
-              <Route path="/admin/pages/:id" element={<AdminPageEditor />} />
-              <Route path="/admin/email-templates" element={<AdminEmailTemplates />} />
-              <Route path="/admin/email-templates/create" element={<AdminEmailTemplateEditor />} />
-              <Route path="/admin/email-templates/:id" element={<AdminEmailTemplateEditor />} />
-              <Route path="/admin/admins" element={<AdminAdmins />} />
-            </Route>
+            {/* Combined Admin Protected Area */}
+            <Route element={<AdminProtectedRoute />}>
+              <Route element={<AdminLayout />}>
+                {/* Standard Admin Routes */}
+                <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/admin/members" element={<AdminMembers />} />
+                <Route path="/admin/members/create" element={<AdminMemberCreate />} />
+                <Route path="/admin/members/:id" element={<AdminMemberDetail />} />
+                <Route path="/admin/meetings" element={<AdminMeetings />} />
+                <Route path="/admin/meetings/create" element={<AdminMeetingEditor />} />
+                <Route path="/admin/meetings/:id" element={<AdminMeetingEditor />} />
+                <Route path="/admin/streams" element={<AdminStreams />} />
+                <Route path="/admin/forms" element={<AdminForms />} />
+                <Route path="/admin/forms/:id" element={<AdminFormEditor />} />
+                <Route path="/admin/stewardship" element={<AdminStewardship />} />
+                <Route path="/admin/mentorship" element={<AdminMentorship />} />
+                <Route path="/admin/incubator" element={<AdminIncubator />} />
+                <Route path="/admin/collabs" element={<AdminCollabs />} />
+                <Route path="/admin/jobs" element={<AdminJobs />} />
+                <Route path="/admin/jobs/:id" element={<AdminJobEditor />} />
+                <Route path="/admin/resources" element={<AdminResources />} />
+                <Route path="/admin/resources/:id" element={<AdminResourceEditor />} />
+                <Route path="/admin/news" element={<AdminNews />} />
+                <Route path="/admin/pages" element={<AdminPages />} />
+                <Route path="/admin/pages/:id" element={<AdminPageEditor />} />
+                <Route path="/admin/email-templates" element={<AdminEmailTemplates />} />
+                <Route path="/admin/email-templates/create" element={<AdminEmailTemplateEditor />} />
+                <Route path="/admin/email-templates/:id" element={<AdminEmailTemplateEditor />} />
+                <Route path="/admin/admins" element={<AdminAdmins />} />
 
-            {/* Super Admin Area (Top Level) */}
-            <Route element={<SuperAdminProtectedRoute><AdminLayout><Outlet /></AdminLayout></SuperAdminProtectedRoute>}>
-              <Route path="/superadmin" element={<AdminCities />} />
-              <Route path="/superadmin/cities" element={<AdminCities />} />
-            </Route>
-
-            {/* Super Admin Area (Secondary mirror under /admin for server routing compatibility) */}
-            <Route element={<SuperAdminProtectedRoute><AdminLayout><Outlet /></AdminLayout></SuperAdminProtectedRoute>}>
-              <Route path="/admin/superadmin" element={<AdminCities />} />
-              <Route path="/admin/superadmin/cities" element={<AdminCities />} />
+                {/* Super Admin Area (Nested in sidebar layout) */}
+                <Route element={<SuperAdminProtectedRoute />}>
+                  <Route path="/admin/superadmin" element={<AdminCities />} />
+                  <Route path="/admin/superadmin/cities" element={<AdminCities />} />
+                  <Route path="/superadmin" element={<AdminCities />} />
+                  <Route path="/superadmin/cities" element={<AdminCities />} />
+                </Route>
+              </Route>
             </Route>
 
             {/* Member Protected Routes */}
-            <Route path="/dashboard" element={<MemberProtectedRoute><Dashboard /></MemberProtectedRoute>} />
-            <Route path="/news" element={<MemberProtectedRoute><News /></MemberProtectedRoute>} />
-            <Route path="/profile" element={<MemberProtectedRoute><Profile /></MemberProtectedRoute>} />
-            <Route path="/resources" element={<MemberProtectedRoute><Resources /></MemberProtectedRoute>} />
-            <Route path="/resources/add" element={<MemberProtectedRoute><ResourceEditor /></MemberProtectedRoute>} />
-            <Route path="/jobs" element={<MemberProtectedRoute><Jobs /></MemberProtectedRoute>} />
-            <Route path="/jobs/post" element={<MemberProtectedRoute><JobEditor /></MemberProtectedRoute>} />
-            <Route path="/stewardship" element={<MemberProtectedRoute><StewardshipDashboard /></MemberProtectedRoute>} />
-            <Route path="/mentors" element={<MemberProtectedRoute><Mentors /></MemberProtectedRoute>} />
-            <Route path="/dashboard/mentorship/:id" element={<MemberProtectedRoute><MentorshipWorkspace /></MemberProtectedRoute>} />
-            <Route path="/my-people" element={<MemberProtectedRoute><MyPeople /></MemberProtectedRoute>} />
-            <Route path="/profile/:id" element={<MemberProtectedRoute><PublicProfile /></MemberProtectedRoute>} />
-            <Route path="/meetings" element={<MemberProtectedRoute><MemberMeetings /></MemberProtectedRoute>} />
-            <Route path="/meetings/:id" element={<MemberProtectedRoute><MeetingView /></MemberProtectedRoute>} />
-            <Route path="/incubator/submit" element={<MemberProtectedRoute><IncubatorSubmit /></MemberProtectedRoute>} />
-            <Route path="/incubator/explore" element={<MemberProtectedRoute><IncubatorExplore /></MemberProtectedRoute>} />
-            <Route path="/onboarding" element={<MemberProtectedRoute><Onboarding /></MemberProtectedRoute>} />
-            <Route path="/debug-streams" element={<MemberProtectedRoute><DebugStreams /></MemberProtectedRoute>} />
-            <Route path="/onboarding/form/:formId" element={<MemberProtectedRoute><Onboarding /></MemberProtectedRoute>} />
-            <Route path="/pages/:slug" element={<MemberProtectedRoute><PageView /></MemberProtectedRoute>} />
+            <Route element={<MemberProtectedRoute />}>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/news" element={<News />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/resources" element={<Resources />} />
+              <Route path="/resources/add" element={<ResourceEditor />} />
+              <Route path="/jobs" element={<Jobs />} />
+              <Route path="/jobs/post" element={<JobEditor />} />
+              <Route path="/stewardship" element={<StewardshipDashboard />} />
+              <Route path="/mentors" element={<Mentors />} />
+              <Route path="/dashboard/mentorship/:id" element={<MentorshipWorkspace />} />
+              <Route path="/my-people" element={<MyPeople />} />
+              <Route path="/profile/:id" element={<PublicProfile />} />
+              <Route path="/meetings" element={<MemberMeetings />} />
+              <Route path="/meetings/:id" element={<MeetingView />} />
+              <Route path="/incubator/submit" element={<IncubatorSubmit />} />
+              <Route path="/incubator/explore" element={<IncubatorExplore />} />
+              <Route path="/onboarding" element={<Onboarding />} />
+              <Route path="/debug-streams" element={<DebugStreams />} />
+              <Route path="/onboarding/form/:formId" element={<Onboarding />} />
+              <Route path="/pages/:slug" element={<PageView />} />
+            </Route>
           </Routes>
         </Router>
       </AdminAuthProvider>
