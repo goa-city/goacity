@@ -103,18 +103,8 @@ const AdminLayout = () => {
         } 
      ];
 
-    // Build sidebar menu with conditional Super Admin section
+    // Build sidebar menu
     const sidebarGroups = [...navigation];
-    if (adminUser?.isSuperAdmin) {
-        sidebarGroups.unshift({
-            name: 'Super Admin Dashboard',
-            id: 'super-admin',
-            icon: GlobeAltIcon,
-            subItems: [
-                { name: 'Cities Management', icon: GlobeAltIcon, id: 'super-cities', path: '/admin/superadmin/cities' },
-            ]
-        });
-    }
 
     return (
         <div className="flex h-screen bg-[#F8FAFC] font-sans overflow-hidden">

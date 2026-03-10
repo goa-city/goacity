@@ -11,10 +11,13 @@ api.interceptors.request.use(
     (config) => {
         let token = null;
 
-        // 1. Identify if this is likely an admin request
+        // 1. Super Admin routes get the dedicated super admin token
+        const isSuperAdminRequest = config.url.includes('/superadmin/');
         const isAdminRequest = config.url.includes('/admin/');
 
-        if (isAdminRequest) {
+        if (isSuperAdminRequest) {
+            token = localStorage.getItem('superadmin_token');
+        } else if (isAdminRequest) {
             // Admin tokens should only come from localStorage
             token = localStorage.getItem('admin_token');
         } else {
