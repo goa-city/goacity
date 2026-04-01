@@ -13,6 +13,10 @@ import {
     ArrowRightIcon
 } from '@heroicons/react/24/outline';
 import { CheckIcon } from '@heroicons/react/24/solid';
+import { useToast } from '../hooks/useToast';
+import ToastDisplay from '../components/ToastDisplay';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { Capacitor } from '@capacitor/core';
 
 const MemberMeetings = () => {
     const { user } = useAuth();
@@ -21,6 +25,8 @@ const MemberMeetings = () => {
     const [loading, setLoading] = useState(true);
     const [paymentModalOpen, setPaymentModalOpen] = useState(false);
     const [selectedMeeting, setSelectedMeeting] = useState(null);
+    const { toast, showToast } = useToast();
+    const isNative = Capacitor.isNativePlatform();
 
     useEffect(() => {
         const fetchMeetings = async () => {
@@ -38,7 +44,7 @@ const MemberMeetings = () => {
     }, [user]);
 
     const handleRSVP = async (meetingId, status) => {
-        if (!user) return alert("Please login to RSVP");
+        if (!user) return showToast('Please login to RSVP', 'error');
         try {
             await api.post('/meeting-actions', {
                 user_id: user.id,
@@ -51,12 +57,12 @@ const MemberMeetings = () => {
             ));
         } catch (e) {
             console.error(e);
-            alert("Failed to update RSVP");
+            showToast('Failed to update RSVP', 'error');
         }
     };
 
     const handleCheckInClick = (meeting) => {
-        if (!user) return alert("Please login to Check-in");
+        if (!user) return showToast('Please login to Check-in', 'error');
         
         if (meeting.is_paid == 1 && meeting.my_payment_status !== 'paid_online' && meeting.my_payment_status !== 'paid_cash') {
             setSelectedMeeting(meeting);
@@ -77,10 +83,14 @@ const MemberMeetings = () => {
             setMeetings(prev => prev.map(m => 
                 m.id === meetingId ? { ...m, my_checkin: 1 } : m
             ));
-            alert("Checked in successfully!");
+            showToast('Checked in successfully!', 'success');
+            // Haptic feedback on native
+            if (isNative) {
+                try { Haptics.impact({ style: ImpactStyle.Medium }); } catch (_) {}
+            }
         } catch (e) {
             console.error(e);
-            alert("Failed to check in");
+            showToast('Failed to check in', 'error');
         }
     };
 
@@ -110,11 +120,13 @@ const MemberMeetings = () => {
 
             setPaymentModalOpen(false);
             setSelectedMeeting(null);
-            alert("Payment recorded and Checked in!");
-
+            showToast('Payment recorded and Checked in!', 'success');
+            if (isNative) {
+                try { Haptics.impact({ style: ImpactStyle.Medium }); } catch (_) {}
+            }
         } catch (e) {
             console.error(e);
-            alert("Failed to record payment");
+            showToast('Failed to record payment', 'error');
         }
     };
 
@@ -146,6 +158,7 @@ const MemberMeetings = () => {
 
     return (
         <DashboardLayout>
+            <ToastDisplay toast={toast} />
             <div className="mb-8">
                 <h1 className="text-3xl font-extrabold text-[#2D2D46]">Meetings</h1>
                 <p className="text-gray-500 mt-2">Manage your stream events, RSVP, and check in below.</p>

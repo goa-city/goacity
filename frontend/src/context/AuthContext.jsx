@@ -4,47 +4,15 @@ import { useNavigate } from 'react-router-dom';
 
 const AuthContext = createContext();
 
-// Helper functions for cookies
-const setCookie = (name, value, days) => {
-    let expires = "";
-    if (days) {
-        const date = new Date();
-        date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
-        expires = "; expires=" + date.toUTCString();
-    }
-    document.cookie = name + "=" + (value || "") + expires + "; path=/; SameSite=Strict"; // Added SameSite for security
-};
-
-const getCookie = (name) => {
-    const nameEQ = name + "=";
-    const ca = document.cookie.split(';');
-    for (let i = 0; i < ca.length; i++) {
-        let c = ca[i];
-        while (c.charAt(0) === ' ') c = c.substring(1, c.length);
-        if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
-    }
-    return null;
-};
-
-const removeCookie = (name) => {
-    document.cookie = name + '=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
-};
-
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const checkUser = async () => {
-            // Check Member cookies first (persistent "Remember Me" login)
-            let token = getCookie('token');
-            let storedUser = getCookie('user');
-
-            // Fallback to localStorage
-            if (!token || !storedUser) {
-                token = localStorage.getItem('token');
-                storedUser = localStorage.getItem('user');
-            }
+            // Check localStorage first (persistent "Remember Me" login)
+            let token = localStorage.getItem('token');
+            let storedUser = localStorage.getItem('user');
 
             // Fallback to sessionStorage (non-persistent session login)
             if (!token || !storedUser) {
@@ -97,15 +65,13 @@ export const AuthProvider = ({ children }) => {
             const userString = JSON.stringify(user);
 
             if (rememberMe) {
-                setCookie('token', token, 180);
-                setCookie('user', userString, 180);
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
+                localStorage.setItem('token', token);
+                localStorage.setItem('user', userString);
+                sessionStorage.removeItem('token');
+                sessionStorage.removeItem('user');
             } else {
                 sessionStorage.setItem('token', token);
                 sessionStorage.setItem('user', userString);
-                removeCookie('token');
-                removeCookie('user');
                 localStorage.removeItem('token');
                 localStorage.removeItem('user');
             }
@@ -122,8 +88,6 @@ export const AuthProvider = ({ children }) => {
     };
 
     const logout = () => {
-        removeCookie('token');
-        removeCookie('user');
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         sessionStorage.removeItem('token');

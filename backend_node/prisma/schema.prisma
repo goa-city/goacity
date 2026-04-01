@@ -158,6 +158,7 @@ model FormResponse {
   answers      FormAnswer[]
   submitted_at DateTime? @default(now()) @db.Timestamp(6)
   status       String?   @default("draft") @db.VarChar(50)
+  last_step_index Int?   @default(0)
   
   city_id      Int?      @default(1)
   city         City?     @relation(fields: [city_id], references: [id])
@@ -206,6 +207,7 @@ model FormAnswer {
   response     FormResponse? @relation(fields: [response_id], references: [id], onDelete: Cascade)
   field_key    String    @db.VarChar(100)
   answer_value String?
+  is_answered  Boolean   @default(true)
 
   @@map("form_answers")
 }

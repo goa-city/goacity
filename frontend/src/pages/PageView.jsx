@@ -38,7 +38,7 @@ const PageView = () => {
             <div className="max-w-3xl mx-auto py-8">
                 <h1 className="text-4xl font-extrabold text-gray-900 mb-8 tracking-tight">{page.title}</h1>
                 <div 
-                    className="prose prose-lg max-w-none text-gray-700 leading-relaxed space-y-4"
+                    className="prose prose-lg max-w-none text-gray-700 leading-relaxed space-y-4 overflow-x-auto break-words prose-img:max-w-full prose-img:h-auto"
                     dangerouslySetInnerHTML={{ __html: page.content }}
                 />
             </div>

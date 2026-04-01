@@ -84,10 +84,10 @@ export const getUsers = async (req: Request, res: Response) => {
                 include: { 
                     streams: { include: { stream: true } },
                     profiles: true,
-                    form_responses: {
+                    responses: {
                         include: {
                             form: true,
-                            answers: true // If we need them all at once
+                            answers: true 
                         },
                         orderBy: { submitted_at: 'desc' }
                     }
@@ -110,7 +110,7 @@ export const getUsers = async (req: Request, res: Response) => {
             });
 
             // Format form responses
-            const formattedResponses = (member as any).form_responses.map((fr: any) => ({
+            const formattedResponses = (member as any).responses.map((fr: any) => ({
                 response_id: fr.id,
                 form_id: fr.form_id,
                 submitted_at: fr.submitted_at,

@@ -1,10 +1,13 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckIcon, ArrowRightIcon, ChevronLeftIcon, CloudArrowUpIcon, ChevronRightIcon, SunIcon, MoonIcon } from '@heroicons/react/24/solid';
+import { CheckIcon, ArrowRightIcon, ChevronLeftIcon, CloudArrowUpIcon, ChevronRightIcon, SunIcon, MoonIcon, CalendarIcon } from '@heroicons/react/24/solid';
 import GoaLandscape from '../components/GoaLandscape';
+import DatePicker from 'react-datepicker';
+import "react-datepicker/dist/react-datepicker.css";
+import { format, parse, isValid } from 'date-fns';
 
 const Onboarding = () => {
     const { user } = useAuth();
@@ -180,22 +183,22 @@ const Onboarding = () => {
         }
     };
 
-    const saveProgress = async () => {
+    const saveProgress = useCallback(async (stepOverride = null) => {
         try {
-             const payload = new FormData();
+            const payload = new FormData();
             Object.keys(formData).forEach(key => {
                  const value = formData[key];
-                if (value instanceof File) {
-                     // Don't auto-save files usually, or handle carefully
-                     // payload.append(key, value);
-                } else if (typeof value === 'object' && value !== null) {
+                 if (value instanceof File) {
+                      // Don't auto-save files to save bandwidth, but keep existing paths
+                 } else if (typeof value === 'object' && value !== null) {
                     payload.append(key, JSON.stringify(value));
                 } else {
-                    payload.append(key, value);
+                    payload.append(key, value || '');
                 }
             });
             
             payload.append('is_partial', '1');
+            payload.append('last_step_index', (stepOverride !== null ? stepOverride : currentStep).toString());
 
              let endpoint = '/member/onboarding';
             if (formId) {
@@ -206,11 +209,31 @@ const Onboarding = () => {
             await api.post(endpoint, payload, {
                  headers: { 'Content-Type': 'multipart/form-data' }
             });
-            console.log("Progress saved");
+            console.log("Progress autosaved at step", stepOverride !== null ? stepOverride : currentStep);
         } catch (error) {
             console.error("Auto-save failed", error);
         }
-    };
+    }, [formData, currentStep, formId]);
+
+    // --- NEW: Debounced Autosave Effect ---
+    const skipAutosave = useRef(true);
+    useEffect(() => {
+        if (fetchingForm || questions.length === 0) return;
+        
+        // Skip the very first run after fetching form
+        if (skipAutosave.current) {
+            skipAutosave.current = false;
+            return;
+        }
+
+        const timer = setTimeout(() => {
+            saveProgress();
+        }, 1500); // 1.5s debounce
+
+        return () => clearTimeout(timer);
+    }, [formData, fetchingForm, questions.length, saveProgress]); 
+    // --- END Autosave Effect ---
+
     const handleNext = async () => {
         // Validation check
         if (currentQ.is_required && !currentQ.is_optional) {
@@ -221,12 +244,14 @@ const Onboarding = () => {
             }
         }
         
-        // Auto-save on every step
-        await saveProgress();
+        const nextStep = currentStep + 1;
+        
+        // Explicit save on Next, with updated step index
+        await saveProgress(nextStep);
 
         if (currentStep < filteredQuestions.length - 1) {
             setDirection(1);
-            setCurrentStep(curr => curr + 1);
+            setCurrentStep(nextStep);
         } else {
             handleSubmit();
         }
@@ -283,19 +308,36 @@ const Onboarding = () => {
                 
                 // Handle various response structures (flat or wrapped)
                 let questionsData = [];
-                // Public API returns { questions: [] } or { data: { questions: [] } }
+                let initialAnswers = {};
+                let lastStep = 0;
                 
                 if (res.data.questions) {
                     questionsData = res.data.questions;
+                    initialAnswers = res.data.answers || {};
+                    lastStep = res.data.last_step_index || 0;
                 } else if (res.data.data && res.data.data.questions) {
                     questionsData = res.data.data.questions;
+                    initialAnswers = res.data.data.answers || {};
+                    lastStep = res.data.data.last_step_index || 0;
                 } else if (res.data.fields) {
-                     // Fallback if we accidentally hit an admin endpoint structure
                      questionsData = res.data.fields;
                 }
 
                 if (questionsData.length > 0) {
                     setQuestions(questionsData);
+                    
+                    // Merge existing answers into formData
+                    if (Object.keys(initialAnswers).length > 0) {
+                        setFormData(prev => ({
+                            ...prev,
+                            ...initialAnswers
+                        }));
+                    }
+                    
+                    // Resume at last step
+                    if (lastStep > 0 && lastStep < questionsData.length) {
+                        setCurrentStep(lastStep);
+                    }
                 } else {
                     setError("Form configuration is active but has no questions.");
                 }
@@ -443,14 +485,26 @@ const Onboarding = () => {
 
                              {/* Date Input */}
                              {currentQ.type === 'date' && (
-                                <input
-                                    ref={inputRef}
-                                    type="date"
-                                    value={formData[currentQ.field]}
-                                    onChange={(e) => handleChange(currentQ.field, e.target.value)}
-                                    onKeyDown={handleKeyDown}
-                                    className="w-full bg-transparent border-b-2 border-zinc-200 dark:border-zinc-700 focus:border-indigo-600 dark:focus:border-indigo-500 text-2xl sm:text-3xl py-3 outline-none text-zinc-900 dark:text-white placeholder:text-zinc-300 dark:placeholder:text-zinc-700 font-medium transition-colors"
-                                />
+                                <div className="relative">
+                                    <DatePicker
+                                        selected={formData[currentQ.field] ? parse(formData[currentQ.field], 'yyyy-MM-dd', new Date()) : null}
+                                        onChange={(date) => {
+                                            if (date && isValid(date)) {
+                                                handleChange(currentQ.field, format(date, 'yyyy-MM-dd'));
+                                            } else {
+                                                handleChange(currentQ.field, '');
+                                            }
+                                        }}
+                                        dateFormat="dd/MM/yyyy"
+                                        placeholderText="DD/MM/YYYY"
+                                        className="w-full bg-transparent border-b-2 border-zinc-200 dark:border-zinc-700 focus:border-indigo-600 dark:focus:border-indigo-500 text-2xl sm:text-3xl py-3 outline-none text-zinc-900 dark:text-white placeholder:text-zinc-300 dark:placeholder:text-zinc-700 font-medium transition-colors"
+                                        showYearDropdown
+                                        scrollableYearDropdown
+                                        yearDropdownItemNumber={100}
+                                        autoFocus
+                                    />
+                                    <CalendarIcon className="w-6 h-6 absolute right-0 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+                                </div>
                             )}
 
                             {/* Textarea */}

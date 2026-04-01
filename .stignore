@@ -1,0 +1,32 @@
+// Goa.City Syncthing Ignore Patterns
+// Add this to your Syncthing configuration to prevent performance issues and sync conflicts.
+
+// Dependencies
+node_modules
+frontend/node_modules
+backend_node/node_modules
+
+// Build & Cache
+dist
+frontend/dist
+backend_node/dist
+.next
+.cache
+.turbo
+
+// Database / Prisma Generated
+backend_node/node_modules/.prisma
+backend_node/prisma/client
+
+// OS / IDE garbage
+.DS_Store
+Thumbs.db
+.idea
+.vscode
+*.swp
+
+// Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

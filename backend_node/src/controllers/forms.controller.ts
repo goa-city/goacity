@@ -7,7 +7,7 @@ export const getForms = async (req: Request, res: Response) => {
         const singleId = req.query.id;
 
         if (singleId) {
-            const form = await (prisma.forms as any).findUnique({
+            const form = await prisma.forms.findUnique({
                 where: { id: Number(singleId) },
                 include: {
                     fields: {
@@ -19,7 +19,7 @@ export const getForms = async (req: Request, res: Response) => {
             return res.json({ form, fields: form.fields });
         }
 
-        const formsList = await (prisma.forms as any).findMany({
+        const formsList = await prisma.forms.findMany({
             include: {
                 _count: {
                     select: { fields: true }
@@ -79,12 +79,12 @@ export const updateForm = async (req: Request, res: Response) => {
         if (fields && Array.isArray(fields)) {
             // Use transaction for deleting/re-creating fields
             await prisma.$transaction(async (tx) => {
-                await (tx as any).form_fields.deleteMany({
+                await tx.formField.deleteMany({
                     where: { form_id: Number(id) }
                 });
 
                 if (fields.length > 0) {
-                    await (tx as any).form_fields.createMany({
+                    await tx.formField.createMany({
                         data: fields.map(f => ({
                             form_id: Number(id),
                             field_key: f.field_key,
@@ -157,7 +157,7 @@ export const getFormWithFields = async (req: Request, res: Response) => {
 
         if (!formId && !formCode) return res.status(400).json({ message: 'Form ID or Code required' });
 
-        const form = await (prisma.forms as any).findFirst({
+        const form = await prisma.forms.findFirst({
             where: formId ? { id: Number(formId) } : { code: formCode as string },
             include: {
                 fields: {
@@ -165,9 +165,33 @@ export const getFormWithFields = async (req: Request, res: Response) => {
                 }
             }
         });
-
+ 
         if (!form) return res.status(404).json({ message: 'Form not found' });
-
+ 
+        const userId = (req as any).userId;
+        let lastStepIndex = 0;
+        let existingAnswers: any = {};
+ 
+        if (userId) {
+            const response = await prisma.formResponse.findFirst({
+                where: { form_id: form.id, user_id: userId },
+                include: { answers: true }
+            });
+ 
+            if (response) {
+                lastStepIndex = response.last_step_index || 0;
+                response.answers.forEach((ans: any) => {
+                    try {
+                        existingAnswers[ans.field_key] = (ans.answer_value?.startsWith('[') || ans.answer_value?.startsWith('{')) 
+                            ? JSON.parse(ans.answer_value) 
+                            : ans.answer_value;
+                    } catch (e) {
+                        existingAnswers[ans.field_key] = ans.answer_value;
+                    }
+                });
+            }
+        }
+ 
         // Transform fields to the format Onboarding.jsx expects
         const questions = form.fields.map((f: any) => {
             return {
@@ -188,8 +212,8 @@ export const getFormWithFields = async (req: Request, res: Response) => {
                 buttonText: f.button_text || 'Next'
             };
         });
-
-        return res.json({ form, fields: form.fields, questions });
+ 
+        return res.json({ form, fields: form.fields, questions, last_step_index: lastStepIndex, answers: existingAnswers });
     } catch (error: any) {
         console.error('getFormWithFields Error:', error);
         return res.status(500).json({ message: 'Internal server error' });
@@ -206,36 +230,105 @@ export const submitOnboarding = async (req: Request, res: Response) => {
         const isPartial = data.is_partial === '1' || data.is_partial === true;
 
         // Save profile fields
-        for (const [key, value] of Object.entries(data)) {
-            if (['is_partial', 'form_id'].includes(key)) continue;
+        const allData = { ...data };
+        
+        // Handle file uploads if any (Multer puts files in req.files)
+        const files = (req as any).files as any[];
+        if (files && Array.isArray(files)) {
+            for (const file of files) {
+                allData[file.fieldname] = file.path;
+            }
+        }
+
+        for (const [key, value] of Object.entries(allData)) {
+            if (['is_partial', 'form_id', 'last_step_index'].includes(key)) continue;
             const strVal = typeof value === 'object' ? JSON.stringify(value) : String(value || '');
             
-            // Upsert into member_profiles using Prisma
-            await prisma.memberProfile.upsert({
-                where: {
-                    // We need a unique constraint or use findFirst + update/create
-                    // member_profiles doesn't have a unique constraint on (user_id, profile_key) in schema yet?
-                    id: -1 // This won't work if we don't have ID. Let's use findFirst.
-                },
-                update: { profile_value: strVal },
-                create: { user_id: userId, profile_key: key, profile_value: strVal }
-            }).catch(async () => {
-                 // Fallback to findFirst logic if upsert fails due to missing unique constraint
-                 const existing = await prisma.memberProfile.findFirst({
-                     where: { user_id: userId, profile_key: key }
-                 });
-                 if (existing) {
-                     await prisma.memberProfile.update({ where: { id: existing.id }, data: { profile_value: strVal } });
-                 } else {
-                     await prisma.memberProfile.create({ data: { user_id: userId, profile_key: key, profile_value: strVal } });
-                 }
-            });
+            // Sync with profile only on final submission
+            if (!isPartial) {
+                // Special case for profile_photo update on the members table itself
+                if (key === 'profile_photo') {
+                    await prisma.member.update({
+                        where: { id: userId },
+                        data: { profile_photo: strVal }
+                    });
+                }
+
+                // Upsert into member_profiles using Prisma
+                const existing = await prisma.memberProfile.findFirst({
+                    where: { user_id: userId, profile_key: key }
+                });
+
+                if (existing) {
+                    await prisma.memberProfile.update({
+                        where: { id: existing.id },
+                        data: { profile_value: strVal }
+                    });
+                } else {
+                    await prisma.memberProfile.create({
+                        data: { user_id: userId, profile_key: key, profile_value: strVal }
+                    });
+                }
+            }
         }
 
         // Mark onboarded if not partial
         if (!isPartial) {
             await prisma.member.update({ where: { id: userId }, data: { is_onboarded: 1 } });
         }
+
+        // --- NEW: Sync with FormResponse for better progress tracking ---
+        const onboardingForm = await prisma.forms.findFirst({ where: { code: 'mp-onboarding' } });
+        if (onboardingForm) {
+            const formId = onboardingForm.id;
+            const existingResponse = await prisma.formResponse.findFirst({
+                where: { form_id: formId, user_id: userId }
+            });
+
+            let responseId: number;
+            if (existingResponse) {
+                responseId = existingResponse.id;
+                await prisma.formResponse.update({
+                    where: { id: responseId },
+                    data: { 
+                        status: isPartial ? 'draft' : 'completed', 
+                        last_step_index: data.last_step_index !== undefined ? Number(data.last_step_index) : (existingResponse.last_step_index || 0)
+                    }
+                });
+            } else {
+                const newResponse = await prisma.formResponse.create({
+                    data: { 
+                        form_id: formId, 
+                        user_id: userId, 
+                        status: isPartial ? 'draft' : 'completed', 
+                        last_step_index: data.last_step_index !== undefined ? Number(data.last_step_index) : 0
+                    }
+                });
+                responseId = newResponse.id;
+            }
+
+            // Sync answers into FormAnswer for this response
+            for (const [key, value] of Object.entries(allData)) {
+                if (['is_partial', 'form_id', 'last_step_index'].includes(key)) continue;
+                const strVal = typeof value === 'object' ? JSON.stringify(value) : String(value || '');
+
+                const existingAnswer = await prisma.formAnswer.findFirst({
+                    where: { response_id: responseId, field_key: key }
+                });
+
+                if (existingAnswer) {
+                    await prisma.formAnswer.update({
+                        where: { id: existingAnswer.id },
+                        data: { answer_value: strVal, is_answered: true }
+                    });
+                } else {
+                    await prisma.formAnswer.create({
+                        data: { response_id: responseId, field_key: key, answer_value: strVal, is_answered: true }
+                    });
+                }
+            }
+        }
+        // --- END Sync ---
 
         return res.json({ message: isPartial ? 'Progress saved' : 'Onboarding complete' });
     } catch (error: any) {
@@ -258,62 +351,84 @@ export const submitForm = async (req: Request, res: Response) => {
         if (!formId) return res.status(400).json({ message: 'form_id is required' });
 
         // Create or update form response
-        const response = await (prisma as any).form_responses.findFirst({
+        const response = await prisma.formResponse.findFirst({
             where: { form_id: formId, user_id: userId }
         });
 
         let responseId: number;
         if (response) {
             responseId = response.id;
-            await (prisma as any).form_responses.update({
+            await prisma.formResponse.update({
                 where: { id: responseId },
-                data: { status: isPartial ? 'draft' : 'completed', meeting_id: meetingId }
+                data: { 
+                    status: isPartial ? 'draft' : 'completed', 
+                    meeting_id: meetingId,
+                    last_step_index: data.last_step_index !== undefined ? Number(data.last_step_index) : (response.last_step_index || 0)
+                }
             });
         } else {
-            const newResponse = await (prisma as any).form_responses.create({
-                data: { form_id: formId, user_id: userId, status: isPartial ? 'draft' : 'completed', meeting_id: meetingId }
+            const newResponse = await prisma.formResponse.create({
+                data: { 
+                    form_id: formId, 
+                    user_id: userId, 
+                    status: isPartial ? 'draft' : 'completed', 
+                    meeting_id: meetingId,
+                    last_step_index: data.last_step_index !== undefined ? Number(data.last_step_index) : 0
+                }
             });
             responseId = newResponse.id;
         }
 
+        const allData = { ...data };
+        
+        // Handle file uploads if any
+        const files = (req as any).files as any[];
+        if (files && Array.isArray(files)) {
+            for (const file of files) {
+                allData[file.fieldname] = file.path;
+            }
+        }
+
         // Upsert answers
-        for (const [key, value] of Object.entries(data)) {
-            if (['form_id', 'is_partial', 'meeting_id'].includes(key)) continue;
+        for (const [key, value] of Object.entries(allData)) {
+            if (['form_id', 'is_partial', 'meeting_id', 'last_step_index'].includes(key)) continue;
             const strVal = typeof value === 'object' ? JSON.stringify(value) : String(value || '');
 
-            const existingAnswer = await (prisma as any).form_answers.findFirst({
+            const existingAnswer = await prisma.formAnswer.findFirst({
                 where: { response_id: responseId, field_key: key }
             });
 
             if (existingAnswer) {
-                await (prisma as any).form_answers.update({
+                await prisma.formAnswer.update({
                     where: { id: existingAnswer.id },
-                    data: { answer_value: strVal }
+                    data: { answer_value: strVal, is_answered: true }
                 });
             } else {
-                await (prisma as any).form_answers.create({
-                    data: { response_id: responseId, field_key: key, answer_value: strVal }
+                await prisma.formAnswer.create({
+                    data: { response_id: responseId, field_key: key, answer_value: strVal, is_answered: true }
                 });
             }
 
-            // Also update member_profiles for profile fields
-            const fieldDef = await (prisma as any).form_fields.findFirst({
-                where: { form_id: formId, field_key: key }
-            });
-            if (fieldDef && fieldDef.is_profile) {
-                const existingProfile = await prisma.memberProfile.findFirst({
-                    where: { user_id: userId, profile_key: key }
+            // Also update member_profiles for profile fields only if finalized
+            if (!isPartial) {
+                const fieldDef = await prisma.formField.findFirst({
+                    where: { form_id: formId, field_key: key }
                 });
+                if (fieldDef && fieldDef.is_profile) {
+                    const existingProfile = await prisma.memberProfile.findFirst({
+                        where: { user_id: userId, profile_key: key }
+                    });
 
-                if (existingProfile) {
-                    await prisma.memberProfile.update({
-                        where: { id: existingProfile.id },
-                        data: { profile_value: strVal }
-                    });
-                } else {
-                    await prisma.memberProfile.create({
-                        data: { user_id: userId, profile_key: key, profile_value: strVal }
-                    });
+                    if (existingProfile) {
+                        await prisma.memberProfile.update({
+                            where: { id: existingProfile.id },
+                            data: { profile_value: strVal }
+                        });
+                    } else {
+                        await prisma.memberProfile.create({
+                            data: { user_id: userId, profile_key: key, profile_value: strVal }
+                        });
+                    }
                 }
             }
         }

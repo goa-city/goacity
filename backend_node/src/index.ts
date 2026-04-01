@@ -22,6 +22,7 @@ import { handleGoogleCalendarWebhook } from './controllers/webhooks.controller.j
 import { watchCalendar } from './utils/google-calendar.js';
 import { authMiddleware, superAdminMiddleware } from './middleware/auth.js';
 import { cityMiddleware } from './middleware/city.js';
+import { globalSearch } from './controllers/search.controller.js';
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -175,6 +176,7 @@ app.post('/api/admin/calendar/watch', authMiddleware, async (req, res) => {
 app.get('/api/member/dashboard', authMiddleware, getDashboard);
 app.get('/api/member/profile', authMiddleware, getProfile);
 app.post('/api/member/profile', authMiddleware, updateProfile);
+app.get('/api/search', authMiddleware, globalSearch);
 
 // Stewardship (Member)
 app.get('/api/members/stewardship_summary', authMiddleware, getStewardshipSummary);

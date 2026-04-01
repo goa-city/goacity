@@ -80,7 +80,7 @@ const MeetingView = () => {
                         Meeting Recap / Notes
                     </h2>
                     <div 
-                        className="prose prose-indigo max-w-none text-gray-700"
+                        className="prose prose-indigo max-w-none text-gray-700 overflow-x-auto break-words prose-img:max-w-full prose-img:h-auto"
                         dangerouslySetInnerHTML={{ __html: meeting.recap_content }}
                     />
                 </div>

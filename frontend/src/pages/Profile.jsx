@@ -2,13 +2,19 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
-import { UserCircleIcon, ArrowLeftIcon, PhotoIcon } from '@heroicons/react/24/solid';
+import { UserCircleIcon, ArrowLeftIcon, PhotoIcon, CameraIcon } from '@heroicons/react/24/solid';
 import GoaLandscape from '../components/GoaLandscape';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Capacitor } from '@capacitor/core';
+import { useToast } from '../hooks/useToast';
+import ToastDisplay from '../components/ToastDisplay';
 
 const Profile = () => {
-    const { user: authUser, setUser: setAuthUser } = useAuth(); // To update auth context if needed
+    const { user: authUser, setUser: setAuthUser } = useAuth();
     const navigate = useNavigate();
-    
+    const isNative = Capacitor.isNativePlatform();
+    const { toast, showToast } = useToast();
+
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [formData, setFormData] = useState({
@@ -42,12 +48,12 @@ const Profile = () => {
                     profile_photo: null // Reset file input
                 });
                 if (p.profile_photo) {
-                    setPreviewUrl(`http://localhost:8000/${p.profile_photo}`);
+                    setPreviewUrl(p.profile_photo);
                 }
                 setExtendedProfile(p.extended_profile || {});
             } catch (error) {
                 console.error("Failed to load profile", error);
-                alert("Failed to load profile.");
+                showToast('Failed to load profile.', 'error');
             } finally {
                 setLoading(false);
             }
@@ -60,6 +66,37 @@ const Profile = () => {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
+    // On native platforms: use Capacitor Camera plugin (gets camera/gallery picker)
+    const handleNativePhoto = async () => {
+        try {
+            const photo = await Camera.getPhoto({
+                quality: 80,
+                allowEditing: true,
+                resultType: CameraResultType.DataUrl,
+                source: CameraSource.Prompt, // Shows action sheet: Camera or Gallery
+                promptLabelHeader: 'Profile Photo',
+                promptLabelPhoto: 'Choose from Gallery',
+                promptLabelPicture: 'Take Photo',
+            });
+
+            if (photo.dataUrl) {
+                // Convert dataUrl to a File blob so the existing multipart/form-data upload works
+                const res = await fetch(photo.dataUrl);
+                const blob = await res.blob();
+                const file = new File([blob], 'profile_photo.jpg', { type: 'image/jpeg' });
+                setFormData(prev => ({ ...prev, profile_photo: file }));
+                setPreviewUrl(photo.dataUrl);
+            }
+        } catch (err) {
+            // User cancelled — don't show an error toast
+            if (err.message && !err.message.toLowerCase().includes('cancel')) {
+                console.error('Camera error', err);
+                showToast('Could not access camera. Please check permissions.', 'error');
+            }
+        }
+    };
+
+    // On web: standard file input handler
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         if (file) {
@@ -87,12 +124,10 @@ const Profile = () => {
             await api.post('/member/profile', data, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
-            alert("Profile updated successfully!");
-            // Optionally update context user to reflect changes immediately
-            // setAuthUser({ ...authUser, full_name: formData.full_name, ... }); 
+            showToast('Profile updated successfully!', 'success');
         } catch (error) {
             console.error("Failed to update profile", error);
-            alert("Failed to update profile.");
+            showToast('Failed to update profile.', 'error');
         } finally {
             setSaving(false);
         }
@@ -102,6 +137,7 @@ const Profile = () => {
 
     return (
         <div className="min-h-screen bg-gray-50 pb-12">
+            <ToastDisplay toast={toast} />
             <div className="bg-white shadow">
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                     <div className="flex h-16 justify-between items-center">
@@ -132,17 +168,30 @@ const Profile = () => {
                                         )}
                                     </div>
                                     <div>
-                                        <label htmlFor="profile_photo" className="block text-sm font-medium text-gray-700">Photo</label>
+                                        <label className="block text-sm font-medium text-gray-700">Photo</label>
                                         <div className="mt-1 flex items-center">
-                                            <label
-                                                htmlFor="file-upload"
-                                                className="cursor-pointer rounded-md bg-white px-3 py-2 text-sm font-semibold text-indigo-600 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
-                                            >
-                                                <span>Change Photo</span>
-                                                <input id="file-upload" name="profile_photo" type="file" className="sr-only" accept="image/*" onChange={handleFileChange} />
-                                            </label>
+                                            {isNative ? (
+                                                // ── Native: Capacitor Camera picker ──
+                                                <button
+                                                    type="button"
+                                                    onClick={handleNativePhoto}
+                                                    className="cursor-pointer rounded-md bg-white px-3 py-2 text-sm font-semibold text-indigo-600 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 flex items-center gap-2"
+                                                >
+                                                    <CameraIcon className="w-4 h-4" />
+                                                    Change Photo
+                                                </button>
+                                            ) : (
+                                                // ── Web: standard hidden file input ──
+                                                <label
+                                                    htmlFor="file-upload"
+                                                    className="cursor-pointer rounded-md bg-white px-3 py-2 text-sm font-semibold text-indigo-600 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                                                >
+                                                    <span>Change Photo</span>
+                                                    <input id="file-upload" name="profile_photo" type="file" className="sr-only" accept="image/*" onChange={handleFileChange} />
+                                                </label>
+                                            )}
                                         </div>
-                                        <p className="mt-2 text-xs text-gray-500">JPG, PNG, GIF up to 5MB</p>
+                                        <p className="mt-2 text-xs text-gray-500">JPG, PNG up to 5MB</p>
                                     </div>
                                 </div>
 

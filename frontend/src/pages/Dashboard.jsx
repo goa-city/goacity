@@ -6,6 +6,8 @@ import DashboardLayout from '../layouts/DashboardLayout';
 import SidebarRight from '../components/SidebarRight';
 import { MagnifyingGlassIcon, SparklesIcon, PlusIcon } from '@heroicons/react/24/outline'; // Search icon
 import StewardshipLogModal from '../components/StewardshipLogModal';
+import PullToRefresh from '../components/mobile/PullToRefresh';
+import GlobalSearch from '../components/GlobalSearch';
 
 const Dashboard = () => {
     const { user, loading: authLoading } = useAuth();
@@ -54,6 +56,25 @@ const Dashboard = () => {
         fetchCollabs();
     }, [user, authLoading]);
 
+    // Function for manual pull-to-refresh
+    const handleRefresh = async () => {
+        setLoading(true);
+        try {
+            const [resDash, resCollabs] = await Promise.all([
+                api.get('/member/dashboard'),
+                api.get('/dashboard/collabs')
+            ]);
+            setDashboardData(resDash.data);
+            setCollabFeed(resCollabs.data.data || []);
+            setError(null);
+        } catch (error) {
+            console.error("Failed to refresh data", error);
+            setError(error.response?.data?.message || "Failed to refresh data.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
 
 
     const today = new Date();
@@ -62,6 +83,7 @@ const Dashboard = () => {
 
     return (
         <DashboardLayout>
+            <PullToRefresh onRefresh={handleRefresh}>
             {/* Header Section */}
             <div className="flex justify-between items-start mb-10">
                 <div>
@@ -71,16 +93,8 @@ const Dashboard = () => {
                 
                 <div className="flex items-center gap-4">
                     {/* Search */}
-                    <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
-                        </div>
-                        <input
-                            type="text"
-                            className="block w-full pl-10 pr-3 py-3 border-none rounded-xl bg-gray-200 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-0 sm:text-sm"
-                            placeholder="Search..."
-                        />
-                    </div>
+                    {/* Search Component */}
+                    <GlobalSearch />
                     {/* Stewardship Contribution Button */}
                     <button 
                         onClick={() => { setModalGiftType('Financial'); setIsStewardshipModalOpen(true); }}
@@ -274,6 +288,7 @@ const Dashboard = () => {
                 onClose={() => setIsStewardshipModalOpen(false)} 
                 defaultGiftType={modalGiftType}
             />
+            </PullToRefresh>
         </DashboardLayout>
     );
 };
