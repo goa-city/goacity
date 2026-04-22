@@ -17,6 +17,7 @@ const Onboarding = () => {
     const [direction, setDirection] = useState(1);
     const [isDark, setIsDark] = useState(false);
     const inputRef = useRef(null);
+    const formDataRef = useRef({});
     
     const { formId } = useParams();
     const [questions, setQuestions] = useState([]);
@@ -48,8 +49,8 @@ const Onboarding = () => {
         // Faith
         mentoring_interest: '',
         mentoring_areas: '',
-        share_testimony: false,
-        conduct_workshop: false,
+        share_testimony: '',
+        conduct_workshop: '',
         spiritual_gifts: '',
         
         // Community
@@ -126,14 +127,23 @@ const Onboarding = () => {
     // Helper to evaluate conditions
     const checkCondition = (condition, data) => {
         if (!condition) return true;
-        // Simple condition logic: field, operator, value
-        // e.g. { field: 'mentoring_interest', operator: 'neq', value: 'No' }
-        const { field, operator, value } = condition;
+        // Support both flat {field, operator, value} and wrapped {show_if: {field, operator, value}}
+        const rule = condition.show_if || condition;
+        const { field, operator, value } = rule;
         const fieldValue = data[field];
+
+        // If the parent field hasn't been answered, hide this field unless checking if it's empty?
+        // Actually, if it's empty, we should almost always hide it unless it's a specific 'neq' case.
+        // But for step-by-step forms, hiding by default if the dependency is not met is the safest.
+        if (fieldValue === undefined || fieldValue === null || fieldValue === '') {
+             if (operator === 'neq' && value !== '') return false; // Hide until answered
+             if (operator !== 'not_empty') return false; 
+        }
 
         if (operator === 'eq') return fieldValue === value;
         if (operator === 'neq') return fieldValue !== value;
-        if (operator === 'contains') return fieldValue?.includes(value);
+        if (operator === 'contains') return Array.isArray(fieldValue) ? fieldValue.includes(value) : fieldValue?.includes(value);
+        if (operator === 'not_empty') return fieldValue && (!Array.isArray(fieldValue) || fieldValue.length > 0);
         return true;
     };
 
@@ -152,8 +162,10 @@ const Onboarding = () => {
                     payload.append(key, value);
                 } else if (typeof value === 'object' && value !== null) {
                     payload.append(key, JSON.stringify(value));
+                } else if (typeof value === 'boolean') {
+                    payload.append(key, String(value));
                 } else {
-                    payload.append(key, value);
+                    payload.append(key, value !== null && value !== undefined ? String(value) : '');
                 }
             });
 
@@ -192,8 +204,10 @@ const Onboarding = () => {
                       // Don't auto-save files to save bandwidth, but keep existing paths
                  } else if (typeof value === 'object' && value !== null) {
                     payload.append(key, JSON.stringify(value));
+                } else if (typeof value === 'boolean') {
+                    payload.append(key, String(value));
                 } else {
-                    payload.append(key, value || '');
+                    payload.append(key, value !== null && value !== undefined ? String(value) : '');
                 }
             });
             
@@ -234,11 +248,19 @@ const Onboarding = () => {
     }, [formData, fetchingForm, questions.length, saveProgress]); 
     // --- END Autosave Effect ---
 
+    // Keep formDataRef in sync with state for use in timeouts/callbacks
+    useEffect(() => {
+        formDataRef.current = formData;
+    }, [formData]);
+
     const handleNext = async () => {
-        // Validation check
+        // Validation check — use ref to get latest state (avoids stale closure from setTimeout)
         if (currentQ.is_required && !currentQ.is_optional) {
-            const val = formData[currentQ.field];
-            if (!val || (Array.isArray(val) && val.length === 0)) {
+            const val = formDataRef.current[currentQ.field];
+            // For choice_bool, false is a valid selection (means user picked "No")
+            const isBoolValid = currentQ.type === 'choice_bool' && (val === true || val === false);
+            const isEmpty = val === undefined || val === null || val === '' || (Array.isArray(val) && val.length === 0);
+            if (!isBoolValid && isEmpty) {
                 alert("This field is required.");
                 return;
             }
@@ -560,8 +582,12 @@ const Onboarding = () => {
                             {/* Choice Buttons */}
                             {(currentQ.type === 'choice' || currentQ.type === 'choice_bool') && (
                                 <div className="flex flex-col gap-2 max-w-lg">
-                                    {(currentQ.options || ['Yes', 'No']).map((opt, i) => {
-                                        const isSelected = currentQ.type === 'choice_bool' ? (formData[currentQ.field] === (opt === 'Yes')) : (formData[currentQ.field] === opt);
+                                    {(currentQ.type === 'choice_bool' ? ['Yes', 'No'] : (currentQ.options && currentQ.options.length > 0 ? currentQ.options : [])).map((opt, i) => {
+                                        // For choice_bool: only mark selected if value is actually true/false (not '' which means unset)
+                                        const fieldVal = formData[currentQ.field];
+                                        const isSelected = currentQ.type === 'choice_bool' 
+                                            ? (fieldVal !== '' && fieldVal !== undefined && fieldVal !== null && fieldVal === (opt === 'Yes')) 
+                                            : (fieldVal === opt);
                                         return (
                                             <button
                                                 key={opt}

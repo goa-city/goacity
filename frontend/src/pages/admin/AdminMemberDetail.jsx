@@ -144,7 +144,7 @@ const AdminMemberDetail = () => {
                         <div className="flex flex-wrap gap-4 text-sm text-gray-500 font-medium">
                             <span className="flex items-center gap-1.5"><EnvelopeIcon className="w-4 h-4 text-gray-300" />{user.email || 'No Email'}</span>
                             <span className="flex items-center gap-1.5"><PhoneIcon className="w-4 h-4 text-gray-300" />{user.phone || 'No Phone'}</span>
-                            <span className="flex items-center gap-1.5"><CalendarIcon className="w-4 h-4 text-gray-300" />Joined {new Date(user.created_at).toLocaleDateString('en-GB')}</span>
+                            <span className="flex items-center gap-1.5"><CalendarIcon className="w-4 h-4 text-gray-300" />Joined {user.created_at ? (() => { const d = new Date(user.created_at); const dd = String(d.getDate()).padStart(2, '0'); const mm = String(d.getMonth()+1).padStart(2, '0'); return `${dd}/${mm}/${d.getFullYear()}`; })() : 'N/A'}</span>
                         </div>
                     </div>
                     <div className="flex flex-col items-end gap-2 text-right">
@@ -224,29 +224,42 @@ const AdminMemberDetail = () => {
 
                 {/* Right: Responses & Profile */}
                 <div className="lg:col-span-2 space-y-8">
-                    {/* Dynamic Profile */}
+                    {/* Dynamic Profile — driven by form fields marked "Sync to Profile" */}
                     <div className="admin-card">
                         <div className="p-6 border-b border-gray-50 bg-gray-50/50">
                             <h3 className="font-bold text-gray-900 flex items-center gap-2">
                                 <AcademicCapIcon className="w-5 h-5 text-indigo-500" /> Member attributes
                             </h3>
                         </div>
-                        <div className="p-8">
-                            {user.member_profile && Object.keys(user.member_profile).length > 0 ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
-                                     {Object.entries(user.member_profile).map(([key, value]) => (
-                                         <div key={key}>
-                                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">{key.replace(/_/g, ' ')}</label>
-                                            <p className="text-sm text-gray-700 font-medium">
-                                                {Array.isArray(value) ? value.join(', ') : (typeof value === 'object' ? JSON.stringify(value) : (String(value) || <span className="text-gray-300 italic">No value</span>))}
+                        <div className="p-6">
+                            {user.profile_attributes && user.profile_attributes.length > 0 ? (
+                                <div className="divide-y divide-gray-50">
+                                    {user.profile_attributes.map((attr, i) => (
+                                        <div key={i} className="flex items-start py-3 first:pt-0 last:pb-0 gap-4">
+                                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest w-48 shrink-0 pt-0.5">{attr.label}</label>
+                                            <p className="text-sm text-gray-700 font-medium whitespace-pre-wrap flex-1">
+                                                {(() => {
+                                                    let v = attr.value;
+                                                    if (!v && v !== 0) return <span className="text-gray-300 italic">—</span>;
+                                                    if (typeof v === 'string' && (v.startsWith('[') || v.startsWith('{'))) {
+                                                        try {
+                                                            const parsed = JSON.parse(v);
+                                                            if (Array.isArray(parsed)) return parsed.join(', ');
+                                                            return JSON.stringify(parsed, null, 2);
+                                                        } catch(e) {}
+                                                    }
+                                                    if (typeof v === 'object' && Array.isArray(v)) return v.join(', ');
+                                                    if (typeof v === 'object') return JSON.stringify(v, null, 2);
+                                                    return String(v);
+                                                })()}
                                             </p>
-                                         </div>
-                                     ))}
+                                        </div>
+                                    ))}
                                 </div>
                             ) : (
                                 <div className="p-12 text-center">
                                     <MapPinIcon className="w-8 h-8 text-gray-100 mx-auto mb-3" />
-                                    <p className="text-sm text-gray-400 italic">No custom profile attributes recorded yet.</p>
+                                    <p className="text-sm text-gray-400 italic">No profile attributes available.</p>
                                 </div>
                             )}
                         </div>
@@ -270,7 +283,7 @@ const AdminMemberDetail = () => {
                                             <div>
                                                 <p className="font-bold text-gray-900 text-left">{resp.form_title}</p>
                                                 <p className="text-[10px] text-gray-400 font-medium mt-0.5 uppercase tracking-wider">
-                                                    Submitted: {new Date(resp.submitted_at).toLocaleDateString("en-GB")}
+                                                    Submitted: {resp.submitted_at || 'N/A'}
                                                 </p>
                                             </div>
                                             <div className="p-1 bgColor-white rounded-lg border border-gray-200 group-hover:border-slate-400 transition-colors">
@@ -283,19 +296,35 @@ const AdminMemberDetail = () => {
                                         </button>
                                         
                                         {openResponses[resp.response_id] && (
-                                            <div className="p-6 bg-white border-t border-gray-100 space-y-6">
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                                                    {resp.answers && resp.answers.length > 0 ? resp.answers.map((answer, i) => (
-                                                        <div key={i}>
-                                                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">{answer.label}</label>
-                                                            <p className="text-sm text-gray-700 font-medium whitespace-pre-wrap">
-                                                                {typeof answer.value === 'object' ? JSON.stringify(answer.value, null, 2) : (String(answer.value) || <span className="text-gray-200">-</span>)}
-                                                            </p>
-                                                        </div>
-                                                    )) : (
-                                                        <p className="text-sm text-gray-300 italic col-span-2">No data captured.</p>
-                                                    )}
-                                                </div>
+                                            <div className="p-6 bg-white border-t border-gray-100">
+                                                {resp.answers && resp.answers.length > 0 ? (
+                                                    <div className="divide-y divide-gray-50">
+                                                        {resp.answers.map((answer, i) => (
+                                                            <div key={i} className="flex items-start py-3 first:pt-0 last:pb-0 gap-4">
+                                                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest w-48 shrink-0 pt-0.5">{answer.label}</label>
+                                                                <p className="text-sm text-gray-700 font-medium whitespace-pre-wrap flex-1">
+                                                                    {(() => {
+                                                                        let v = answer.value;
+                                                                        if (!v && v !== 0) return <span className="text-gray-300 italic">—</span>;
+                                                                        // Try to parse JSON arrays/objects
+                                                                        if (typeof v === 'string' && (v.startsWith('[') || v.startsWith('{'))) {
+                                                                            try {
+                                                                                const parsed = JSON.parse(v);
+                                                                                if (Array.isArray(parsed)) return parsed.join(', ');
+                                                                                return JSON.stringify(parsed, null, 2);
+                                                                            } catch(e) { /* not JSON, display as-is */ }
+                                                                        }
+                                                                        if (typeof v === 'object' && Array.isArray(v)) return v.join(', ');
+                                                                        if (typeof v === 'object') return JSON.stringify(v, null, 2);
+                                                                        return String(v);
+                                                                    })()}
+                                                                </p>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-sm text-gray-300 italic">No data captured.</p>
+                                                )}
                                             </div>
                                         )}
                                     </div>

@@ -261,7 +261,12 @@ export const adminLogin = async (req: Request, res: Response) => {
         });
 
     } catch (error: any) {
-        console.error('Admin Login Error:', error);
-        return res.status(500).json({ success: false, message: 'Internal server error' });
+        console.error('Admin Login Detailed Error:', error);
+        return res.status(500).json({ 
+            success: false, 
+            message: 'Internal server error during login',
+            error: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
 };

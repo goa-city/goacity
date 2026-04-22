@@ -109,29 +109,186 @@ export const getUsers = async (req: Request, res: Response) => {
                 member_profile[p.profile_key] = p.profile_value;
             });
 
-            // Format form responses
-            const formattedResponses = (member as any).responses.map((fr: any) => ({
-                response_id: fr.id,
-                form_id: fr.form_id,
-                submitted_at: fr.submitted_at,
-                status: fr.status,
-                form_title: fr.form?.title || 'Unknown Form',
-                answers: fr.answers.map((a: any) => ({
-                    key: a.field_key,
-                    label: a.field_key.replace(/_/g, ' '),
-                    value: a.answer_value
-                }))
-            }));
+            // Helper to format dates as dd/mm/yyyy
+            const formatDateDDMMYYYY = (dateVal: any): string => {
+                if (!dateVal) return '';
+                const d = new Date(dateVal);
+                if (isNaN(d.getTime())) return String(dateVal);
+                const day = String(d.getDate()).padStart(2, '0');
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const year = d.getFullYear();
+                return `${day}/${month}/${year}`;
+            };
+
+            // Helper to format a raw answer value for display
+            const formatAnswerValue = (rawVal: string, fieldType: string): string => {
+                if (rawVal === undefined || rawVal === null || rawVal === '') return '';
+                if (fieldType === 'date') return formatDateDDMMYYYY(rawVal);
+                if (fieldType === 'choice_bool') {
+                    if (rawVal === 'true') return 'Yes';
+                    if (rawVal === 'false') return 'No';
+                }
+                if (typeof rawVal === 'string' && (rawVal.startsWith('[') || rawVal.startsWith('{'))) {
+                    try {
+                        const parsed = JSON.parse(rawVal);
+                        if (Array.isArray(parsed)) return parsed.join(', ');
+                    } catch (_) {}
+                }
+                return rawVal;
+            };
+
+            // ── Build Interaction History ──
+            // Approach: the FORM DEFINITION is the single source of truth.
+            // We walk its fields in sort_order.  For each field we look up the
+            // submitted answer by field_key.  Nothing extra is appended.
+            // If a question is added/deleted in the admin form editor the display
+            // updates automatically.
+
+            const formattedResponses = await Promise.all(
+                (member as any).responses.map(async (fr: any) => {
+                    // 1. Fetch the current form field definitions (always the latest)
+                    let formFields: any[] = [];
+                    if (fr.form_id) {
+                        formFields = await prisma.formField.findMany({
+                            where: { form_id: fr.form_id },
+                            orderBy: { sort_order: 'asc' }
+                        });
+                    }
+
+                    // 2. Build a lookup map: field_key → answer_value
+                    const answersMap: Record<string, string> = {};
+                    (fr.answers || []).forEach((a: any) => {
+                        answersMap[a.field_key] = a.answer_value;
+                    });
+
+                    // 3. Walk form fields in order and build the display list
+                    const displayRows: any[] = [];
+
+                    for (const ff of formFields) {
+                        // Skip intro / welcome screens — they have no data
+                        if (ff.field_type === 'intro') continue;
+
+                        // group_inputs: expand each sub-field as its own row
+                        if (ff.field_type === 'group_inputs' && ff.group_fields) {
+                            let subs: any[] = [];
+                            try {
+                                subs = typeof ff.group_fields === 'string'
+                                    ? JSON.parse(ff.group_fields)
+                                    : ff.group_fields;
+                            } catch (_) {}
+                            if (Array.isArray(subs)) {
+                                for (const sf of subs) {
+                                    displayRows.push({
+                                        label: sf.label || sf.name.replace(/_/g, ' '),
+                                        value: formatAnswerValue(answersMap[sf.name] ?? '', sf.type || 'text')
+                                    });
+                                }
+                            }
+                            continue;
+                        }
+
+                        // Every other field type — single row
+                        displayRows.push({
+                            label: ff.label || ff.field_key.replace(/_/g, ' '),
+                            value: formatAnswerValue(answersMap[ff.field_key] ?? '', ff.field_type)
+                        });
+                    }
+
+                    return {
+                        response_id: fr.id,
+                        form_id: fr.form_id,
+                        submitted_at: formatDateDDMMYYYY(fr.submitted_at),
+                        status: fr.status,
+                        form_title: fr.form?.title || 'Unknown Form',
+                        answers: displayRows
+                    };
+                })
+            );
 
             const stats = await prisma.meeting_responses.count({
                 where: { user_id: Number(singleId), checked_in: 1 }
             });
+
+            // ── Build Member Attributes (Profile fields) ──
+            // Same form-first approach: only show fields where is_profile = 1
+            // in the form definition.  Labels and order come from the form.
+            // Values come from member_profile (key-value store) or form answers.
+
+            let profileAttributes: any[] = [];
+
+            // Find the onboarding form from the member's responses, or fall back to mp-onboarding
+            const onboardingFormId = (member as any).responses?.[0]?.form_id;
+            let profileFormFields: any[] = [];
+
+            if (onboardingFormId) {
+                profileFormFields = await prisma.formField.findMany({
+                    where: { form_id: onboardingFormId, is_profile: 1 },
+                    orderBy: { sort_order: 'asc' }
+                });
+            }
+
+            // If no form found from responses, try the mp-onboarding form directly
+            if (profileFormFields.length === 0) {
+                const onboardingForm = await prisma.forms.findFirst({ where: { code: 'mp-onboarding' } });
+                if (onboardingForm) {
+                    profileFormFields = await prisma.formField.findMany({
+                        where: { form_id: onboardingForm.id, is_profile: 1 },
+                        orderBy: { sort_order: 'asc' }
+                    });
+                }
+            }
+
+            if (profileFormFields.length > 0) {
+                // Build a combined value lookup from member_profile + latest form answers
+                const valueLookup: Record<string, string> = { ...member_profile };
+
+                // Also overlay values from the latest completed form response (if any)
+                const latestResponse = (member as any).responses?.find((r: any) => r.status === 'completed')
+                    || (member as any).responses?.[0];
+                if (latestResponse?.answers) {
+                    latestResponse.answers.forEach((a: any) => {
+                        // Form answers take precedence (more recent)
+                        valueLookup[a.field_key] = a.answer_value;
+                    });
+                }
+
+                for (const ff of profileFormFields) {
+                    // Skip intro fields
+                    if (ff.field_type === 'intro') continue;
+
+                    // group_inputs: expand sub-fields
+                    if (ff.field_type === 'group_inputs' && ff.group_fields) {
+                        let subs: any[] = [];
+                        try {
+                            subs = typeof ff.group_fields === 'string'
+                                ? JSON.parse(ff.group_fields)
+                                : ff.group_fields;
+                        } catch (_) {}
+                        if (Array.isArray(subs)) {
+                            for (const sf of subs) {
+                                profileAttributes.push({
+                                    label: sf.label || sf.name.replace(/_/g, ' '),
+                                    value: formatAnswerValue(valueLookup[sf.name] ?? '', sf.type || 'text')
+                                });
+                            }
+                        }
+                        continue;
+                    }
+
+                    // Single field
+                    profileAttributes.push({
+                        label: ff.label || ff.field_key.replace(/_/g, ' '),
+                        value: formatAnswerValue(valueLookup[ff.field_key] ?? '', ff.field_type)
+                    });
+                }
+            }
 
             const result = {
                 ...member,
                 streams: streamsFormatted,
                 stream_ids,
                 member_profile,
+                profile_attributes: profileAttributes,
                 form_responses: formattedResponses,
                 meeting_count: stats,
                 profiles: undefined,  // remove raw profiles from response

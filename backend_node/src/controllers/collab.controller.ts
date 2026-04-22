@@ -83,6 +83,12 @@ export const getMemberProfile = async (req: Request, res: Response) => {
                 },
                 services: {
                     where: { status: 'Active' }
+                },
+                profiles: true,
+                responses: {
+                    include: { answers: true },
+                    orderBy: { submitted_at: 'desc' as const },
+                    take: 1
                 }
             }
         });
@@ -91,7 +97,93 @@ export const getMemberProfile = async (req: Request, res: Response) => {
             return res.status(404).json({ success: false, message: 'Member not found.' });
         }
 
-        res.json({ success: true, data: member });
+        // ── Build profile_attributes from form definition ──
+        // Same form-first approach as admin: only show fields where is_profile = 1
+        const formatDateDDMMYYYY = (dateVal: any): string => {
+            if (!dateVal) return '';
+            const d = new Date(dateVal);
+            if (isNaN(d.getTime())) return String(dateVal);
+            const dd = String(d.getDate()).padStart(2, '0');
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            return `${dd}/${mm}/${d.getFullYear()}`;
+        };
+
+        const formatVal = (raw: string, type: string): string => {
+            if (!raw && raw !== '0') return '';
+            if (type === 'date') return formatDateDDMMYYYY(raw);
+            if (type === 'choice_bool') {
+                if (raw === 'true') return 'Yes';
+                if (raw === 'false') return 'No';
+            }
+            if (typeof raw === 'string' && (raw.startsWith('[') || raw.startsWith('{'))) {
+                try {
+                    const p = JSON.parse(raw);
+                    if (Array.isArray(p)) return p.join(', ');
+                } catch (_) {}
+            }
+            return raw;
+        };
+
+        let profileAttributes: any[] = [];
+
+        // Find onboarding form from member's response, or fall back to mp-onboarding
+        const onboardingFormId = member.responses?.[0]?.form_id;
+        let profileFields: any[] = [];
+
+        if (onboardingFormId) {
+            profileFields = await prisma.formField.findMany({
+                where: { form_id: onboardingFormId, is_profile: 1 },
+                orderBy: { sort_order: 'asc' }
+            });
+        }
+        if (profileFields.length === 0) {
+            const obForm = await prisma.forms.findFirst({ where: { code: 'mp-onboarding' } });
+            if (obForm) {
+                profileFields = await prisma.formField.findMany({
+                    where: { form_id: obForm.id, is_profile: 1 },
+                    orderBy: { sort_order: 'asc' }
+                });
+            }
+        }
+
+        if (profileFields.length > 0) {
+            // Build value lookup: member_profile keys + form answer keys
+            const lookup: Record<string, string> = {};
+            (member.profiles || []).forEach((p: any) => { lookup[p.profile_key] = p.profile_value; });
+            (member.responses?.[0]?.answers || []).forEach((a: any) => {
+                lookup[a.field_key] = a.answer_value;
+            });
+
+            for (const ff of profileFields) {
+                if (ff.field_type === 'intro') continue;
+
+                if (ff.field_type === 'group_inputs' && ff.group_fields) {
+                    let subs: any[] = [];
+                    try {
+                        subs = typeof ff.group_fields === 'string' ? JSON.parse(ff.group_fields) : ff.group_fields;
+                    } catch (_) {}
+                    if (Array.isArray(subs)) {
+                        for (const sf of subs) {
+                            profileAttributes.push({
+                                label: sf.label || sf.name.replace(/_/g, ' '),
+                                value: formatVal(lookup[sf.name] ?? '', sf.type || 'text')
+                            });
+                        }
+                    }
+                    continue;
+                }
+
+                profileAttributes.push({
+                    label: ff.label || ff.field_key.replace(/_/g, ' '),
+                    value: formatVal(lookup[ff.field_key] ?? '', ff.field_type)
+                });
+            }
+        }
+
+        // Return clean response (exclude raw profiles/responses from output)
+        const { profiles, responses, ...memberData } = member;
+
+        res.json({ success: true, data: { ...memberData, profile_attributes: profileAttributes } });
     } catch (error) {
         console.error('getMemberProfile error:', error);
         res.status(500).json({ success: false, message: 'Failed to fetch member profile.' });

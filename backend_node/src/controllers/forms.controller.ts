@@ -1,6 +1,11 @@
 import type { Request, Response } from 'express';
 import prisma from '../lib/prisma.js';
 
+const CORE_MEMBER_FIELDS = [
+    'first_name', 'last_name', 'email', 'phone', 'dob', 'gender', 
+    'location', 'village', 'address', 'bio', 'linkedin_url', 'profile_photo'
+];
+
 // GET /api/admin/forms - list all or single by ?id=
 export const getForms = async (req: Request, res: Response) => {
     try {
@@ -78,13 +83,21 @@ export const updateForm = async (req: Request, res: Response) => {
 
         if (fields && Array.isArray(fields)) {
             // Use transaction for deleting/re-creating fields
-            await prisma.$transaction(async (tx) => {
-                await tx.formField.deleteMany({
+            await prisma.$transaction(async (tx: any) => {
+                // Determine the correct model name on the tx client (formField vs FormField)
+                const modelName = tx.formField ? 'formField' : (tx.FormField ? 'FormField' : 'formField');
+                
+                if (!tx[modelName]) {
+                    console.error('[PRISMA] Available TX models:', Object.keys(tx).filter(k => !k.startsWith('$')));
+                    throw new Error(`Prisma model 'formField' not found on transaction client.`);
+                }
+
+                await tx[modelName].deleteMany({
                     where: { form_id: Number(id) }
                 });
 
                 if (fields.length > 0) {
-                    await tx.formField.createMany({
+                    await tx[modelName].createMany({
                         data: fields.map(f => ({
                             form_id: Number(id),
                             field_key: f.field_key,
@@ -240,18 +253,25 @@ export const submitOnboarding = async (req: Request, res: Response) => {
             }
         }
 
+        const memberUpdates: any = {};
+        if (!isPartial) memberUpdates.is_onboarded = 1;
+
         for (const [key, value] of Object.entries(allData)) {
             if (['is_partial', 'form_id', 'last_step_index'].includes(key)) continue;
             const strVal = typeof value === 'object' ? JSON.stringify(value) : String(value || '');
             
             // Sync with profile only on final submission
             if (!isPartial) {
-                // Special case for profile_photo update on the members table itself
-                if (key === 'profile_photo') {
-                    await prisma.member.update({
-                        where: { id: userId },
-                        data: { profile_photo: strVal }
-                    });
+                // If core field, prepare for member update
+                if (CORE_MEMBER_FIELDS.includes(key)) {
+                    if (key === 'dob') {
+                        const date = new Date(strVal);
+                        if (!isNaN(date.getTime())) memberUpdates.dob = date;
+                    } else if (key === 'age') {
+                        memberUpdates.age = Number(strVal);
+                    } else {
+                        memberUpdates[key] = strVal;
+                    }
                 }
 
                 // Upsert into member_profiles using Prisma
@@ -272,9 +292,12 @@ export const submitOnboarding = async (req: Request, res: Response) => {
             }
         }
 
-        // Mark onboarded if not partial
-        if (!isPartial) {
-            await prisma.member.update({ where: { id: userId }, data: { is_onboarded: 1 } });
+        // Apply core member updates if any (including is_onboarded)
+        if (Object.keys(memberUpdates).length > 0) {
+            await prisma.member.update({
+                where: { id: userId },
+                data: memberUpdates
+            });
         }
 
         // --- NEW: Sync with FormResponse for better progress tracking ---
@@ -389,7 +412,9 @@ export const submitForm = async (req: Request, res: Response) => {
             }
         }
 
-        // Upsert answers
+        // Upsert answers and sync core profile fields
+        const memberUpdates: any = {};
+
         for (const [key, value] of Object.entries(allData)) {
             if (['form_id', 'is_partial', 'meeting_id', 'last_step_index'].includes(key)) continue;
             const strVal = typeof value === 'object' ? JSON.stringify(value) : String(value || '');
@@ -411,6 +436,18 @@ export const submitForm = async (req: Request, res: Response) => {
 
             // Also update member_profiles for profile fields only if finalized
             if (!isPartial) {
+                // Check if core field for member update
+                if (CORE_MEMBER_FIELDS.includes(key)) {
+                    if (key === 'dob') {
+                        const date = new Date(strVal);
+                        if (!isNaN(date.getTime())) memberUpdates.dob = date;
+                    } else if (key === 'age') {
+                        memberUpdates.age = Number(strVal);
+                    } else {
+                        memberUpdates[key] = strVal;
+                    }
+                }
+
                 const fieldDef = await prisma.formField.findFirst({
                     where: { form_id: formId, field_key: key }
                 });
@@ -431,6 +468,14 @@ export const submitForm = async (req: Request, res: Response) => {
                     }
                 }
             }
+        }
+
+        // Apply core member updates if any
+        if (Object.keys(memberUpdates).length > 0) {
+            await prisma.member.update({
+                where: { id: userId },
+                data: memberUpdates
+            });
         }
 
         return res.json({ message: isPartial ? 'Progress saved' : 'Form submitted' });

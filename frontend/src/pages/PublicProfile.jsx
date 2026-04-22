@@ -138,6 +138,40 @@ const PublicProfile = () => {
                 </div>
             </div>
 
+            {/* Profile Attributes — driven by form fields marked "Sync to Profile" */}
+            {member.profile_attributes && member.profile_attributes.length > 0 && (
+                <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden mb-8">
+                    <div className="px-8 py-6 border-b border-gray-50 bg-gray-50/30">
+                        <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest">Profile</h3>
+                    </div>
+                    <div className="px-8 py-6">
+                        <div className="divide-y divide-gray-50">
+                            {member.profile_attributes.map((attr, i) => {
+                                const v = attr.value;
+                                if (!v && v !== 0) return null; // Skip empty fields on public profile
+                                return (
+                                    <div key={i} className="flex items-start py-3 first:pt-0 last:pb-0 gap-4">
+                                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest w-44 shrink-0 pt-0.5">{attr.label}</label>
+                                        <p className="text-sm text-gray-700 font-medium whitespace-pre-wrap flex-1">
+                                            {(() => {
+                                                if (typeof v === 'string' && (v.startsWith('[') || v.startsWith('{'))) {
+                                                    try {
+                                                        const parsed = JSON.parse(v);
+                                                        if (Array.isArray(parsed)) return parsed.join(', ');
+                                                        return JSON.stringify(parsed, null, 2);
+                                                    } catch(e) {}
+                                                }
+                                                return String(v);
+                                            })()}
+                                        </p>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4 ml-2">Service Marketplace</h3>
             {member.services && member.services.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
