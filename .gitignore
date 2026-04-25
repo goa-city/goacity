@@ -46,3 +46,4 @@ backend_node/test-collab.ts
 # Backups and Dumps
 *.tar.gz
 *.sql
+backups/
