@@ -4,7 +4,9 @@ import api from '../../api/axios';
 import { 
     EnvelopeOpenIcon, ArrowLeftIcon, 
     AtSymbolIcon, TagIcon 
-} from '@heroicons/react/24/outline';
+} from '@heroicons/react/24/solid';
+import { Card } from '../../shared/components/ui/Card';
+import Button from '../../shared/components/ui/Button';
 import QuillEditor from '../../components/QuillEditor';
 
 const AdminEmailTemplateEditor = () => {
@@ -79,71 +81,67 @@ const AdminEmailTemplateEditor = () => {
     if (loading) return <div className="p-12 text-center text-gray-400">Loading editor...</div>;
 
     return (
-        <div className="admin-container">
+        <div className="max-w-7xl mx-auto py-10 px-6">
             {/* Header */}
             <div className="flex items-center gap-4 mb-8">
                 <button
                     onClick={() => navigate('/admin/email-templates')}
-                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                    className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors"
                 >
-                    <ArrowLeftIcon className="w-5 h-5 text-gray-500" />
+                    <ArrowLeftIcon className="w-5 h-5 text-zinc-500" />
                 </button>
                 <div className="flex items-center gap-3">
-                    <div className="admin-header-icon bg-indigo-500">
-                        <EnvelopeOpenIcon className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900">
-                            {isEdit ? 'Edit Template' : 'Create Template'}
-                        </h1>
-                        <p className="text-sm text-gray-500">Design your automated system email</p>
-                    </div>
+                    <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight flex items-center gap-3">
+                        {isEdit ? 'Edit Template' : 'Create Template'}
+                        <EnvelopeOpenIcon className="w-8 h-8 text-indigo-600" />
+                    </h1>
                 </div>
             </div>
+            <p className="text-zinc-500 dark:text-zinc-400 mt-2 text-lg font-medium ml-12 mb-10">Design your automated system email</p>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Editor Content */}
                 <div className="lg:col-span-2 space-y-6">
-                    <div className="admin-card p-6">
+                    <Card className="border-zinc-100 dark:border-zinc-800 shadow-xl shadow-zinc-200/50 dark:shadow-none overflow-hidden p-6">
                         <form onSubmit={handleSave} className="space-y-6">
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wider">
+                                <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">
                                     Template Title (Used as internal ID)
                                 </label>
                                 <div className="relative">
-                                    <TagIcon className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                    <TagIcon className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
                                     <input
                                         required
                                         value={formData.title}
                                         onChange={e => setFormData({ ...formData, title: e.target.value })}
                                         placeholder="e.g. OTP Login, Welcome Member..."
-                                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none"
+                                        className="w-full pl-10 pr-4 py-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none font-medium"
                                     />
                                 </div>
-                                <p className="mt-1 text-xs text-gray-400 italic">Use 'OTP Login' for the login system template.</p>
+                                <p className="mt-2 text-[10px] text-zinc-400 font-black tracking-widest uppercase">Use 'OTP Login' for the login system template.</p>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wider">
+                                <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">
                                     Email Subject Line
                                 </label>
                                 <div className="relative">
-                                    <AtSymbolIcon className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                    <AtSymbolIcon className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
                                     <input
                                         required
                                         value={formData.subject}
                                         onChange={e => setFormData({ ...formData, subject: e.target.value })}
                                         placeholder="Enter the subject line..."
-                                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none"
+                                        className="w-full pl-10 pr-4 py-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none font-medium"
                                     />
                                 </div>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wider">
+                                <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">
                                     Email Content
                                 </label>
-                                <div className="rounded-xl border border-gray-100 overflow-hidden">
+                                <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden bg-white dark:bg-zinc-950">
                                      <QuillEditor 
                                         value={formData.message} 
                                         onChange={(val) => setFormData({ ...formData, message: val })}
@@ -153,41 +151,41 @@ const AdminEmailTemplateEditor = () => {
                             </div>
 
                             <div className="pt-4">
-                                <button
+                                <Button
                                     type="submit"
                                     disabled={saving}
-                                    className="admin-button-primary justify-center py-4 text-base shadow-lg shadow-indigo-500/20"
+                                    className="w-full justify-center py-4 text-sm shadow-xl shadow-indigo-600/20"
                                 >
                                     {saving ? 'Saving Changes...' : 'Save Template'}
-                                </button>
+                                </Button>
                             </div>
                         </form>
-                    </div>
+                    </Card>
                 </div>
 
                 {/* Sidebar / Placeholders */}
                 <div className="space-y-6">
-                    <div className="admin-card p-6">
-                        <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-4">Common Elements</h2>
-                        <p className="text-xs text-gray-500 mb-4">Click to copy placeholder to clipboard and paste it in your editor.</p>
+                    <Card className="border-zinc-100 dark:border-zinc-800 shadow-xl shadow-zinc-200/50 dark:shadow-none overflow-hidden p-6">
+                        <h2 className="text-sm font-black text-zinc-700 dark:text-zinc-300 uppercase tracking-widest flex items-center mb-4">Common Elements</h2>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium mb-6">Click to copy placeholder to clipboard and paste it in your editor.</p>
                         
-                        <div className="space-y-2">
+                        <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2">
                             {commonPlaceholders.map(ph => (
                                 <button
                                     key={ph.value}
                                     onClick={() => handleCopyPlaceholder(ph.value)}
-                                    className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-white hover:shadow-sm border border-gray-100 rounded-xl transition-all group"
+                                    className="w-full flex items-center justify-between px-4 py-3 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-100 dark:border-zinc-800 rounded-xl transition-all group"
                                 >
-                                    <span className="text-sm text-gray-700 font-medium">{ph.label}</span>
-                                    <span className="text-[10px] font-mono text-indigo-500 group-hover:scale-110 transition-transform">{ph.value}</span>
+                                    <span className="text-xs text-zinc-700 dark:text-zinc-300 font-black uppercase tracking-widest">{ph.label}</span>
+                                    <span className="text-[10px] font-mono text-indigo-500 group-hover:scale-110 transition-transform font-bold bg-indigo-50 dark:bg-indigo-950/30 px-2 py-1 rounded-md border border-indigo-100 dark:border-indigo-900/50">{ph.value}</span>
                                 </button>
                             ))}
                         </div>
-                    </div>
+                    </Card>
 
-                    <div className="bg-amber-50 border border-amber-100 rounded-2xl p-6">
-                        <h3 className="text-sm font-bold text-amber-900 mb-2">Editor Tip</h3>
-                        <p className="text-xs text-amber-800 leading-relaxed">
+                    <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/50 rounded-xl p-6">
+                        <h3 className="text-xs font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest mb-2">Editor Tip</h3>
+                        <p className="text-sm text-amber-700 dark:text-amber-500 font-medium leading-relaxed">
                             Use placeholders exactly as shown (with double curly braces). The system will automatically replace them with real data when the email is sent.
                         </p>
                     </div>

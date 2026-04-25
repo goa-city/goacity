@@ -89,7 +89,7 @@ const MentorshipWorkspace = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Left side: Goals */}
                 <div className="lg:col-span-2 space-y-6">
-                    <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
+                    <div className="bg-white rounded-xl p-8 shadow-sm border border-gray-100">
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-xl font-bold text-gray-900">Journey Goals</h2>
                             <span className="text-sky-600 font-bold">{progress}% Completed</span>
@@ -132,7 +132,7 @@ const MentorshipWorkspace = () => {
 
                 {/* Right side: Actions & Resources */}
                 <div className="space-y-6">
-                    <div className="bg-sky-50 rounded-3xl p-6 border border-sky-100">
+                    <div className="bg-sky-50 rounded-xl p-6 border border-sky-100">
                         <h3 className="font-bold text-sky-900 mb-4 text-lg">Quick Actions</h3>
                         <a href="/dashboard" className="flex items-center gap-3 w-full bg-white p-4 rounded-xl shadow-sm text-sky-700 font-bold hover:shadow hover:bg-sky-50 transition-all cursor-pointer mb-3 text-center justify-center">
                             Schedule Meeting
@@ -142,7 +142,7 @@ const MentorshipWorkspace = () => {
                         </p>
                     </div>
 
-                    <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
+                    <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
                         <h3 className="font-bold text-gray-900 mb-4 text-lg">Recommended Resources</h3>
                         <div className="space-y-4">
                             <a href="/resources" className="flex items-start gap-3 group">

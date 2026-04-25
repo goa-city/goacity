@@ -145,7 +145,10 @@ export const getUsers = async (req: Request, res: Response) => {
             // updates automatically.
 
             const formattedResponses = await Promise.all(
-                (member as any).responses.map(async (fr: any) => {
+                (member as any).responses
+                    // Only show fully completed submissions with a valid form link
+                    .filter((fr: any) => fr.status === 'completed' && fr.form_id != null)
+                    .map(async (fr: any) => {
                     // 1. Fetch the current form field definitions (always the latest)
                     let formFields: any[] = [];
                     if (fr.form_id) {
@@ -209,33 +212,20 @@ export const getUsers = async (req: Request, res: Response) => {
                 where: { user_id: Number(singleId), checked_in: 1 }
             });
 
-            // ── Build Member Attributes (Profile fields) ──
-            // Same form-first approach: only show fields where is_profile = 1
-            // in the form definition.  Labels and order come from the form.
-            // Values come from member_profile (key-value store) or form answers.
-
+            // ── Build Member Profile Attributes ──
+            // Only show when the member has at least one completed form response
             let profileAttributes: any[] = [];
+            const hasCompletedForm = (member as any).responses?.some((r: any) => r.status === 'completed');
 
-            // Find the onboarding form from the member's responses, or fall back to mp-onboarding
-            const onboardingFormId = (member as any).responses?.[0]?.form_id;
+            // Find the onboarding form from the member's completed responses
+            const onboardingFormId = (member as any).responses?.find((r: any) => r.status === 'completed')?.form_id;
             let profileFormFields: any[] = [];
 
-            if (onboardingFormId) {
+            if (hasCompletedForm && onboardingFormId) {
                 profileFormFields = await prisma.formField.findMany({
                     where: { form_id: onboardingFormId, is_profile: 1 },
                     orderBy: { sort_order: 'asc' }
                 });
-            }
-
-            // If no form found from responses, try the mp-onboarding form directly
-            if (profileFormFields.length === 0) {
-                const onboardingForm = await prisma.forms.findFirst({ where: { code: 'mp-onboarding' } });
-                if (onboardingForm) {
-                    profileFormFields = await prisma.formField.findMany({
-                        where: { form_id: onboardingForm.id, is_profile: 1 },
-                        orderBy: { sort_order: 'asc' }
-                    });
-                }
             }
 
             if (profileFormFields.length > 0) {
@@ -289,9 +279,10 @@ export const getUsers = async (req: Request, res: Response) => {
                 stream_ids,
                 member_profile,
                 profile_attributes: profileAttributes,
+                has_completed_onboarding: hasCompletedForm,
                 form_responses: formattedResponses,
                 meeting_count: stats,
-                profiles: undefined,  // remove raw profiles from response
+                profiles: undefined,
                 form_responses_raw: undefined
             };
             return res.json(result);
@@ -397,13 +388,14 @@ export const getAdminJobs = async (req: Request, res: Response) => {
 // PUT /api/admin/jobs
 export const updateJob = async (req: Request, res: Response) => {
     try {
-        const { id, title, company, location, category, type, description, url, contact_email, status } = req.body;
+        const { id, title, company, location, category, type, description, company_profile, url, contact_email, status, expires_at } = req.body;
         if (!id) return res.status(400).json({ message: 'id required' });
         
         await prisma.jobs.update({
             where: { id: Number(id) },
             data: {
-                title, company, location, category, type, description, url, contact_email, status
+                title, company, location, category, type, description, company_profile, url, contact_email, status,
+                expires_at: (expires_at && expires_at !== "") ? new Date(expires_at) : null
             }
         });
         return res.json({ message: 'Job updated' });
@@ -431,6 +423,7 @@ export const deleteJob = async (req: Request, res: Response) => {
 // GET /api/admin/resources
 export const getAdminResources = async (req: Request, res: Response) => {
     try {
+        console.log('[RESOURCES] Fetching admin resources...');
         const id = req.query.id;
         if (id) {
             const resources = await prisma.$queryRawUnsafe(
@@ -451,7 +444,10 @@ export const getAdminResources = async (req: Request, res: Response) => {
             query += ` WHERE r.status = '${status}'`;
         }
         query += ` ORDER BY r.created_at DESC`;
+        
+        console.log('[RESOURCES] Executing query:', query);
         const resources = await prisma.$queryRawUnsafe(query);
+        console.log(`[RESOURCES] Found ${(resources as any[]).length} resources.`);
         return res.json(resources);
     } catch (error: any) {
         console.error('getAdminResources Error:', error);

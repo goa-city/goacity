@@ -31,7 +31,7 @@ const ToastDisplay = ({ toast, onDismiss }) => {
     const Icon = style.icon;
 
     return (
-        <div className={`fixed top-5 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl text-white text-sm font-semibold max-w-xs w-full ${style.bg}`}
+        <div className={`fixed top-5 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-2xl text-white text-sm font-semibold max-w-xs w-full ${style.bg}`}
             style={{ animation: 'toast-in 0.3s ease-out forwards' }}
         >
             <Icon className={`w-5 h-5 flex-shrink-0 ${style.iconColor}`} />

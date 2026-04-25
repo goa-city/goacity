@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import { 
-    PencilIcon, PlusIcon, EnvelopeIcon, 
+    PencilSquareIcon, PlusIcon, EnvelopeIcon, 
     TrashIcon 
-} from '@heroicons/react/24/outline';
+} from '@heroicons/react/24/solid';
+import { Card } from '../../shared/components/ui/Card';
+import Button from '../../shared/components/ui/Button';
 
 const AdminEmailTemplates = () => {
     const navigate = useNavigate();
@@ -37,74 +39,74 @@ const AdminEmailTemplates = () => {
     };
 
     return (
-        <div className="admin-container">
-            <div className="flex flex-wrap gap-4 justify-between items-center mb-8">
-                <div className="flex items-center gap-3">
-                    <div className="admin-header-icon bg-indigo-500">
-                        <EnvelopeIcon className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Email Templates</h1>
-                        <p className="text-sm text-gray-500">Manage automated system emails</p>
-                    </div>
+        <div className="max-w-7xl mx-auto py-10 px-6">
+            <div className="flex flex-wrap gap-6 justify-between items-center mb-10">
+                <div>
+                    <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight flex items-center gap-3">
+                        Email Templates
+                        <EnvelopeIcon className="w-8 h-8 text-indigo-600" />
+                    </h1>
+                    <p className="text-zinc-500 dark:text-zinc-400 mt-2 text-lg font-medium">Manage automated system emails</p>
                 </div>
-                <button
-                    onClick={() => navigate('/admin/email-templates/create')}
-                    className="admin-button-primary"
-                >
-                    <PlusIcon className="h-4 w-4" /> Create Template
-                </button>
+                <Button onClick={() => navigate('/admin/email-templates/create')} className="px-8 shadow-xl shadow-indigo-600/20">
+                    <PlusIcon className="w-5 h-5 mr-2" /> Create Template
+                </Button>
             </div>
 
-            <div className="admin-card">
-                {loading ? (
-                    <div className="p-12 text-center text-gray-400">Loading templates...</div>
-                ) : templates.length === 0 ? (
-                    <div className="p-12 text-center text-gray-400">No templates found. Create one to get started.</div>
-                ) : (
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr>
-                                <th className="admin-table-head">Title (Slug)</th>
-                                <th className="admin-table-head">Subject</th>
-                                <th className="admin-table-head hidden md:table-cell">Last Updated</th>
-                                <th className="admin-table-head text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50">
-                            {templates.map((template) => (
-                                <tr key={template.id} className="admin-table-row">
-                                    <td className="px-5 py-4 font-semibold text-gray-900">
-                                        {template.title}
-                                    </td>
-                                    <td className="px-5 py-4 text-gray-600">
-                                        {template.subject}
-                                    </td>
-                                    <td className="px-5 py-4 hidden md:table-cell text-gray-400 text-xs">
-                                        {new Date(template.updated_at).toLocaleDateString()}
-                                    </td>
-                                    <td className="px-5 py-4 text-right">
-                                        <div className="flex justify-end gap-2">
-                                            <button 
-                                                onClick={() => navigate(`/admin/email-templates/${template.id}`)}
-                                                className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                                            >
-                                                <PencilIcon className="w-4 h-4" />
-                                            </button>
-                                            <button 
-                                                onClick={() => handleDelete(template.id)}
-                                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                            >
-                                                <TrashIcon className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    </td>
+            <Card className="border-zinc-100 dark:border-zinc-800 shadow-xl shadow-zinc-200/50 dark:shadow-none overflow-hidden">
+                <div className="overflow-x-auto">
+                    {loading ? (
+                        <div className="p-12 text-center font-black uppercase tracking-widest text-zinc-400 text-sm animate-pulse">Loading templates...</div>
+                    ) : templates.length === 0 ? (
+                        <div className="py-20 text-center">
+                            <p className="text-zinc-400 font-black uppercase tracking-widest text-sm">No templates found</p>
+                            <p className="text-zinc-500 mt-1">Create one to get started.</p>
+                        </div>
+                    ) : (
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className="border-b border-zinc-50 dark:border-zinc-800">
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400">Title (Slug)</th>
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400">Subject</th>
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400 hidden md:table-cell">Last Updated</th>
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400 text-right">Actions</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                )}
-            </div>
+                            </thead>
+                            <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/50">
+                                {templates.map((template) => (
+                                    <tr key={template.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30 transition-colors group cursor-pointer" onClick={() => navigate(`/admin/email-templates/${template.id}`)}>
+                                        <td className="px-8 py-5 font-black text-sm text-zinc-900 dark:text-white">
+                                            {template.title}
+                                        </td>
+                                        <td className="px-8 py-5 text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                                            {template.subject}
+                                        </td>
+                                        <td className="px-8 py-5 hidden md:table-cell text-zinc-400 text-xs font-black tracking-widest uppercase">
+                                            {new Date(template.updated_at).toLocaleDateString()}
+                                        </td>
+                                        <td className="px-8 py-5 text-right" onClick={e => e.stopPropagation()}>
+                                            <div className="flex justify-end gap-2 isolate">
+                                                <button 
+                                                    onClick={() => navigate(`/admin/email-templates/${template.id}`)}
+                                                    className="p-2 rounded-xl text-zinc-300 group-hover:text-indigo-600 transition-all hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
+                                                >
+                                                    <PencilSquareIcon className="w-5 h-5" />
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleDelete(template.id)}
+                                                    className="p-2 rounded-xl text-zinc-300 group-hover:text-red-600 transition-all hover:bg-red-50 dark:hover:bg-red-950/30"
+                                                >
+                                                    <TrashIcon className="w-5 h-5" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+            </Card>
         </div>
     );
 };

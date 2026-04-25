@@ -74,7 +74,7 @@ const MeetingView = () => {
             </div>
 
             {meeting.recap_content && (
-                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 mb-8">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 mb-8">
                     <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
                         <DocumentTextIcon className="w-6 h-6 text-indigo-500" />
                         Meeting Recap / Notes
@@ -86,7 +86,7 @@ const MeetingView = () => {
                 </div>
             )}
 
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 mb-8">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 mb-8">
                 <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
                     <LinkIcon className="w-6 h-6 text-indigo-500" />
                     Resources
@@ -118,7 +118,7 @@ const MeetingView = () => {
             {meeting.feedback_form_id && hasCheckedIn && (
                 <div className="mb-8">
                     <h2 className="text-2xl font-bold text-[#2D2D46] mb-4">Complete Feedback/Meeting Form</h2>
-                    <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden relative" style={{minHeight: '600px'}}>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden relative" style={{minHeight: '600px'}}>
                         {/* We use an iframe to embed the onboarding UI for the specific form, or use a component.
                             Since Onboarding holds its own state and layout, it's easier to pass formId as prop if refactored.
                             Here we just render the Onboarding component but it currently uses useParams, so we link to it instead.

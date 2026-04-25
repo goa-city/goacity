@@ -1,10 +1,12 @@
 import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { useSuperAdminAuth } from '../context/SuperAdminAuthContext';
 import { useNavigate } from 'react-router-dom';
-import { GlobeAltIcon, PowerIcon, BuildingOffice2Icon } from '@heroicons/react/24/outline';
+import { GlobeAltIcon, PowerIcon, BuildingOffice2Icon, MoonIcon, SunIcon } from '@heroicons/react/24/outline';
+import { useTheme } from '../context/ThemeContext';
 
 const SuperAdminLayout = () => {
     const { superAdminUser, logout, loading } = useSuperAdminAuth();
+    const { theme, toggleTheme } = useTheme();
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -81,8 +83,25 @@ const SuperAdminLayout = () => {
                         </div>
                     </div>
                     <button
+                        onClick={toggleTheme}
+                        className="flex w-full items-center justify-center gap-2 px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-slate-500 hover:text-white transition-all duration-300 font-bold text-[10px] uppercase tracking-widest mb-3"
+                    >
+                        {theme === 'dark' ? (
+                            <>
+                                <SunIcon className="h-4 w-4" />
+                                Light Mode
+                            </>
+                        ) : (
+                            <>
+                                <MoonIcon className="h-4 w-4" />
+                                Dark Mode
+                            </>
+                        )}
+                    </button>
+
+                    <button
                         onClick={logout}
-                        className="flex w-full items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-slate-500 hover:text-rose-400 hover:border-rose-900/50 hover:bg-rose-950/10 transition-all duration-300 font-bold text-xs uppercase tracking-widest"
+                        className="flex w-full items-center justify-center gap-2 px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-slate-500 hover:text-rose-400 hover:border-rose-900/50 hover:bg-rose-950/10 transition-all duration-300 font-bold text-[10px] uppercase tracking-widest"
                     >
                         <PowerIcon className="h-4 w-4" />
                         Logout

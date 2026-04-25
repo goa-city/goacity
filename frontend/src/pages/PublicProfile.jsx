@@ -22,7 +22,7 @@ const PublicProfile = () => {
 
     const fetchProfile = async () => {
         try {
-            const res = await api.get(`/profile/${id}`);
+            const res = await api.get(`/member/profile/${id}`);
             setMember(res.data.data);
         } catch (err) {
             console.error(err);
@@ -35,7 +35,7 @@ const PublicProfile = () => {
         e.preventDefault();
         setSubmitting(true);
         try {
-            await api.post('/collaboration/request', {
+            await api.post('/member/collaboration/request', {
                 provider_id: member.id,
                 type: collabType,
                 description: collabDesc
@@ -53,7 +53,7 @@ const PublicProfile = () => {
 
     const triggerDevAutoTest = async () => {
         try {
-            await api.post(`/dev/collab-test/${id}`);
+            await api.post(`/member/dev/collab-test/${id}`);
             alert('Auto-Test ran successfully.');
             fetchProfile(); // reload profile to show services
         } catch (err) {
@@ -92,7 +92,7 @@ const PublicProfile = () => {
                 </div>
             )}
 
-            <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden mb-8 slide-in-bottom relative">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-8 slide-in-bottom relative">
                 <div className="h-32 bg-slate-900 w-full relative">
                     <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-sky-400 via-sky-600 to-transparent"></div>
                 </div>
@@ -140,7 +140,7 @@ const PublicProfile = () => {
 
             {/* Profile Attributes — driven by form fields marked "Sync to Profile" */}
             {member.profile_attributes && member.profile_attributes.length > 0 && (
-                <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden mb-8">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-8">
                     <div className="px-8 py-6 border-b border-gray-50 bg-gray-50/30">
                         <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest">Profile</h3>
                     </div>
@@ -176,7 +176,7 @@ const PublicProfile = () => {
             {member.services && member.services.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {member.services.map(srv => (
-                        <div key={srv.id} className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow group relative overflow-hidden">
+                        <div key={srv.id} className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow group relative overflow-hidden">
                             <div className="absolute top-0 right-0 p-6 flex items-center justify-end pointer-events-none opacity-5 group-hover:opacity-10 transition-opacity">
                                 <LinkIcon className="w-16 h-16 text-slate-800" />
                             </div>
@@ -203,7 +203,7 @@ const PublicProfile = () => {
                     ))}
                 </div>
             ) : (
-                <div className="bg-gray-50 border border-dashed border-gray-200 p-8 rounded-2xl text-center flex flex-col items-center">
+                <div className="bg-gray-50 border border-dashed border-gray-200 p-8 rounded-xl text-center flex flex-col items-center">
                     <p className="text-gray-500 font-medium my-2">No active marketplace listings linked to this profile.</p>
                 </div>
             )}
@@ -211,7 +211,7 @@ const PublicProfile = () => {
             {/* Collab Request Modal */}
             {isCollabModalOpen && (
                 <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100">
                         <div className="p-8">
                             <h3 className="text-2xl font-black text-gray-900 mb-1">Collaboration Request</h3>
                             <p className="text-gray-500 text-sm mb-6">Outline your intent with <span className="font-bold">{member.first_name}</span>.</p>

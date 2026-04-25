@@ -42,3 +42,7 @@ backend_node/*.sql
 backend_node/*.js
 backend_node/test-collab.ts
 !backend_node/src/**/*.js
+
+# Backups and Dumps
+*.tar.gz
+*.sql

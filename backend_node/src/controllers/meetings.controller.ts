@@ -41,10 +41,69 @@ export const getMeetings = async (req: Request, res: Response) => {
     }
 };
 
-// GET /api/meetings (member-facing)
+export const getUpcomingMeetings = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).userId || 0;
+        const now = new Date();
+        const rawMeetings: any[] = await prisma.$queryRaw`
+            SELECT m.*, s.name as stream_name, s.color as stream_color,
+                mr.rsvp_status as my_rsvp, mr.checked_in as my_checkin, mr.payment_status as my_payment_status, mr.paid_amount
+            FROM meetings m
+            LEFT JOIN streams s ON s.id = m.stream_id
+            LEFT JOIN meeting_responses mr ON mr.meeting_id = m.id AND mr.user_id = ${userId}
+            WHERE m.archived = 0
+              AND m.meeting_date >= ${now.toISOString().split('T')[0]}::date
+              AND (m.stream_id IS NULL OR m.stream_id IN (SELECT stream_id FROM stream_members WHERE user_id = ${userId}))
+            ORDER BY m.meeting_date ASC, m.start_time ASC
+        `;
+
+        const formatted = rawMeetings.map(m => ({
+            ...m,
+            meeting_date: m.meeting_date ? new Date(m.meeting_date).toISOString().split('T')[0] : null,
+            start_time: m.start_time ? new Date(m.start_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : null,
+            end_time: m.end_time ? new Date(m.end_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : null
+        }));
+
+        return res.json(formatted);
+    } catch (error: any) {
+        console.error('getUpcomingMeetings Error:', error);
+        return res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
+export const getPastMeetings = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).userId || 0;
+        const now = new Date();
+        const rawMeetings: any[] = await prisma.$queryRaw`
+            SELECT m.*, s.name as stream_name, s.color as stream_color,
+                mr.rsvp_status as my_rsvp, mr.checked_in as my_checkin, mr.payment_status as my_payment_status, mr.paid_amount
+            FROM meetings m
+            LEFT JOIN streams s ON s.id = m.stream_id
+            LEFT JOIN meeting_responses mr ON mr.meeting_id = m.id AND mr.user_id = ${userId}
+            WHERE m.archived = 0
+              AND m.meeting_date < ${now.toISOString().split('T')[0]}::date
+              AND (m.stream_id IS NULL OR m.stream_id IN (SELECT stream_id FROM stream_members WHERE user_id = ${userId}))
+            ORDER BY m.meeting_date DESC, m.start_time DESC
+        `;
+
+        const formatted = rawMeetings.map(m => ({
+            ...m,
+            meeting_date: m.meeting_date ? new Date(m.meeting_date).toISOString().split('T')[0] : null,
+            start_time: m.start_time ? new Date(m.start_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : null,
+            end_time: m.end_time ? new Date(m.end_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : null
+        }));
+
+        return res.json(formatted);
+    } catch (error: any) {
+        console.error('getPastMeetings Error:', error);
+        return res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
 export const getMemberMeetings = async (req: Request, res: Response) => {
     try {
-        const userId = Number(req.query.user_id) || 0;
+        const userId = Number(req.query.user_id) || (req as any).userId || 0;
         const rawMeetings: any[] = await prisma.$queryRaw`
             SELECT m.*, s.name as stream_name, s.color as stream_color,
                 mr.rsvp_status as my_rsvp, mr.checked_in as my_checkin, mr.payment_status as my_payment_status, mr.paid_amount
@@ -276,6 +335,37 @@ export const getPosts = async (req: Request, res: Response) => {
         return res.json(posts);
     } catch (error: any) {
         console.error('getPosts Error:', error);
+        return res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
+export const rsvpMeeting = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).userId;
+        const meetingId = Number(req.params.id);
+        const { status } = req.body;
+
+        if (!status) return res.status(400).json({ message: 'Status required' });
+
+        // Check if response exists
+        const existing: any[] = await prisma.$queryRaw`
+            SELECT id FROM meeting_responses WHERE meeting_id = ${meetingId} AND user_id = ${userId}
+        `;
+
+        if (existing.length > 0) {
+            await prisma.$queryRaw`
+                UPDATE meeting_responses SET rsvp_status = ${status} WHERE id = ${existing[0].id}
+            `;
+        } else {
+            await prisma.$queryRaw`
+                INSERT INTO meeting_responses (meeting_id, user_id, rsvp_status)
+                VALUES (${meetingId}, ${userId}, ${status})
+            `;
+        }
+
+        return res.json({ success: true, message: 'RSVP updated' });
+    } catch (error: any) {
+        console.error('rsvpMeeting Error:', error);
         return res.status(500).json({ message: 'Internal server error' });
     }
 };

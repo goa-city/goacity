@@ -46,7 +46,7 @@ const Jobs = () => {
     });
 
     useEffect(() => {
-        api.get('/jobs')
+        api.get('/member/jobs')
             .then(res => setJobs(res.data))
             .catch(err => console.error('Failed to load jobs:', err))
             .finally(() => setLoading(false));
@@ -81,7 +81,7 @@ const Jobs = () => {
                 </div>
 
                 {/* Search Bar */}
-                <div className="bg-white border border-gray-100 shadow-sm rounded-3xl p-6 mb-8 mt-4">
+                <div className="bg-white border border-gray-100 shadow-sm rounded-xl p-6 mb-8 mt-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <input
                             type="text"
@@ -186,7 +186,7 @@ const Jobs = () => {
 
                                     {/* View Button */}
                                     <button
-                                        onClick={() => job.url && window.open(job.url, '_blank')}
+                                        onClick={() => navigate(`/jobs/${job.id}`)}
                                         className="text-xs font-bold text-sky-500 border border-sky-400 rounded-full px-4 py-1.5 hover:bg-sky-500 hover:text-white transition-all shrink-0"
                                     >
                                         VIEW JOB

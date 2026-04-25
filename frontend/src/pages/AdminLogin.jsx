@@ -30,7 +30,7 @@ const AdminLogin = () => {
             <div className="w-full max-w-md relative z-10">
                 <div className="bg-slate-900 border border-slate-800 p-10 rounded-[32px] shadow-2xl">
                     <div className="flex flex-col items-center mb-10">
-                         <div className="w-14 h-14 bg-sky-500 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-sky-500/20">
+                         <div className="w-14 h-14 bg-sky-500 rounded-xl flex items-center justify-center mb-6 shadow-lg shadow-sky-500/20">
                             <ShieldCheckIcon className="w-8 h-8 text-white" />
                          </div>
                         <h2 className="text-2xl font-black tracking-widest text-white uppercase italic">
@@ -42,7 +42,7 @@ const AdminLogin = () => {
                     </div>
                     
                     {error && (
-                        <div className="mb-6 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold p-4 rounded-2xl flex items-center gap-3">
+                        <div className="mb-6 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold p-4 rounded-xl flex items-center gap-3">
                             <div className="w-1.5 h-1.5 bg-rose-500 rounded-full"></div>
                             {error}
                         </div>
@@ -53,7 +53,7 @@ const AdminLogin = () => {
                             <label className="block text-[10px] uppercase font-black tracking-widest text-slate-500 mb-2 ml-1">Access Email</label>
                             <input
                                 id="email" name="email" type="email" required
-                                className="block w-full rounded-2xl border-0 bg-slate-800/50 py-4 text-white ring-1 ring-inset ring-slate-800 placeholder:text-slate-600 focus:ring-2 focus:ring-inset focus:ring-sky-500 sm:text-sm px-5 transition-all outline-none"
+                                className="block w-full rounded-xl border-0 bg-slate-800/50 py-4 text-white ring-1 ring-inset ring-slate-800 placeholder:text-slate-600 focus:ring-2 focus:ring-inset focus:ring-sky-500 sm:text-sm px-5 transition-all outline-none"
                                 placeholder="name@goa.city"
                                 value={email} onChange={(e) => setEmail(e.target.value)}
                             />
@@ -62,7 +62,7 @@ const AdminLogin = () => {
                             <label className="block text-[10px] uppercase font-black tracking-widest text-slate-500 mb-2 ml-1">Security Token</label>
                             <input
                                 id="password" name="password" type="password" required
-                                className="block w-full rounded-2xl border-0 bg-slate-800/50 py-4 text-white ring-1 ring-inset ring-slate-800 placeholder:text-slate-600 focus:ring-2 focus:ring-inset focus:ring-sky-500 sm:text-sm px-5 transition-all outline-none"
+                                className="block w-full rounded-xl border-0 bg-slate-800/50 py-4 text-white ring-1 ring-inset ring-slate-800 placeholder:text-slate-600 focus:ring-2 focus:ring-inset focus:ring-sky-500 sm:text-sm px-5 transition-all outline-none"
                                 placeholder="••••••••"
                                 value={password} onChange={(e) => setPassword(e.target.value)}
                             />
@@ -71,7 +71,7 @@ const AdminLogin = () => {
                         <div className="pt-4">
                             <button
                                 type="submit"
-                                className="group relative flex w-full justify-center rounded-2xl bg-sky-500 py-4 text-sm font-black text-white hover:bg-sky-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 uppercase tracking-widest transition-all shadow-xl shadow-sky-500/20 active:scale-[0.98]"
+                                className="group relative flex w-full justify-center rounded-xl bg-sky-500 py-4 text-sm font-black text-white hover:bg-sky-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 uppercase tracking-widest transition-all shadow-xl shadow-sky-500/20 active:scale-[0.98]"
                             >
                                 <LockClosedIcon className="w-4 h-4 mr-2 opacity-50 group-hover:opacity-100 transition-opacity" />
                                 Authenticate

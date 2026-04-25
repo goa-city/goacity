@@ -14,11 +14,15 @@ import {
     UsersIcon,
     LightBulbIcon,
     HeartIcon,
-    CalendarDaysIcon
+    CalendarDaysIcon,
+    MoonIcon,
+    SunIcon
 } from '@heroicons/react/24/outline'; // Using outline icons for a clean look
+import { useTheme } from '../context/ThemeContext';
 
 const SidebarLeft = ({ mobileOpen, setMobileOpen }) => {
     const { user, logout } = useAuth();
+    const { theme, toggleTheme } = useTheme();
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -60,41 +64,41 @@ const SidebarLeft = ({ mobileOpen, setMobileOpen }) => {
             )}
 
             <div className={`
-                fixed top-0 left-0 bottom-0 w-64 bg-white border-r border-gray-100 z-50 overflow-y-auto transition-transform duration-300
+                fixed top-0 left-0 bottom-0 w-64 bg-white dark:bg-zinc-950 border-r border-zinc-100 dark:border-zinc-800 z-50 overflow-y-auto transition-transform duration-300
                 lg:translate-x-0
                 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
             `}>
                 {/* Logo Area */}
                 <div className="p-6 flex justify-between items-center">
-                     <span className="text-2xl font-bold text-gray-900">Goa.City</span>
+                     <span className="text-2xl font-bold text-zinc-900 dark:text-white">Goa.City</span>
                      <button 
                         onClick={() => setMobileOpen(false)}
-                        className="lg:hidden text-gray-500 hover:text-gray-900"
+                        className="lg:hidden text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
                      >
                          <XMarkIcon className="w-6 h-6" />
                      </button>
                 </div>
 
                 {/* Profile Section */}
-                <div className="flex flex-col items-center px-6 mb-8 text-center text-gray-900">
+                <div className="flex flex-col items-center px-6 mb-8 text-center">
                     <div className="relative">
                         {profileImage ? (
                             <img 
                                 src={profileImage} 
                                 alt="Profile" 
-                                className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-sm"
+                                className="w-20 h-20 rounded-full object-cover border-4 border-white dark:border-zinc-800 shadow-sm"
                             />
                         ) : (
                             <div 
-                                className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold text-white border-4 border-white shadow-sm"
+                                className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold text-white border-4 border-white dark:border-zinc-800 shadow-sm"
                                 style={{ backgroundColor: latestStreamColor }}
                             >
                                 {initials}
                             </div>
                         )}
                      </div>
-                    <h2 className="mt-4 text-lg font-bold text-gray-900">{(user?.first_name || user?.last_name) ? `${user?.first_name || ''} ${user?.last_name || ''}`.trim() : 'Member'}</h2>
-                    <p className="text-sm text-gray-600">{user?.email}</p>
+                    <h2 className="mt-4 text-lg font-bold text-zinc-900 dark:text-white">{(user?.first_name || user?.last_name) ? `${user?.first_name || ''} ${user?.last_name || ''}`.trim() : 'Member'}</h2>
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">{user?.email}</p>
                 </div>
 
                 {/* Navigation */}
@@ -110,24 +114,40 @@ const SidebarLeft = ({ mobileOpen, setMobileOpen }) => {
                                 }}
                                 className={`flex items-center w-full px-4 py-3 text-sm font-medium rounded-xl transition-colors ${
                                     active 
-                                        ? 'text-gray-900 bg-gray-50' 
-                                        : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                                        ? 'text-zinc-900 dark:text-white bg-zinc-50 dark:bg-zinc-900/50' 
+                                        : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900/50'
                                 }`}
                             >
-                                <item.icon className={`w-5 h-5 mr-3 ${active ? 'text-gray-900' : 'text-gray-400'}`} />
+                                <item.icon className={`w-5 h-5 mr-3 ${active ? 'text-zinc-900 dark:text-white' : 'text-zinc-400 dark:text-zinc-500'}`} />
                                 {item.name}
                             </button>
                         )
                     })}
                     
-                    <div className="pt-4 mt-4 border-t border-gray-100">
+                    <div className="pt-4 mt-4 border-t border-zinc-100 dark:border-zinc-800">
+                        <button
+                            onClick={toggleTheme}
+                            className="flex items-center w-full px-4 py-3 text-sm font-medium rounded-xl transition-colors text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900/50 mb-1"
+                        >
+                            {theme === 'dark' ? (
+                                <>
+                                    <SunIcon className="w-5 h-5 mr-3" />
+                                    Light Mode
+                                </>
+                            ) : (
+                                <>
+                                    <MoonIcon className="w-5 h-5 mr-3" />
+                                    Dark Mode
+                                </>
+                            )}
+                        </button>
                         <button
                             onClick={() => {
                                 logout();
                                 setMobileOpen(false);
                                 navigate('/');
                             }}
-                            className="flex items-center w-full px-4 py-3 text-sm font-medium rounded-xl transition-colors text-gray-500 hover:text-red-600 hover:bg-red-50"
+                            className="flex items-center w-full px-4 py-3 text-sm font-medium rounded-xl transition-colors text-zinc-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20"
                         >
                             <ArrowLeftOnRectangleIcon className="w-5 h-5 mr-3" />
                             Logout

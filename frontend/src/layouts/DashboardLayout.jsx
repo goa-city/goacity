@@ -6,14 +6,15 @@ import BottomNav from '../components/mobile/BottomNav';
 import { Bars3Icon } from '@heroicons/react/24/outline';
 import { Capacitor } from '@capacitor/core';
 
-const DashboardLayout = ({ children }) => {
+const DashboardLayout = ({ children, rightSidebar }) => {
     const isNative = Capacitor.isNativePlatform();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const location = useLocation();
     const isDashboard = location.pathname === '/dashboard';
+    const hasRightSidebar = isDashboard || !!rightSidebar;
 
     return (
-        <div className={`min-h-screen bg-[#FDFBF9] ${isNative ? 'pt-safe pb-safe pl-safe pr-safe' : ''}`}>
+        <div className={`min-h-screen bg-[#FDFBF9] dark:bg-zinc-950 ${isNative ? 'pt-safe pb-safe pl-safe pr-safe' : ''}`}>
             <SidebarLeft mobileOpen={mobileMenuOpen} setMobileOpen={setMobileMenuOpen} />
             
             {/* Mobile Header (Hidden on Native Mobile where Bottom Nav is used) */}
@@ -31,16 +32,16 @@ const DashboardLayout = ({ children }) => {
 
             {/* Main Content Area */}
             {/* If native, add bottom padding (pb-20) to prevent content being hidden under BottomNav */}
-            <div className={`lg:ml-64 ${isDashboard ? 'xl:mr-80' : ''} min-h-screen transition-all duration-300 ${isNative ? 'pb-20' : ''}`}>
-                <div className="max-w-7xl mx-auto p-4 sm:p-8">
+            <div className={`lg:ml-64 ${hasRightSidebar ? 'xl:mr-80' : ''} min-h-screen transition-all duration-300 ${isNative ? 'pb-20' : ''}`}>
+                <div className="max-w-full mx-auto p-4 sm:p-8">
                     {children}
                 </div>
             </div>
 
             {/* Fixed right sidebar on desktop only */}
-            {isDashboard && (
+            {hasRightSidebar && (
                 <div className="hidden xl:block">
-                    <SidebarRight />
+                    {rightSidebar || <SidebarRight />}
                 </div>
             )}
             

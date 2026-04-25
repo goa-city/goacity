@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import {
     PencilSquareIcon, TrashIcon, PlusIcon, MagnifyingGlassIcon, BriefcaseIcon
-} from '@heroicons/react/24/outline';
+} from '@heroicons/react/24/solid';
+import { Card } from '../../shared/components/ui/Card';
+import Button from '../../shared/components/ui/Button';
 
 const STATUS_COLORS = {
     pending:  'bg-amber-100 text-amber-800 border border-amber-200',
@@ -61,129 +63,141 @@ const AdminJobs = () => {
     const pendingCount = jobs.filter(j => (j.status || 'pending') === 'pending').length;
 
     return (
-        <div className="p-6 max-w-7xl mx-auto">
-            {toast && (
-                <div className="fixed top-5 right-5 z-50 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium">
-                    {toast}
-                </div>
-            )}
+        <div className="max-w-7xl mx-auto py-10 px-6">
+            {toast && <div className="fixed bottom-4 right-4 bg-emerald-500 text-white px-6 py-3 rounded-xl font-bold tracking-widest uppercase text-[10px] shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-4">{toast}</div>}
 
             {/* Header */}
-            <div className="flex flex-wrap gap-4 justify-between items-center mb-8">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-sky-500 rounded-xl flex items-center justify-center">
-                        <BriefcaseIcon className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Job Postings</h1>
-                        <p className="text-sm text-gray-500">
-                            {jobs.length} total
-                            {pendingCount > 0 && (
-                                <span className="ml-2 bg-amber-100 text-amber-700 text-xs font-bold px-2 py-0.5 rounded-full">
-                                    {pendingCount} pending review
-                                </span>
-                            )}
-                        </p>
-                    </div>
+            <div className="flex flex-wrap gap-6 justify-between items-center mb-10">
+                <div>
+                    <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight flex items-center gap-3">
+                        Job Postings
+                        <BriefcaseIcon className="w-8 h-8 text-indigo-600" />
+                    </h1>
+                    <p className="text-zinc-500 dark:text-zinc-400 mt-2 text-lg font-medium">
+                        {jobs.length} total
+                        {pendingCount > 0 && (
+                            <span className="ml-3 bg-amber-100 text-amber-700 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest">
+                                {pendingCount} pending review
+                            </span>
+                        )}
+                    </p>
                 </div>
-                <button
-                    onClick={() => navigate('/admin/jobs/new')}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition-colors text-sm font-semibold shadow"
-                >
-                    <PlusIcon className="w-4 h-4" /> Add Job
-                </button>
+                <Button onClick={() => navigate('/admin/jobs/new')} className="px-8 shadow-xl shadow-indigo-600/20">
+                    <PlusIcon className="w-5 h-5 mr-2" /> Add Job
+                </Button>
             </div>
 
             {/* Filters + Search */}
-            <div className="flex flex-wrap gap-3 mb-6">
-                {['all', 'pending', 'approved', 'rejected'].map(s => (
-                    <button
-                        key={s}
-                        onClick={() => setFilter(s)}
-                        className={`px-4 py-2 rounded-lg text-xs font-bold capitalize transition-colors ${
-                            filter === s ? 'bg-slate-900 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:border-slate-400'
-                        }`}
-                    >
-                        {s}
-                        {s === 'pending' && pendingCount > 0 && (
-                            <span className="ml-1.5 bg-amber-400 text-white text-[10px] font-bold w-4 h-4 inline-flex items-center justify-center rounded-full">
-                                {pendingCount}
-                            </span>
-                        )}
-                    </button>
-                ))}
-                <div className="relative ml-auto">
-                    <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <div className="flex flex-wrap gap-3 mb-8 items-center justify-between">
+                <div className="flex gap-2">
+                    {['all', 'pending', 'approved', 'rejected'].map(s => (
+                        <button
+                            key={s}
+                            onClick={() => setFilter(s)}
+                            className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-colors flex items-center gap-2 ${
+                                filter === s 
+                                ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/30 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50' 
+                                : 'bg-white dark:bg-zinc-900 text-zinc-500 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                            }`}
+                        >
+                            <span>{s}</span>
+                            {s === 'pending' && pendingCount > 0 && (
+                                <span className="bg-amber-500 text-white text-[9px] font-black w-4 h-4 inline-flex items-center justify-center rounded-full">
+                                    {pendingCount}
+                                </span>
+                            )}
+                        </button>
+                    ))}
+                </div>
+                <div className="relative max-w-md w-full ml-auto">
+                    <MagnifyingGlassIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" />
                     <input
                         value={search} onChange={e => setSearch(e.target.value)}
                         placeholder="Search jobs..."
-                        className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
+                        className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 pl-12 h-12 shadow-sm font-medium"
                     />
                 </div>
             </div>
 
-            {/* Table */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                {loading ? (
-                    <div className="p-12 text-center text-gray-400">Loading...</div>
-                ) : filtered.length === 0 ? (
-                    <div className="p-12 text-center text-gray-400">No jobs found.</div>
-                ) : (
-                    <table className="w-full text-sm">
-                        <thead className="bg-gray-50 border-b border-gray-100">
-                            <tr>
-                                <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Job</th>
-                                <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">Type</th>
-                                <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Submitted By</th>
-                                <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                                <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50">
-                            {filtered.map(job => (
-                                <tr key={job.id} className="hover:bg-gray-50 transition-colors cursor-pointer"
-                                    onClick={() => navigate(`/admin/jobs/${job.id}`)}>
-                                    <td className="px-5 py-4">
-                                        <p className="font-semibold text-gray-900 truncate max-w-xs">{job.title}</p>
-                                        <p className="text-xs text-gray-500">{job.company} · {job.location}</p>
-                                    </td>
-                                    <td className="px-5 py-4 hidden md:table-cell">
-                                        <span className={`text-[11px] font-bold px-2 py-1 rounded-full ${TYPE_COLORS[job.type] || 'bg-gray-100 text-gray-600'}`}>
-                                            {job.type}
-                                        </span>
-                                    </td>
-                                    <td className="px-5 py-4 hidden lg:table-cell text-gray-500 text-xs">
-                                        {job.first_name ? `${job.first_name} ${job.last_name}` : <span className="italic text-gray-300">Admin</span>}
-                                    </td>
-                                    <td className="px-5 py-4">
-                                        <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full capitalize ${STATUS_COLORS[job.status] || STATUS_COLORS.pending}`}>
-                                            {job.status || 'pending'}
-                                        </span>
-                                    </td>
-                                    <td className="px-5 py-4" onClick={e => e.stopPropagation()}>
-                                        <div className="flex items-center justify-end gap-2">
-                                            <button
-                                                onClick={() => navigate(`/admin/jobs/${job.id}`)}
-                                                title="Edit"
-                                                className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors"
-                                            >
-                                                <PencilSquareIcon className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(job.id)}
-                                                title="Delete"
-                                                className="p-1.5 bg-gray-100 text-gray-500 rounded-lg hover:bg-red-50 hover:text-red-500 transition-colors"
-                                            >
-                                                <TrashIcon className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    </td>
+            {/* Table Card */}
+            <Card className="border-zinc-100 dark:border-zinc-800 shadow-xl shadow-zinc-200/50 dark:shadow-none overflow-hidden">
+                <div className="overflow-x-auto">
+                    {loading ? (
+                        <div className="p-12 text-center font-black uppercase tracking-widest text-zinc-400 text-sm animate-pulse">Loading...</div>
+                    ) : filtered.length === 0 ? (
+                        <div className="py-20 text-center">
+                            <p className="text-zinc-400 font-black uppercase tracking-widest text-sm">No jobs found</p>
+                            <p className="text-zinc-500 mt-1">Try adjusting your search filters.</p>
+                        </div>
+                    ) : (
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className="border-b border-zinc-50 dark:border-zinc-800">
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400">Job</th>
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400 hidden md:table-cell">Type</th>
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400 hidden lg:table-cell">Submitted By</th>
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400">Status</th>
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400 text-right">Actions</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                )}
-            </div>
+                            </thead>
+                            <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/50">
+                                {filtered.map(job => (
+                                    <tr key={job.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30 transition-colors cursor-pointer group"
+                                        onClick={() => navigate(`/admin/jobs/${job.id}`)}>
+                                        <td className="px-8 py-5">
+                                            <p className="text-sm font-black text-zinc-900 dark:text-white truncate max-w-xs">{job.title}</p>
+                                            <p className="text-xs font-medium text-zinc-400 mt-1">{job.company} · {job.location}</p>
+                                        </td>
+                                        <td className="px-8 py-5 hidden md:table-cell">
+                                            <span className={`text-[10px] font-black px-3 py-1 rounded-lg uppercase tracking-widest border ${
+                                                job.type === 'Full Time' ? 'bg-sky-50 text-sky-600 border-sky-100 dark:bg-sky-950/30 dark:border-sky-900/50' :
+                                                job.type === 'Part Time' ? 'bg-violet-50 text-violet-600 border-violet-100 dark:bg-violet-950/30 dark:border-violet-900/50' :
+                                                job.type === 'Freelance' ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-950/30 dark:border-emerald-900/50' :
+                                                job.type === 'Internship' ? 'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-950/30 dark:border-amber-900/50' :
+                                                'bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800 dark:border-zinc-700'
+                                            }`}>
+                                                {job.type}
+                                            </span>
+                                        </td>
+                                        <td className="px-8 py-5 hidden lg:table-cell">
+                                            {job.first_name ? (
+                                                <span className="text-sm font-black text-zinc-700 dark:text-zinc-300">{job.first_name} {job.last_name}</span>
+                                            ) : (
+                                                <span className="text-sm font-medium italic text-zinc-400">System Admin</span>
+                                            )}
+                                        </td>
+                                        <td className="px-8 py-5">
+                                            <span className={`text-[10px] font-black px-3 py-1 rounded-lg border uppercase tracking-widest ${
+                                                job.status === 'approved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-950/30 dark:border-emerald-900/50' : 
+                                                job.status === 'rejected' ? 'bg-red-50 text-red-600 border-red-100 dark:bg-red-950/30 dark:border-red-900/50' : 
+                                                'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-950/30 dark:border-amber-900/50'
+                                            }`}>
+                                                {job.status || 'pending'}
+                                            </span>
+                                        </td>
+                                        <td className="px-8 py-5 text-right" onClick={e => e.stopPropagation()}>
+                                            <div className="flex items-center justify-end gap-2">
+                                                <button
+                                                    onClick={() => navigate(`/admin/jobs/${job.id}`)}
+                                                    className="p-2 rounded-xl text-zinc-300 group-hover:text-indigo-600 transition-all hover:bg-indigo-50 dark:hover:bg-indigo-950/30" title="Edit"
+                                                >
+                                                    <PencilSquareIcon className="w-5 h-5" />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(job.id)}
+                                                    className="p-2 rounded-xl text-zinc-300 group-hover:text-red-600 transition-all hover:bg-red-50 dark:hover:bg-red-950/30" title="Delete"
+                                                >
+                                                    <TrashIcon className="w-5 h-5" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+            </Card>
         </div>
     );
 };

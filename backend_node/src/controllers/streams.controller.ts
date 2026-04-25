@@ -5,13 +5,18 @@ import prisma from '../lib/prisma.js';
 export const getStreams = async (_req: Request, res: Response) => {
     try {
         const streams = await prisma.stream.findMany({
-            include: { members: true },
+            include: { 
+                members: true,
+                form: true
+            },
             orderBy: { id: 'asc' }
         });
         const result = streams.map((s: any) => ({
             ...s,
             member_count: s.members.length,
-            members: undefined
+            form_title: s.form?.title || null,
+            members: undefined,
+            form: undefined
         }));
         return res.json(result);
     } catch (error: any) {

@@ -57,7 +57,7 @@ const Resources = () => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        api.get('/resources')
+        api.get('/member/resources')
             .then(res => {
                 // Assign images: prioritize image_url from DB, then deterministic Unsplash
                 const catCounters = {};
@@ -101,7 +101,7 @@ const Resources = () => {
             className="group cursor-pointer"
             onClick={() => item.url && window.open(item.url, '_blank')}
         >
-            <div className="aspect-[4/3] rounded-2xl overflow-hidden mb-5 bg-gray-100">
+            <div className="aspect-[4/3] rounded-xl overflow-hidden mb-5 bg-gray-100">
                 <img
                     src={item.image}
                     alt={item.title}
@@ -172,7 +172,7 @@ const Resources = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
                         {[1, 2, 3, 4, 5, 6].map(i => (
                             <div key={i} className="animate-pulse">
-                                <div className="aspect-[4/3] rounded-2xl bg-gray-200 mb-5" />
+                                <div className="aspect-[4/3] rounded-xl bg-gray-200 mb-5" />
                                 <div className="h-4 bg-gray-200 rounded-full w-1/3 mb-3" />
                                 <div className="h-5 bg-gray-200 rounded-full w-3/4" />
                             </div>
@@ -190,7 +190,7 @@ const Resources = () => {
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-16">
                                 {/* Main featured */}
                                 <div
-                                    className="lg:col-span-1 aspect-[4/5] lg:aspect-auto lg:h-full relative group rounded-2xl overflow-hidden cursor-pointer"
+                                    className="lg:col-span-1 aspect-[4/5] lg:aspect-auto lg:h-full relative group rounded-xl overflow-hidden cursor-pointer"
                                     onClick={() => featured[0].url && window.open(featured[0].url, '_blank')}
                                 >
                                     <img
@@ -225,7 +225,7 @@ const Resources = () => {
                                         {featured.slice(1).map((item) => (
                                             <div
                                                 key={item.id}
-                                                className="aspect-[16/7] relative group rounded-2xl overflow-hidden cursor-pointer"
+                                                className="aspect-[16/7] relative group rounded-xl overflow-hidden cursor-pointer"
                                                 onClick={() => item.url && window.open(item.url, '_blank')}
                                             >
                                                 <img

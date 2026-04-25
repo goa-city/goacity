@@ -51,7 +51,7 @@ const IncubatorSubmit = () => {
         <DashboardLayout>
             <div className="max-w-3xl mx-auto">
                 <div className="mb-8 flex items-center gap-4">
-                    <div className="p-4 bg-sky-100/50 rounded-2xl">
+                    <div className="p-4 bg-sky-100/50 rounded-xl">
                         <LightBulbIcon className="w-8 h-8 text-sky-600" />
                     </div>
                     <div>
@@ -62,7 +62,7 @@ const IncubatorSubmit = () => {
 
                 {error && <div className="mb-6 bg-red-50 text-red-700 p-4 rounded-xl font-medium">{error}</div>}
 
-                <form onSubmit={handleSubmit} className="space-y-6 bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+                <form onSubmit={handleSubmit} className="space-y-6 bg-white p-8 rounded-xl shadow-sm border border-gray-100">
                     <div>
                         <label className="block text-sm font-bold text-gray-900 mb-2">Idea Title</label>
                         <input 

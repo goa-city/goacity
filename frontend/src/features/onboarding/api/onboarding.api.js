@@ -1,0 +1,67 @@
+import httpClient from '../../../shared/api/httpClient';
+
+export const fetchOnboardingForm = async (formId) => {
+    let url = '/member/form-progress?code=mp-onboarding';
+    if (formId) {
+        url = `/member/form-progress?id=${formId}`;
+    }
+    const { data } = await httpClient.get(url);
+    
+    // Normalize response
+    const rawQuestions = data.questions || data.data?.questions || data.fields || [];
+    const questions = rawQuestions.map(q => ({
+        ...q,
+        // Map DB names → frontend names
+        field: q.field || q.field_key,
+        title: q.title || q.label,
+        type: q.type || q.field_type,
+        subtitle: q.subtitle || null,
+        placeholder: q.placeholder || null,
+        is_required: q.is_required === 1 || q.required === true,
+        is_optional: q.is_optional === 1 || q.is_optional === true,
+        // Normalize options: DB may store as {0:'x',1:'y'} or []
+        options: Array.isArray(q.options)
+            ? q.options
+            : (q.options && typeof q.options === 'object' ? Object.values(q.options) : []),
+        // Normalize conditions
+        conditions: q.conditions && Object.keys(q.conditions).length > 0 ? q.conditions : null,
+    }));
+    
+    const answers = data.answers || data.data?.answers || {};
+    const lastStepIndex = data.last_step_index || data.data?.last_step_index || 0;
+    
+    return { questions, answers, lastStepIndex };
+};
+
+export const submitOnboarding = async (formData, isPartial = false, lastStepIndex = 0, formId = null) => {
+    const payload = new FormData();
+    
+    Object.keys(formData).forEach(key => {
+        const value = formData[key];
+        if (value instanceof File) {
+            // Only append files on final submit or if explicitly changed
+            if (!isPartial) payload.append(key, value);
+        } else if (typeof value === 'object' && value !== null) {
+            payload.append(key, JSON.stringify(value));
+        } else if (typeof value === 'boolean') {
+            payload.append(key, String(value));
+        } else {
+            payload.append(key, value !== null && value !== undefined ? String(value) : '');
+        }
+    });
+
+    payload.append('is_partial', isPartial ? '1' : '0');
+    payload.append('last_step_index', lastStepIndex.toString());
+
+    let endpoint = '/member/onboarding';
+    if (formId) {
+        endpoint = '/member/submit-form';
+        payload.append('form_id', formId);
+    }
+
+    const { data } = await httpClient.post(endpoint, payload, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    
+    return data;
+};

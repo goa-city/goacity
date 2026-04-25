@@ -28,6 +28,7 @@ model Member {
   age           Int?
   first_name    String?   @db.VarChar(255)
   last_name     String?   @db.VarChar(255)
+  fcm_token     String?   @db.VarChar(255)
 
   city_id       Int?      @default(1)
   city          City?     @relation(fields: [city_id], references: [id])
@@ -45,6 +46,8 @@ model Member {
   services        MemberService[]
   collabsMade     CollaborationRequest[] @relation("CollabRequester")
   collabsReceived CollaborationRequest[] @relation("CollabProvider")
+  notifications   Notification[]
+  job_applications JobApplication[] @relation("JobApplications")
 
   @@map("members")
 }
@@ -102,6 +105,7 @@ model Stream {
 
   city_id     Int?      @default(1)
   city        City?     @relation(fields: [city_id], references: [id])
+  form        forms?    @relation(fields: [form_id], references: [id])
 
   members     StreamMember[]
 
@@ -246,6 +250,7 @@ model forms {
 
   fields      FormField[]
   responses   FormResponse[]
+  streams     Stream[]
 
   city_id     Int?      @default(1)
   city        City?     @relation(fields: [city_id], references: [id])
@@ -259,15 +264,36 @@ model jobs {
   category      String?   @db.VarChar(100)
   type          String?   @default("Full Time") @db.VarChar(50)
   description   String?
+  company_profile String?
   url           String?   @db.VarChar(500)
   contact_email String?   @db.VarChar(255)
   posted_by     Int?
   status        String?   @default("pending") @db.VarChar(50)
+  expires_at    DateTime? @db.Timestamp(6)
   created_at    DateTime? @default(now()) @db.Timestamp(6)
   updated_at    DateTime? @default(now()) @db.Timestamp(6)
 
   city_id       Int?      @default(1)
   city          City?     @relation(fields: [city_id], references: [id])
+
+  applications  JobApplication[]
+}
+
+model JobApplication {
+  id           Int       @id @default(autoincrement())
+  job_id       Int
+  user_id      Int
+  full_name    String    @db.VarChar(255)
+  email        String    @db.VarChar(255)
+  phone        String?   @db.VarChar(50)
+  message      String?   @db.Text
+  cv_url       String    @db.VarChar(500)
+  created_at   DateTime? @default(now()) @db.Timestamp(6)
+
+  job          jobs      @relation(fields: [job_id], references: [id], onDelete: Cascade)
+  applicant    Member    @relation("JobApplications", fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("job_applications")
 }
 
 model meeting_responses {
@@ -502,5 +528,19 @@ model EmailTemplate {
   city       City?     @relation(fields: [city_id], references: [id])
 
   @@map("email_templates")
+}
+
+model Notification {
+  id          Int      @id @default(autoincrement())
+  member_id   Int
+  title       String   @db.VarChar(255)
+  message     String
+  type        String?  @db.VarChar(50) // meeting, stewardship, etc
+  is_read     Boolean  @default(false)
+  created_at  DateTime? @default(now()) @db.Timestamp(6)
+
+  member      Member   @relation(fields: [member_id], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
 }
 

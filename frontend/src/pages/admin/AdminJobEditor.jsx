@@ -3,7 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
     ArrowLeftIcon, CheckCircleIcon, XCircleIcon, BriefcaseIcon,
     MapPinIcon, LinkIcon, EnvelopeIcon, ClockIcon
-} from '@heroicons/react/24/outline';
+} from '@heroicons/react/24/solid';
+import { Card } from '../../shared/components/ui/Card';
+import Button from '../../shared/components/ui/Button';
 import QuillEditor from '../../components/QuillEditor';
 import api from '../../api/axios';
 
@@ -23,7 +25,7 @@ const AdminJobEditor = () => {
     const [toast, setToast] = useState('');
     const [form, setForm] = useState({
         title: '', company: '', location: '', type: 'Full Time',
-        category: '', url: '', contact_email: '', description: '', status: 'pending',
+        category: '', url: '', contact_email: '', description: '', company_profile: '', expires_at: '', status: 'pending',
     });
 
     useEffect(() => {
@@ -41,6 +43,8 @@ const AdminJobEditor = () => {
                         url: j.url || '',
                         contact_email: j.contact_email || '',
                         description: j.description || '',
+                        company_profile: j.company_profile || '',
+                        expires_at: j.expires_at ? new Date(j.expires_at).toISOString().slice(0, 10) : '',
                         status: j.status || 'pending',
                         submitter: j.first_name ? `${j.first_name} ${j.last_name} (${j.member_email})` : null,
                         created_at: j.created_at,
@@ -107,11 +111,11 @@ const AdminJobEditor = () => {
             </button>
 
             {/* Header card */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
-                <div className="p-6 flex flex-wrap items-start justify-between gap-4 border-b border-gray-50 bg-sky-50/40">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
+                <div className="p-6 flex flex-wrap items-start justify-between gap-4 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-sky-500 rounded-xl flex items-center justify-center shrink-0">
-                            <BriefcaseIcon className="w-6 h-6 text-white" />
+                        <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-950/30 rounded-xl flex items-center justify-center shrink-0 border border-indigo-100 dark:border-indigo-900/50">
+                            <BriefcaseIcon className="w-6 h-6 text-indigo-600" />
                         </div>
                         <div>
                             <h1 className="text-xl font-bold text-gray-900">{isNew ? 'New Job Posting' : (form.title || 'Edit Job')}</h1>
@@ -158,71 +162,77 @@ const AdminJobEditor = () => {
             </div>
 
             {/* Form */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="p-6 space-y-6">
                     {/* Title */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Job Title <span className="text-red-400">*</span></label>
+                        <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Job Title <span className="text-red-500">*</span></label>
                         <input name="title" value={form.title} onChange={handleChange} required
                             placeholder="e.g. Senior Frontend Engineer"
-                            className="w-full px-4 py-3 bg-gray-50 rounded-xl text-sm border-transparent focus:bg-white focus:ring-2 focus:ring-sky-500 transition-all" />
+                            className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-4 font-medium" />
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Company <span className="text-red-400">*</span></label>
+                            <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Company <span className="text-red-500">*</span></label>
                             <input name="company" value={form.company} onChange={handleChange} required
                                 placeholder="Company name"
-                                className="w-full px-4 py-3 bg-gray-50 rounded-xl text-sm border-transparent focus:bg-white focus:ring-2 focus:ring-sky-500 transition-all" />
+                                className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-4 font-medium" />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Location <span className="text-red-400">*</span></label>
+                            <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Location <span className="text-red-500">*</span></label>
                             <div className="relative">
-                                <MapPinIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                <MapPinIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
                                 <input name="location" value={form.location} onChange={handleChange} required
                                     placeholder="e.g. Panjim, Goa"
-                                    className="w-full pl-10 pr-4 py-3 bg-gray-50 rounded-xl text-sm border-transparent focus:bg-white focus:ring-2 focus:ring-sky-500 transition-all" />
+                                    className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 pl-12 h-14 font-medium" />
                             </div>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Job Type</label>
+                            <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Job Type</label>
                             <select name="type" value={form.type} onChange={handleChange}
-                                className="w-full px-4 py-3 bg-gray-50 rounded-xl text-sm border-transparent focus:bg-white focus:ring-2 focus:ring-sky-500 transition-all appearance-none">
+                                className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 px-4 h-14 font-medium appearance-none">
                                 <option>Full Time</option><option>Part Time</option><option>Freelance</option><option>Internship</option>
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                            <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Category</label>
                             <input name="category" value={form.category} onChange={handleChange}
                                 placeholder="e.g. Technology, Education"
-                                className="w-full px-4 py-3 bg-gray-50 rounded-xl text-sm border-transparent focus:bg-white focus:ring-2 focus:ring-sky-500 transition-all" />
+                                className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-4 font-medium" />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Application URL</label>
+                            <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Application URL</label>
                             <div className="relative">
-                                <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
                                 <input type="url" name="url" value={form.url} onChange={handleChange}
                                     placeholder="https://company.com/apply"
-                                    className="w-full pl-10 pr-4 py-3 bg-gray-50 rounded-xl text-sm border-transparent focus:bg-white focus:ring-2 focus:ring-sky-500 transition-all" />
+                                    className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 pl-12 h-14 font-medium" />
                             </div>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Contact Email</label>
+                            <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Contact Email</label>
                             <div className="relative">
-                                <EnvelopeIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                <EnvelopeIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
                                 <input type="email" name="contact_email" value={form.contact_email} onChange={handleChange}
                                     placeholder="jobs@company.com"
-                                    className="w-full pl-10 pr-4 py-3 bg-gray-50 rounded-xl text-sm border-transparent focus:bg-white focus:ring-2 focus:ring-sky-500 transition-all" />
+                                    className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 pl-12 h-14 font-medium" />
                             </div>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Listing Expiry Date</label>
+                            <input type="date" name="expires_at" value={form.expires_at} onChange={handleChange}
+                                className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 px-4 h-14 font-medium" />
+                            <p className="mt-1.5 text-[10px] text-zinc-400 font-bold uppercase tracking-wider">The job will be automatically hidden after this date.</p>
                         </div>
                     </div>
 
                     {/* Status (for creating new) */}
                     {isNew && (
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                            <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Status</label>
                             <select name="status" value={form.status} onChange={handleChange}
-                                className="w-full px-4 py-3 bg-gray-50 rounded-xl text-sm border-transparent focus:bg-white focus:ring-2 focus:ring-sky-500 transition-all appearance-none">
+                                className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 px-4 h-14 font-medium appearance-none">
                                 <option value="pending">Pending</option>
                                 <option value="approved">Approved</option>
                                 <option value="rejected">Rejected</option>
@@ -230,10 +240,23 @@ const AdminJobEditor = () => {
                         </div>
                     )}
 
-                    {/* Quill editor */}
+                    {/* Company Profile Quill editor */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Job Description</label>
-                        <div className="border border-gray-200 rounded-xl overflow-hidden">
+                        <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Short Company Profile</label>
+                        <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden bg-white dark:bg-zinc-950">
+                            <QuillEditor
+                                value={form.company_profile}
+                                onChange={(val) => setForm(f => ({ ...f, company_profile: val }))}
+                                placeholder="Describe the company..."
+                                style={{ minHeight: '200px' }}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Job Description Quill editor */}
+                    <div>
+                        <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Job Description</label>
+                        <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden bg-white dark:bg-zinc-950">
                             <QuillEditor
                                 value={form.description}
                                 onChange={(val) => setForm(f => ({ ...f, description: val }))}

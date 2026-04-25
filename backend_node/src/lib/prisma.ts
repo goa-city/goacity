@@ -35,6 +35,7 @@ const prisma = prismaClient.$extends({
     query: {
         $allModels: {
             async $allOperations({ model, operation, args, query }: any) {
+                // console.log(`[PRISMA] Model: ${model}, Op: ${operation}`);
                 // Skip scoping for global/unscoped models
                 if (UNSCOPED_MODELS.has(model)) {
                     return query(args);

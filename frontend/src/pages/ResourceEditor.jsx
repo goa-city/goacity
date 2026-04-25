@@ -73,7 +73,7 @@ const ResourceEditor = () => {
                     Back to Resources
                 </button>
 
-                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="p-8 border-b border-gray-50">
                         <h1 className="text-3xl font-light text-gray-900">Add a New Resource</h1>
                         <p className="text-gray-500 mt-2">Share valuable knowledge with the Goa Network community.</p>
@@ -96,14 +96,14 @@ const ResourceEditor = () => {
                                         type="text" name="title" value={form.title} onChange={handleFormChange}
                                         placeholder="e.g. The Future of Sustainable Architecture in Goa"
                                         required
-                                        className="w-full px-5 py-3.5 bg-gray-50 border-transparent rounded-2xl text-sm focus:bg-white focus:ring-2 focus:ring-[#E0A876] focus:border-transparent transition-all"
+                                        className="w-full px-5 py-3.5 bg-gray-50 border-transparent rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-[#E0A876] focus:border-transparent transition-all"
                                     />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">Category <span className="text-red-400">*</span></label>
                                     <select
                                         name="category" value={form.category} onChange={handleFormChange} required
-                                        className="w-full px-5 py-3.5 bg-gray-50 border-transparent rounded-2xl text-sm focus:bg-white focus:ring-2 focus:ring-[#E0A876] focus:border-transparent transition-all appearance-none"
+                                        className="w-full px-5 py-3.5 bg-gray-50 border-transparent rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-[#E0A876] focus:border-transparent transition-all appearance-none"
                                     >
                                         <option value="">Select Category</option>
                                         {formCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
@@ -114,7 +114,7 @@ const ResourceEditor = () => {
                                     <input
                                         type="text" name="author" value={form.author} onChange={handleFormChange}
                                         placeholder="Author name" required
-                                        className="w-full px-5 py-3.5 bg-gray-50 border-transparent rounded-2xl text-sm focus:bg-white focus:ring-2 focus:ring-[#E0A876] focus:border-transparent transition-all"
+                                        className="w-full px-5 py-3.5 bg-gray-50 border-transparent rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-[#E0A876] focus:border-transparent transition-all"
                                     />
                                 </div>
                             </div>
@@ -124,7 +124,7 @@ const ResourceEditor = () => {
                                 <input
                                     type="url" name="url" value={form.url} onChange={handleFormChange}
                                     placeholder="https://example.com/full-article"
-                                    className="w-full px-5 py-3.5 bg-gray-50 border-transparent rounded-2xl text-sm focus:bg-white focus:ring-2 focus:ring-[#E0A876] focus:border-transparent transition-all"
+                                    className="w-full px-5 py-3.5 bg-gray-50 border-transparent rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-[#E0A876] focus:border-transparent transition-all"
                                 />
                             </div>
 
@@ -132,7 +132,7 @@ const ResourceEditor = () => {
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Attachment (PDF, Word, PPT — max 20MB)</label>
                                 <div
                                     onClick={() => fileInputRef.current?.click()}
-                                    className="w-full px-6 py-10 border-2 border-dashed border-gray-200 rounded-3xl text-center cursor-pointer hover:border-[#E0A876] hover:bg-[#E0A876]/5 transition-all group"
+                                    className="w-full px-6 py-10 border-2 border-dashed border-gray-200 rounded-xl text-center cursor-pointer hover:border-[#E0A876] hover:bg-[#E0A876]/5 transition-all group"
                                 >
                                     <PaperClipIcon className="w-8 h-8 text-gray-400 mx-auto mb-3 group-hover:text-[#E0A876] transition-colors" />
                                     {selectedFile ? (
@@ -154,7 +154,7 @@ const ResourceEditor = () => {
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Short Description</label>
-                                <div className="border border-gray-200 rounded-2xl overflow-hidden">
+                                <div className="border border-gray-200 rounded-xl overflow-hidden">
                                     <QuillEditor
                                         value={form.description}
                                         onChange={(val) => setForm(f => ({ ...f, description: val }))}
@@ -166,7 +166,7 @@ const ResourceEditor = () => {
 
                             <button
                                 type="submit" disabled={isSubmitting}
-                                className="w-full bg-black text-white py-4 rounded-2xl text-base font-semibold hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.99] shadow-lg shadow-black/10"
+                                className="w-full bg-black text-white py-4 rounded-xl text-base font-semibold hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.99] shadow-lg shadow-black/10"
                             >
                                 {isSubmitting ? 'Submitting...' : 'Submit Resource'}
                             </button>

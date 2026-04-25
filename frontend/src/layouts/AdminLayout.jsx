@@ -20,11 +20,15 @@ import {
     EnvelopeIcon,
     ChevronDownIcon,
     WindowIcon,
-    GlobeAltIcon
+    GlobeAltIcon,
+    MoonIcon,
+    SunIcon
 } from '@heroicons/react/24/outline';
+import { useTheme } from '../context/ThemeContext';
 
-const AdminLayout = () => {
+const AdminLayout = ({ children }) => {
     const { logout, adminUser, activeCity, citiesList, changeCity } = useAdminAuth();
+    const { theme, toggleTheme } = useTheme();
     const navigate = useNavigate();
     const location = useLocation();
     const [openGroup, setOpenGroup] = useState('communications');
@@ -107,7 +111,7 @@ const AdminLayout = () => {
     const sidebarGroups = [...navigation];
 
     return (
-        <div className="flex h-screen bg-[#F8FAFC] font-sans overflow-hidden">
+        <div className="flex h-screen bg-[#F8FAFC] dark:bg-zinc-950 font-sans overflow-hidden transition-colors duration-300">
             {/* Sidebar */}
             <div className="w-72 bg-slate-950 text-white flex flex-col flex-shrink-0 shadow-[4px_0_24px_rgba(0,0,0,0.1)] relative z-20">
                 <div className="p-8 pb-4">
@@ -214,8 +218,25 @@ const AdminLayout = () => {
                     </div>
                     
                     <button
+                        onClick={toggleTheme}
+                        className="flex w-full items-center justify-center gap-2.5 px-6 py-3.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-all duration-300 font-bold text-[10px] uppercase tracking-widest mb-3"
+                    >
+                        {theme === 'dark' ? (
+                            <>
+                                <SunIcon className="h-4 w-4" />
+                                Light Mode
+                            </>
+                        ) : (
+                            <>
+                                <MoonIcon className="h-4 w-4" />
+                                Dark Mode
+                            </>
+                        )}
+                    </button>
+
+                    <button
                         onClick={logout}
-                        className="flex w-full items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-rose-400 hover:border-rose-900/50 hover:bg-rose-950/10 transition-all duration-300 font-bold text-xs uppercase tracking-widest"
+                        className="flex w-full items-center justify-center gap-2.5 px-6 py-3.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-rose-400 hover:border-rose-900/50 hover:bg-rose-950/10 transition-all duration-300 font-bold text-[10px] uppercase tracking-widest"
                     >
                         <PowerIcon className="h-4 w-4" />
                         Logout  
@@ -225,9 +246,9 @@ const AdminLayout = () => {
 
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-                <main className="flex-1 overflow-y-auto px-4 sm:px-8 lg:px-12 py-8 bg-slate-50 relative">
+                <main className="flex-1 overflow-y-auto px-4 sm:px-8 lg:px-12 py-8 bg-[#F8FAFC] dark:bg-zinc-950 relative transition-colors duration-300">
                     <div className="max-w-7xl mx-auto">
-                        <Outlet />
+                        {children || <Outlet />}
                     </div>
                 </main>
             </div>

@@ -21,6 +21,8 @@ const JobEditor = () => {
         url: '',
         contact_email: '',
         description: '',
+        company_profile: '',
+        expires_at: ''
     });
 
     const handleFormChange = (e) => {
@@ -59,7 +61,7 @@ const JobEditor = () => {
                     Back to Job Postings
                 </button>
 
-                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="p-8 border-b border-sky-50 bg-sky-50/30">
                         <div className="flex items-center gap-3 mb-2">
                             <div className="w-10 h-10 bg-sky-500 rounded-xl flex items-center justify-center">
@@ -86,7 +88,7 @@ const JobEditor = () => {
                                     <input
                                         type="text" name="title" value={form.title} onChange={handleFormChange}
                                         placeholder="e.g. Senior Frontend Engineer" required
-                                        className="w-full px-5 py-3.5 bg-gray-50 border-transparent rounded-2xl text-sm focus:bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all"
+                                        className="w-full px-5 py-3.5 bg-gray-50 border-transparent rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all"
                                     />
                                 </div>
                                 <div>
@@ -94,7 +96,7 @@ const JobEditor = () => {
                                     <input
                                         type="text" name="company" value={form.company} onChange={handleFormChange}
                                         placeholder="Company name" required
-                                        className="w-full px-5 py-3.5 bg-gray-50 border-transparent rounded-2xl text-sm focus:bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all"
+                                        className="w-full px-5 py-3.5 bg-gray-50 border-transparent rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all"
                                     />
                                 </div>
                                 <div>
@@ -104,7 +106,7 @@ const JobEditor = () => {
                                         <input
                                             type="text" name="location" value={form.location} onChange={handleFormChange}
                                             placeholder="e.g. Panjim, Goa" required
-                                            className="w-full pl-11 pr-5 py-3.5 bg-gray-50 border-transparent rounded-2xl text-sm focus:bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all"
+                                            className="w-full pl-11 pr-5 py-3.5 bg-gray-50 border-transparent rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all"
                                         />
                                     </div>
                                 </div>
@@ -112,7 +114,7 @@ const JobEditor = () => {
                                     <label className="block text-sm font-medium text-gray-700 mb-2">Job Type</label>
                                     <select
                                         name="type" value={form.type} onChange={handleFormChange}
-                                        className="w-full px-5 py-3.5 bg-gray-50 border-transparent rounded-2xl text-sm focus:bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all appearance-none"
+                                        className="w-full px-5 py-3.5 bg-gray-50 border-transparent rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all appearance-none"
                                     >
                                         <option value="Full Time">Full Time</option>
                                         <option value="Part Time">Part Time</option>
@@ -125,7 +127,7 @@ const JobEditor = () => {
                                     <input
                                         type="text" name="category" value={form.category} onChange={handleFormChange}
                                         placeholder="e.g. Technology, Education"
-                                        className="w-full px-5 py-3.5 bg-gray-50 border-transparent rounded-2xl text-sm focus:bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all"
+                                        className="w-full px-5 py-3.5 bg-gray-50 border-transparent rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all"
                                     />
                                 </div>
                             </div>
@@ -138,7 +140,7 @@ const JobEditor = () => {
                                         <input
                                             type="url" name="url" value={form.url} onChange={handleFormChange}
                                             placeholder="https://company.com/apply"
-                                            className="w-full pl-11 pr-5 py-3.5 bg-gray-50 border-transparent rounded-2xl text-sm focus:bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all"
+                                            className="w-full pl-11 pr-5 py-3.5 bg-gray-50 border-transparent rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all"
                                         />
                                     </div>
                                 </div>
@@ -149,15 +151,35 @@ const JobEditor = () => {
                                         <input
                                             type="email" name="contact_email" value={form.contact_email} onChange={handleFormChange}
                                             placeholder="jobs@company.com"
-                                            className="w-full pl-11 pr-5 py-3.5 bg-gray-50 border-transparent rounded-2xl text-sm focus:bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all"
+                                            className="w-full pl-11 pr-5 py-3.5 bg-gray-50 border-transparent rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all"
                                         />
                                     </div>
+                                </div>
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Listing Expiry Date</label>
+                                    <input
+                                        type="date" name="expires_at" value={form.expires_at} onChange={handleFormChange}
+                                        className="w-full px-5 py-3.5 bg-gray-50 border-transparent rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all"
+                                    />
+                                    <p className="mt-1.5 text-[10px] text-gray-400 font-bold uppercase tracking-wider">The job will be automatically hidden after this date.</p>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Short Company Profile</label>
+                                <div className="border border-gray-200 rounded-xl overflow-hidden">
+                                    <QuillEditor
+                                        value={form.company_profile}
+                                        onChange={(val) => setForm(f => ({ ...f, company_profile: val }))}
+                                        placeholder="Briefly describe your company..."
+                                        style={{ minHeight: '150px' }}
+                                    />
                                 </div>
                             </div>
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Job Description</label>
-                                <div className="border border-gray-200 rounded-2xl overflow-hidden">
+                                <div className="border border-gray-200 rounded-xl overflow-hidden">
                                     <QuillEditor
                                         value={form.description}
                                         onChange={(val) => setForm(f => ({ ...f, description: val }))}
@@ -169,7 +191,7 @@ const JobEditor = () => {
 
                             <button
                                 type="submit" disabled={isSubmitting}
-                                className="w-full bg-sky-500 text-white py-4 rounded-2xl text-base font-semibold hover:bg-sky-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.99] shadow-lg shadow-sky-500/20"
+                                className="w-full bg-sky-500 text-white py-4 rounded-xl text-base font-semibold hover:bg-sky-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.99] shadow-lg shadow-sky-500/20"
                             >
                                 {isSubmitting ? 'Submitting...' : 'Post Job Opening'}
                             </button>

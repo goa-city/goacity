@@ -40,7 +40,7 @@ const SuperAdminLogin = () => {
             <div className="relative w-full max-w-sm">
                 {/* Logo Area */}
                 <div className="text-center mb-10">
-                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-700 shadow-2xl shadow-violet-900/50 mb-5">
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-700 shadow-2xl shadow-violet-900/50 mb-5">
                         <GlobeAltIcon className="w-8 h-8 text-white" />
                     </div>
                     <h1 className="text-2xl font-black text-white tracking-widest uppercase italic">
@@ -52,7 +52,7 @@ const SuperAdminLogin = () => {
                 </div>
 
                 {/* Login Card */}
-                <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl">
+                <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-8 shadow-2xl">
                     <h2 className="text-white font-bold text-lg mb-1">Secure Access</h2>
                     <p className="text-slate-400 text-sm mb-7">Super admin credentials required.</p>
 

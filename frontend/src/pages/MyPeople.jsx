@@ -14,7 +14,7 @@ const MyPeople = () => {
         const fetchPeers = async () => {
             try {
                 const streamId = searchParams.get('stream');
-                const url = streamId ? `/my-people?stream=${streamId}` : '/my-people';
+                const url = streamId ? `/member/my-people?stream=${streamId}` : '/member/my-people';
                 const res = await api.get(url);
                 setPeers(res.data.data || []);
             } catch (err) {
@@ -43,7 +43,7 @@ const MyPeople = () => {
                         <Link 
                             key={peer.id} 
                             to={`/profile/${peer.id}`}
-                            className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm hover:shadow-lg transition-all flex flex-col items-center text-center group"
+                            className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm hover:shadow-lg transition-all flex flex-col items-center text-center group"
                         >
                             <div className="relative mb-4">
                                 {peer.profile_photo ? (
@@ -68,7 +68,7 @@ const MyPeople = () => {
                     ))}
                 </div>
             ) : (
-                <div className="text-center py-32 bg-white rounded-3xl border border-dashed border-gray-200">
+                <div className="text-center py-32 bg-white rounded-xl border border-dashed border-gray-200">
                     <UserGroupIcon className="w-16 h-16 mx-auto text-gray-300 mb-4" />
                     <h2 className="text-xl font-bold text-gray-500 mb-2">You don't share streams with anyone yet.</h2>
                     <p className="text-gray-400">Join streams to connect with peers.</p>

@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import api from '../../api/axios';
 import {
     TrashIcon, MagnifyingGlassIcon, NewspaperIcon
-} from '@heroicons/react/24/outline';
+} from '@heroicons/react/24/solid';
+import { Card } from '../../shared/components/ui/Card';
 
 const AdminNews = () => {
     const [posts, setPosts] = useState([]);
@@ -46,101 +47,110 @@ const AdminNews = () => {
     );
 
     return (
-        <div className="admin-container">
-            {toast && <div className="admin-toast">{toast}</div>}
+        <div className="max-w-7xl mx-auto py-10 px-6">
+            {toast && <div className="fixed bottom-4 right-4 bg-emerald-500 text-white px-6 py-3 rounded-xl font-bold tracking-widest uppercase text-[10px] shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-4">{toast}</div>}
 
             {/* Header */}
-            <div className="flex flex-wrap gap-4 justify-between items-center mb-8">
-                <div className="flex items-center gap-3">
-                    <div className="admin-header-icon bg-sky-500">
-                        <NewspaperIcon className="w-6 h-6" />
-                    </div>
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900">News Management</h1>
-                        <p className="text-sm text-gray-500">
-                            {posts.length} total posts in city feed
-                        </p>
-                    </div>
+            <div className="flex flex-wrap gap-6 justify-between items-center mb-10">
+                <div>
+                    <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight flex items-center gap-3">
+                        News Management
+                        <NewspaperIcon className="w-8 h-8 text-indigo-600" />
+                    </h1>
+                    <p className="text-zinc-500 dark:text-zinc-400 mt-2 text-lg font-medium">
+                        {posts.length} total posts in city feed
+                    </p>
                 </div>
             </div>
 
             {/* Filters + Search */}
-            <div className="flex items-center mb-6">
-                <div className="relative ml-auto">
-                    <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <div className="mb-8 max-w-md">
+                <div className="relative">
+                    <MagnifyingGlassIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" />
                     <input
                         value={search} onChange={e => setSearch(e.target.value)}
                         placeholder="Search posts by content or member..."
-                        className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 w-80"
+                        className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 pl-12 h-12 shadow-sm font-medium"
                     />
                 </div>
             </div>
 
-            {/* Table */}
-            <div className="admin-card">
-                {loading ? (
-                    <div className="p-12 text-center text-gray-400">Loading news posts...</div>
-                ) : filtered.length === 0 ? (
-                    <div className="p-12 text-center text-gray-400">No news posts found.</div>
-                ) : (
-                    <table className="w-full text-sm text-left">
-                        <thead>
-                            <tr>
-                                <th className="admin-table-head">Post Content</th>
-                                <th className="admin-table-head hidden md:table-cell">Author</th>
-                                <th className="admin-table-head hidden lg:table-cell">Date</th>
-                                <th className="admin-table-head text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50">
-                            {filtered.map(post => (
-                                <tr key={post.id} className="hover:bg-gray-50/50 transition-colors">
-                                    <td className="px-5 py-4">
-                                        <div className="max-w-md">
-                                            {post.link_title && (
-                                                <p className="font-bold text-indigo-600 text-xs mb-1 truncate">{post.link_title}</p>
-                                            )}
-                                            <p className="text-gray-900 line-clamp-2 text-sm leading-relaxed">
-                                                {post.content || <span className="italic text-gray-300">Media only post</span>}
-                                            </p>
-                                            {post.media_url && (
-                                                <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded mt-2 inline-block">
-                                                    Contains {post.media_type}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="px-5 py-4 hidden md:table-cell">
-                                        <div className="flex flex-col">
-                                            <span className="font-semibold text-gray-700">{post.full_name || 'Anonymous'}</span>
-                                            <span className="text-[10px] text-gray-400">{post.member_email}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-5 py-4 hidden lg:table-cell text-gray-500 text-xs">
-                                        {new Date(post.created_at).toLocaleDateString(undefined, {
-                                            month: 'short',
-                                            day: 'numeric',
-                                            year: 'numeric',
-                                            hour: '2-digit',
-                                            minute: '2-digit'
-                                        })}
-                                    </td>
-                                    <td className="px-5 py-4">
-                                        <div className="flex items-center justify-end gap-2">
-                                            <button
-                                                onClick={() => handleDelete(post.id)}
-                                                className="admin-action-btn-delete" title="Delete Post"
-                                            >
-                                                <TrashIcon className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    </td>
+            {/* Table Card */}
+            <Card className="border-zinc-100 dark:border-zinc-800 shadow-xl shadow-zinc-200/50 dark:shadow-none overflow-hidden">
+                <div className="overflow-x-auto">
+                    {loading ? (
+                        <div className="p-12 text-center font-black uppercase tracking-widest text-zinc-400 text-sm animate-pulse">Loading news posts...</div>
+                    ) : filtered.length === 0 ? (
+                        <div className="py-20 text-center">
+                            <p className="text-zinc-400 font-black uppercase tracking-widest text-sm">No news posts found</p>
+                            <p className="text-zinc-500 mt-1">Try adjusting your search filters.</p>
+                        </div>
+                    ) : (
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className="border-b border-zinc-50 dark:border-zinc-800">
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400">Post Content</th>
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400 hidden md:table-cell">Author</th>
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400 hidden lg:table-cell">Date</th>
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400 text-right">Actions</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                )}
-            </div>
+                            </thead>
+                            <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/50">
+                                {filtered.map(post => (
+                                    <tr key={post.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30 transition-colors cursor-pointer group">
+                                        <td className="px-8 py-5">
+                                            <div className="max-w-md">
+                                                {post.link_title && (
+                                                    <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-2 truncate">{post.link_title}</p>
+                                                )}
+                                                <p className="text-sm font-black text-zinc-900 dark:text-white line-clamp-2 leading-relaxed">
+                                                    {post.content || <span className="italic text-zinc-400 font-medium">Media only post</span>}
+                                                </p>
+                                                {post.media_url && (
+                                                    <span className="text-[10px] font-black tracking-widest uppercase bg-zinc-100 dark:bg-zinc-800 text-zinc-500 px-2 py-1 rounded-md mt-2 inline-block border border-zinc-200 dark:border-zinc-700">
+                                                        Contains {post.media_type}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-5 hidden md:table-cell">
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-black text-zinc-900 dark:text-white">{post.full_name || 'Anonymous'}</span>
+                                                <span className="text-xs font-medium text-zinc-400">{post.member_email}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-5 hidden lg:table-cell">
+                                            <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
+                                                {new Date(post.created_at).toLocaleDateString(undefined, {
+                                                    month: 'short',
+                                                    day: 'numeric',
+                                                    year: 'numeric'
+                                                })}
+                                            </p>
+                                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-0.5">
+                                                {new Date(post.created_at).toLocaleTimeString(undefined, {
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                })}
+                                            </p>
+                                        </td>
+                                        <td className="px-8 py-5 text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <button
+                                                    onClick={() => handleDelete(post.id)}
+                                                    className="p-2 rounded-xl text-zinc-300 group-hover:text-red-600 transition-all hover:bg-red-50 dark:hover:bg-red-950/30" title="Delete Post"
+                                                >
+                                                    <TrashIcon className="w-5 h-5" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+            </Card>
         </div>
     );
 };

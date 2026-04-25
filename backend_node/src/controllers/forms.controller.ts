@@ -1,486 +1,112 @@
-import type { Request, Response } from 'express';
-import prisma from '../lib/prisma.js';
+import type { Request, Response, NextFunction } from 'express';
+import { AdminFormService } from '../services/admin-form.service.js';
+import { FormService } from '../services/form.service.js';
 
-const CORE_MEMBER_FIELDS = [
-    'first_name', 'last_name', 'email', 'phone', 'dob', 'gender', 
-    'location', 'village', 'address', 'bio', 'linkedin_url', 'profile_photo'
-];
-
-// GET /api/admin/forms - list all or single by ?id=
-export const getForms = async (req: Request, res: Response) => {
-    try {
-        const singleId = req.query.id;
-
-        if (singleId) {
-            const form = await prisma.forms.findUnique({
-                where: { id: Number(singleId) },
-                include: {
-                    fields: {
-                        orderBy: { sort_order: 'asc' }
-                    }
-                }
-            });
-            if (!form) return res.status(404).json({ message: 'Form not found' });
-            return res.json({ form, fields: form.fields });
-        }
-
-        const formsList = await prisma.forms.findMany({
-            include: {
-                _count: {
-                    select: { fields: true }
-                }
-            },
-            orderBy: { id: 'asc' }
-        });
-
-        // Map to match previous raw query format if needed
-        const formattedForms = formsList.map((f: any) => ({
-            ...f,
-            field_count: f._count.fields
-        }));
-
-        return res.json(formattedForms);
-    } catch (error: any) {
-        console.error('getForms Error:', error);
-        return res.status(500).json({ message: 'Internal server error' });
-    }
-};
-
-// POST /api/admin/forms
-export const createForm = async (req: Request, res: Response) => {
-    try {
-        const { code, title, description, created_by } = req.body;
-        const form = await prisma.forms.create({
-            data: {
-                code,
-                title,
-                description: description || '',
-                is_active: 1,
-                created_by: Number(created_by) || 1
-                // city_id is handled by prisma extension
-            }
-        });
-        return res.json({ message: 'Form created', id: form.id });
-    } catch (error: any) {
-        console.error('createForm Error:', error);
-        return res.status(500).json({ message: error.message });
-    }
-};
-
-// PUT /api/admin/forms
-export const updateForm = async (req: Request, res: Response) => {
-    try {
-        const { id, title, description, fields } = req.body;
-        
-        await prisma.forms.update({
-            where: { id: Number(id) },
-            data: {
-                title,
-                description: description || '',
-                updated_at: new Date()
-            }
-        });
-
-        if (fields && Array.isArray(fields)) {
-            // Use transaction for deleting/re-creating fields
-            await prisma.$transaction(async (tx: any) => {
-                // Determine the correct model name on the tx client (formField vs FormField)
-                const modelName = tx.formField ? 'formField' : (tx.FormField ? 'FormField' : 'formField');
-                
-                if (!tx[modelName]) {
-                    console.error('[PRISMA] Available TX models:', Object.keys(tx).filter(k => !k.startsWith('$')));
-                    throw new Error(`Prisma model 'formField' not found on transaction client.`);
-                }
-
-                await tx[modelName].deleteMany({
-                    where: { form_id: Number(id) }
-                });
-
-                if (fields.length > 0) {
-                    await tx[modelName].createMany({
-                        data: fields.map(f => ({
-                            form_id: Number(id),
-                            field_key: f.field_key,
-                            field_type: f.field_type,
-                            label: f.label || '',
-                            subtitle: f.subtitle || null,
-                            placeholder: f.placeholder || '',
-                            options: f.options || null,
-                            is_required: f.is_required ? 1 : 0,
-                            is_optional: f.is_optional ? 1 : 0,
-                            is_profile: f.is_profile ? 1 : 0,
-                            sort_order: f.sort_order || 0,
-                            section: f.section || null,
-                            conditions: f.conditions || null,
-                            group_fields: f.group_fields || null,
-                            button_text: f.button_text || 'Next'
-                        }))
-                    });
-                }
-            });
-        }
-        return res.json({ message: 'Form updated' });
-    } catch (error: any) {
-        console.error('updateForm Error:', error);
-        return res.status(500).json({ message: error.message });
-    }
-};
-
-// POST /api/admin/forms/archive
-export const archiveForm = async (req: Request, res: Response) => {
-    try {
-        const { id, is_active } = req.body;
-        await prisma.forms.update({
-            where: { id: Number(id) },
-            data: {
-                is_active: is_active ? 1 : 0,
-                updated_at: new Date()
-            }
-        });
-        return res.json({ message: is_active ? 'Form activated' : 'Form archived' });
-    } catch (error: any) {
-        console.error('archiveForm Error:', error);
-        return res.status(500).json({ message: error.message });
-    }
-};
-
-// DELETE /api/admin/forms
-export const deleteForm = async (req: Request, res: Response) => {
+export const getForms = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const id = req.query.id;
-        if (!id) return res.status(400).json({ message: 'ID required' });
-
-        await prisma.forms.delete({
-            where: { id: Number(id) }
-        });
-        
-        return res.json({ message: 'Form deleted' });
-    } catch (error: any) {
-        console.error('deleteForm Error:', error);
-        return res.status(500).json({ message: error.message });
+        if (id) {
+            const result = await AdminFormService.getFormDetail(Number(id));
+            return res.json(result);
+        }
+        const result = await AdminFormService.getAllForms();
+        res.json(result);
+    } catch (error) {
+        next(error);
     }
 };
 
-// GET /api/forms/get - get form + fields for member onboarding
-// Supports ?id= or ?code=
-export const getFormWithFields = async (req: Request, res: Response) => {
+export const getFormWithFields = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const formId = req.query.id;
-        const formCode = req.query.code;
-
-        if (!formId && !formCode) return res.status(400).json({ message: 'Form ID or Code required' });
-
-        const form = await prisma.forms.findFirst({
-            where: formId ? { id: Number(formId) } : { code: formCode as string },
-            include: {
-                fields: {
-                    orderBy: { sort_order: 'asc' }
-                }
-            }
-        });
- 
-        if (!form) return res.status(404).json({ message: 'Form not found' });
- 
-        const userId = (req as any).userId;
-        let lastStepIndex = 0;
-        let existingAnswers: any = {};
- 
-        if (userId) {
-            const response = await prisma.formResponse.findFirst({
-                where: { form_id: form.id, user_id: userId },
-                include: { answers: true }
-            });
- 
-            if (response) {
-                lastStepIndex = response.last_step_index || 0;
-                response.answers.forEach((ans: any) => {
-                    try {
-                        existingAnswers[ans.field_key] = (ans.answer_value?.startsWith('[') || ans.answer_value?.startsWith('{')) 
-                            ? JSON.parse(ans.answer_value) 
-                            : ans.answer_value;
-                    } catch (e) {
-                        existingAnswers[ans.field_key] = ans.answer_value;
-                    }
-                });
-            }
+        const { code, id } = req.query;
+        if (id) {
+            const result = await AdminFormService.getFormDetail(Number(id));
+            return res.json(result);
         }
- 
-        // Transform fields to the format Onboarding.jsx expects
-        const questions = form.fields.map((f: any) => {
-            return {
-                id: f.id,
-                field: f.field_key,
-                type: f.field_type,
-                title: f.label,
-                subtitle: f.subtitle,
-                placeholder: f.placeholder,
-                options: f.options,
-                is_required: f.is_required,
-                is_optional: f.is_optional,
-                is_profile: f.is_profile,
-                sort_order: f.sort_order,
-                section: f.section,
-                conditions: f.conditions,
-                fields: f.group_fields, // group_inputs uses "fields"
-                buttonText: f.button_text || 'Next'
-            };
-        });
- 
-        return res.json({ form, fields: form.fields, questions, last_step_index: lastStepIndex, answers: existingAnswers });
-    } catch (error: any) {
-        console.error('getFormWithFields Error:', error);
-        return res.status(500).json({ message: 'Internal server error' });
+        const result = await FormService.getFormWithFields(code as string);
+        res.json(result);
+    } catch (error) {
+        next(error);
     }
 };
 
-// POST /api/member/onboarding - save onboarding data
-export const submitOnboarding = async (req: Request, res: Response) => {
+export const getFormProgress = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const userId = (req as any).userId;
-        if (!userId) return res.status(401).json({ message: 'Unauthorized' });
-
-        const data = req.body || {};
-        const isPartial = data.is_partial === '1' || data.is_partial === true;
-
-        // Save profile fields
-        const allData = { ...data };
+        const { code, id } = req.query;
+        const codeOrId = id || code;
         
-        // Handle file uploads if any (Multer puts files in req.files)
-        const files = (req as any).files as any[];
-        if (files && Array.isArray(files)) {
-            for (const file of files) {
-                allData[file.fieldname] = file.path;
-            }
+        if (!codeOrId) {
+            return res.status(400).json({ error: 'Form ID or code is required' });
         }
 
-        const memberUpdates: any = {};
-        if (!isPartial) memberUpdates.is_onboarded = 1;
-
-        for (const [key, value] of Object.entries(allData)) {
-            if (['is_partial', 'form_id', 'last_step_index'].includes(key)) continue;
-            const strVal = typeof value === 'object' ? JSON.stringify(value) : String(value || '');
-            
-            // Sync with profile only on final submission
-            if (!isPartial) {
-                // If core field, prepare for member update
-                if (CORE_MEMBER_FIELDS.includes(key)) {
-                    if (key === 'dob') {
-                        const date = new Date(strVal);
-                        if (!isNaN(date.getTime())) memberUpdates.dob = date;
-                    } else if (key === 'age') {
-                        memberUpdates.age = Number(strVal);
-                    } else {
-                        memberUpdates[key] = strVal;
-                    }
-                }
-
-                // Upsert into member_profiles using Prisma
-                const existing = await prisma.memberProfile.findFirst({
-                    where: { user_id: userId, profile_key: key }
-                });
-
-                if (existing) {
-                    await prisma.memberProfile.update({
-                        where: { id: existing.id },
-                        data: { profile_value: strVal }
-                    });
-                } else {
-                    await prisma.memberProfile.create({
-                        data: { user_id: userId, profile_key: key, profile_value: strVal }
-                    });
-                }
-            }
-        }
-
-        // Apply core member updates if any (including is_onboarded)
-        if (Object.keys(memberUpdates).length > 0) {
-            await prisma.member.update({
-                where: { id: userId },
-                data: memberUpdates
-            });
-        }
-
-        // --- NEW: Sync with FormResponse for better progress tracking ---
-        const onboardingForm = await prisma.forms.findFirst({ where: { code: 'mp-onboarding' } });
-        if (onboardingForm) {
-            const formId = onboardingForm.id;
-            const existingResponse = await prisma.formResponse.findFirst({
-                where: { form_id: formId, user_id: userId }
-            });
-
-            let responseId: number;
-            if (existingResponse) {
-                responseId = existingResponse.id;
-                await prisma.formResponse.update({
-                    where: { id: responseId },
-                    data: { 
-                        status: isPartial ? 'draft' : 'completed', 
-                        last_step_index: data.last_step_index !== undefined ? Number(data.last_step_index) : (existingResponse.last_step_index || 0)
-                    }
-                });
-            } else {
-                const newResponse = await prisma.formResponse.create({
-                    data: { 
-                        form_id: formId, 
-                        user_id: userId, 
-                        status: isPartial ? 'draft' : 'completed', 
-                        last_step_index: data.last_step_index !== undefined ? Number(data.last_step_index) : 0
-                    }
-                });
-                responseId = newResponse.id;
-            }
-
-            // Sync answers into FormAnswer for this response
-            for (const [key, value] of Object.entries(allData)) {
-                if (['is_partial', 'form_id', 'last_step_index'].includes(key)) continue;
-                const strVal = typeof value === 'object' ? JSON.stringify(value) : String(value || '');
-
-                const existingAnswer = await prisma.formAnswer.findFirst({
-                    where: { response_id: responseId, field_key: key }
-                });
-
-                if (existingAnswer) {
-                    await prisma.formAnswer.update({
-                        where: { id: existingAnswer.id },
-                        data: { answer_value: strVal, is_answered: true }
-                    });
-                } else {
-                    await prisma.formAnswer.create({
-                        data: { response_id: responseId, field_key: key, answer_value: strVal, is_answered: true }
-                    });
-                }
-            }
-        }
-        // --- END Sync ---
-
-        return res.json({ message: isPartial ? 'Progress saved' : 'Onboarding complete' });
-    } catch (error: any) {
-        console.error('submitOnboarding Error:', error);
-        return res.status(500).json({ message: error.message });
+        const result = await FormService.getFormWithUserProgress(userId, codeOrId as string);
+        res.json(result);
+    } catch (error) {
+        next(error);
     }
 };
 
-// POST /api/member/submit_form - save form submission
-export const submitForm = async (req: Request, res: Response) => {
+export const submitForm = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const userId = (req as any).userId || null;
+        const body = req.body;
+        const formId = Number(body.form_id);
+        const isPartial = body.is_partial === '1' || body.is_partial === true;
+        const lastStepIndex = parseInt(body.last_step_index || '0');
+
+        const answers = { ...body };
+        delete answers.is_partial;
+        delete answers.last_step_index;
+        delete answers.form_id;
+
+        const result = await FormService.submitResponse(userId, formId, answers, isPartial, lastStepIndex);
+        res.json({ success: true, data: result });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const submitOnboarding = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const userId = (req as any).userId;
-        if (!userId) return res.status(401).json({ message: 'Unauthorized' });
-
-        const data = req.body || {};
-        const formId = Number(data.form_id);
-        const isPartial = data.is_partial === '1' || data.is_partial === true;
-        const meetingId = data.meeting_id ? Number(data.meeting_id) : null;
-
-        if (!formId) return res.status(400).json({ message: 'form_id is required' });
-
-        // Create or update form response
-        const response = await prisma.formResponse.findFirst({
-            where: { form_id: formId, user_id: userId }
-        });
-
-        let responseId: number;
-        if (response) {
-            responseId = response.id;
-            await prisma.formResponse.update({
-                where: { id: responseId },
-                data: { 
-                    status: isPartial ? 'draft' : 'completed', 
-                    meeting_id: meetingId,
-                    last_step_index: data.last_step_index !== undefined ? Number(data.last_step_index) : (response.last_step_index || 0)
-                }
-            });
-        } else {
-            const newResponse = await prisma.formResponse.create({
-                data: { 
-                    form_id: formId, 
-                    user_id: userId, 
-                    status: isPartial ? 'draft' : 'completed', 
-                    meeting_id: meetingId,
-                    last_step_index: data.last_step_index !== undefined ? Number(data.last_step_index) : 0
-                }
-            });
-            responseId = newResponse.id;
-        }
-
-        const allData = { ...data };
-        
-        // Handle file uploads if any
-        const files = (req as any).files as any[];
-        if (files && Array.isArray(files)) {
-            for (const file of files) {
-                allData[file.fieldname] = file.path;
-            }
-        }
-
-        // Upsert answers and sync core profile fields
-        const memberUpdates: any = {};
-
-        for (const [key, value] of Object.entries(allData)) {
-            if (['form_id', 'is_partial', 'meeting_id', 'last_step_index'].includes(key)) continue;
-            const strVal = typeof value === 'object' ? JSON.stringify(value) : String(value || '');
-
-            const existingAnswer = await prisma.formAnswer.findFirst({
-                where: { response_id: responseId, field_key: key }
-            });
-
-            if (existingAnswer) {
-                await prisma.formAnswer.update({
-                    where: { id: existingAnswer.id },
-                    data: { answer_value: strVal, is_answered: true }
-                });
-            } else {
-                await prisma.formAnswer.create({
-                    data: { response_id: responseId, field_key: key, answer_value: strVal, is_answered: true }
-                });
-            }
-
-            // Also update member_profiles for profile fields only if finalized
-            if (!isPartial) {
-                // Check if core field for member update
-                if (CORE_MEMBER_FIELDS.includes(key)) {
-                    if (key === 'dob') {
-                        const date = new Date(strVal);
-                        if (!isNaN(date.getTime())) memberUpdates.dob = date;
-                    } else if (key === 'age') {
-                        memberUpdates.age = Number(strVal);
-                    } else {
-                        memberUpdates[key] = strVal;
-                    }
-                }
-
-                const fieldDef = await prisma.formField.findFirst({
-                    where: { form_id: formId, field_key: key }
-                });
-                if (fieldDef && fieldDef.is_profile) {
-                    const existingProfile = await prisma.memberProfile.findFirst({
-                        where: { user_id: userId, profile_key: key }
-                    });
-
-                    if (existingProfile) {
-                        await prisma.memberProfile.update({
-                            where: { id: existingProfile.id },
-                            data: { profile_value: strVal }
-                        });
-                    } else {
-                        await prisma.memberProfile.create({
-                            data: { user_id: userId, profile_key: key, profile_value: strVal }
-                        });
-                    }
-                }
-            }
-        }
-
-        // Apply core member updates if any
-        if (Object.keys(memberUpdates).length > 0) {
-            await prisma.member.update({
-                where: { id: userId },
-                data: memberUpdates
-            });
-        }
-
-        return res.json({ message: isPartial ? 'Progress saved' : 'Form submitted' });
-    } catch (error: any) {
-        console.error('submitForm Error:', error);
-        return res.status(500).json({ message: error.message });
+        const result = await FormService.submitOnboarding(userId, req.body);
+        res.json({ success: true, data: result });
+    } catch (error) {
+        next(error);
     }
+};
+
+export const createForm = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const result = await AdminFormService.createForm(req.body);
+        res.json({ success: true, data: result });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const updateForm = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.body;
+        await AdminFormService.saveFormStructure(Number(id), req.body);
+        res.json({ success: true, message: 'Form structure updated successfully' });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const archiveForm = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.body;
+        await AdminFormService.archiveForm(Number(id));
+        res.json({ success: true, message: 'Form archived' });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const deleteForm = async (req: Request, res: Response, next: NextFunction) => {
+    // Permanent deletion logic if needed
+    res.json({ message: 'Delete not implemented - use archive instead' });
 };
