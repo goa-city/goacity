@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAdminAuth } from '../context/AdminAuthContext';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { 
@@ -22,7 +22,11 @@ import {
     WindowIcon,
     GlobeAltIcon,
     MoonIcon,
-    SunIcon
+    SunIcon,
+    ChatBubbleLeftRightIcon,
+    PaperAirplaneIcon,
+    ClockIcon,
+    LinkIcon
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../context/ThemeContext';
 
@@ -31,35 +35,63 @@ const AdminLayout = ({ children }) => {
     const { theme, toggleTheme } = useTheme();
     const navigate = useNavigate();
     const location = useLocation();
-    const [openGroup, setOpenGroup] = useState('communications');
+    const [openGroup, setOpenGroup] = useState(null);
     const [showCityMenu, setShowCityMenu] = useState(false);
+
+    // Determine active tab and parent group based on path
+    const getActiveState = (path) => {
+        let tab = 'overview';
+        let group = null;
+
+        if (path === '/admin') {
+            tab = 'overview';
+        } else if (path.includes('/admin/members') || path.includes('/admin/streams') || path.includes('/admin/admins')) {
+            group = 'controls';
+            if (path.includes('/admin/members')) tab = 'members';
+            if (path.includes('/admin/streams')) tab = 'streams';
+            if (path.includes('/admin/admins')) tab = 'admins';
+        } else if (path.includes('/admin/meetings') || path.includes('/admin/forms') || path.includes('/admin/email-templates')) {
+            group = 'communications';
+            if (path.includes('/admin/meetings')) tab = 'meetings';
+            if (path.includes('/admin/forms')) tab = 'forms';
+            if (path.includes('/admin/email-templates')) tab = 'email-templates';
+        } else if (path.includes('/admin/whatsapp')) {
+            group = 'whatsapp';
+            if (path.includes('/admin/whatsapp/status')) tab = 'whatsapp-status';
+            if (path.includes('/admin/whatsapp/broadcasts')) tab = 'whatsapp-broadcasts';
+            if (path.includes('/admin/whatsapp/templates')) tab = 'whatsapp-templates';
+            if (path.includes('/admin/whatsapp/logs')) tab = 'whatsapp-logs';
+        } else if (path.includes('/admin/stewardship') || path.includes('/admin/mentorship') || path.includes('/admin/incubator') || path.includes('/admin/collabs') || path.includes('/admin/jobs') || path.includes('/admin/news')) {
+            group = 'community';
+            if (path.includes('/admin/stewardship')) tab = 'stewardship';
+            if (path.includes('/admin/mentorship')) tab = 'mentorship';
+            if (path.includes('/admin/incubator')) tab = 'incubator';
+            if (path.includes('/admin/collabs')) tab = 'collabs';
+            if (path.includes('/admin/jobs')) tab = 'jobs';
+            if (path.includes('/admin/news')) tab = 'news';
+        } else if (path.includes('/admin/resources') || path.includes('/admin/pages')) {
+            group = 'content';
+            if (path.includes('/admin/resources')) tab = 'resources';
+            if (path.includes('/admin/pages')) tab = 'pages';
+        } else if (path.includes('/superadmin/cities') || path.includes('/superadmin')) {
+            tab = 'super-cities';
+        }
+
+        return { tab, group };
+    };
+
+    const { tab: activeTab, group: activeGroup } = getActiveState(location.pathname);
 
     const toggleGroup = (groupId) => {
         setOpenGroup(prev => prev === groupId ? null : groupId);
     };
 
-    // Determine active tab based on path
-    const getActiveTab = (path) => {
-        if (path === '/admin') return 'overview';
-        if (path.includes('/admin/members')) return 'members';
-        if (path.includes('/admin/forms')) return 'forms';
-        if (path.includes('/admin/meetings')) return 'meetings';
-        if (path.includes('/admin/jobs')) return 'jobs';
-        if (path.includes('/admin/resources')) return 'resources';
-        if (path.includes('/admin/news')) return 'news';
-        if (path.includes('/admin/pages')) return 'pages';
-        if (path.includes('/admin/email-templates')) return 'email-templates';
-        if (path.includes('/admin/streams')) return 'streams';
-        if (path.includes('/admin/stewardship')) return 'stewardship';
-        if (path.includes('/admin/admins')) return 'admins';
-        if (path.includes('/admin/mentorship')) return 'mentorship';
-        if (path.includes('/admin/incubator')) return 'incubator';
-        if (path.includes('/admin/collabs')) return 'collabs';
-        if (path.includes('/superadmin/cities') || path.includes('/superadmin')) return 'super-cities';
-        return 'overview';
-    };
-
-    const activeTab = getActiveTab(location.pathname);
+    // Sync openGroup with activeGroup on route change
+    useEffect(() => {
+        if (activeGroup) {
+            setOpenGroup(activeGroup);
+        }
+    }, [activeGroup]);
 
     const navigation = [
         { name: 'Overview', icon: HomeIcon, id: 'overview', path: '/admin' },
@@ -73,7 +105,7 @@ const AdminLayout = ({ children }) => {
                 { name: 'Admin Users', icon: UserGroupIcon, id: 'admins', path: '/admin/admins' },
             ]
         },
-         {
+        {
             name: 'Communications',
             id: 'communications',
             icon: EnvelopeIcon,
@@ -81,6 +113,17 @@ const AdminLayout = ({ children }) => {
                 { name: 'Meetings', icon: CalendarDaysIcon, id: 'meetings', path: '/admin/meetings' },
                 { name: 'Forms', icon: DocumentTextIcon, id: 'forms', path: '/admin/forms' },
                 { name: 'Email Templates', icon: EnvelopeIcon, id: 'email-templates', path: '/admin/email-templates' },
+            ]
+        },
+        {
+            name: 'WhatsApp',
+            id: 'whatsapp',
+            icon: ChatBubbleLeftRightIcon,
+            subItems: [
+                { name: 'Connectivity', icon: LinkIcon, id: 'whatsapp-status', path: '/admin/whatsapp/status' },
+                { name: 'Broadcasts', icon: PaperAirplaneIcon, id: 'whatsapp-broadcasts', path: '/admin/whatsapp/broadcasts' },
+                { name: 'Message Templates', icon: DocumentTextIcon, id: 'whatsapp-templates', path: '/admin/whatsapp/templates' },
+                { name: 'History Logs', icon: ClockIcon, id: 'whatsapp-logs', path: '/admin/whatsapp/logs' },
             ]
         },
         {

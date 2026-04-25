@@ -36,7 +36,11 @@ const FormEditor: React.FC = () => {
                 is_optional: f.is_optional === 1 || (f as any).is_optional === true,
                 is_profile: f.is_profile === 1 || f.is_profile === true,
                 options: Array.isArray(f.options) ? f.options : (
-                    f.options ? Object.values(f.options) : []
+                    f.options ? (
+                        typeof f.options === 'string' 
+                            ? f.options.split(',').map((s: string) => s.trim()) 
+                            : Object.values(f.options)
+                    ) : []
                 ),
                 conditional_logic: f.conditions && Object.keys(f.conditions).length > 0
                     ? f.conditions
@@ -97,7 +101,9 @@ const FormEditor: React.FC = () => {
             fields: fields.map((f, i) => ({
                 ...f,
                 sort_order: i,
-                options: Array.isArray(f.options) ? f.options.filter(Boolean) : f.options,
+                options: Array.isArray(f.options) 
+                    ? f.options.map(o => typeof o === 'string' ? o.trim() : o).filter(Boolean) 
+                    : f.options,
                 // Map frontend keys back to DB keys
                 is_required: (f as any).required ? 1 : 0,
                 is_optional: (f as any).is_optional ? 1 : 0,

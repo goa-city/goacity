@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma.js';
+import { whatsapp } from '../services/whatsapp.service.js';
 
 // GET /api/admin/meetings
 export const getMeetings = async (req: Request, res: Response) => {
@@ -181,52 +182,41 @@ export const createMeeting = async (req: Request, res: Response) => {
         start_time = start_time || null;
         end_time = end_time || null;
 
+        const meetingData: any = {
+            title,
+            description: description || null,
+            meeting_date: meeting_date ? new Date(meeting_date) : null,
+            start_time: start_time ? new Date(`1970-01-01T${start_time}:00`) : null,
+            end_time: end_time ? new Date(`1970-01-01T${end_time}:00`) : null,
+            location_name: location_name || null,
+            map_link: map_link || null,
+            is_paid: (is_paid === 'true' || is_paid === true || is_paid === '1' || Number(is_paid) === 1) ? 1 : 0,
+            payment_amount: new Prisma.Decimal(payment_amount && payment_amount !== '' ? payment_amount : 0),
+            feedback_form_id: (feedback_form_id && feedback_form_id !== 'null' && feedback_form_id !== '') ? Number(feedback_form_id) : null,
+            stream_id: (stream_id && stream_id !== 'null' && stream_id !== '') ? Number(stream_id) : null,
+            archived: (archived === 'true' || archived === true || archived === '1' || Number(archived) === 1) ? 1 : 0,
+            recap_content: recap_content || null,
+            zoom_link: zoom_link || null
+        };
+
+        if (filename) {
+            meetingData.payment_qr_image = filename;
+        }
+
         let finalId: number;
 
         if (id) {
-            // Update
             const mId = Array.isArray(id) ? Number(id[0]) : Number(id);
+            await prisma.meetings.update({
+                where: { id: mId },
+                data: meetingData
+            });
             finalId = mId;
-            if (filename) {
-                await prisma.$queryRaw`
-                    UPDATE meetings 
-                    SET title = ${title}, description = ${description || null}, meeting_date = ${meeting_date}::date, 
-                        start_time = ${start_time}::time, end_time = ${end_time}::time, location_name = ${location_name || null}, 
-                        map_link = ${map_link || null}, 
-                        is_paid = ${is_paid === 'true' || is_paid === true || is_paid === '1' || Number(is_paid) === 1 ? 1 : 0}, 
-                        payment_amount = ${Number(payment_amount) || 0}, 
-                        feedback_form_id = ${feedback_form_id && feedback_form_id !== 'null' && feedback_form_id !== '' ? Number(feedback_form_id) : null}, 
-                        stream_id = ${stream_id && stream_id !== 'null' && stream_id !== '' ? Number(stream_id) : null}, 
-                        archived = ${archived === 'true' || archived === true || archived === '1' || Number(archived) === 1 ? 1 : 0},
-                        payment_qr_image = ${filename},
-                        recap_content = ${recap_content || null},
-                        zoom_link = ${zoom_link || null}
-                    WHERE id = ${mId}
-                `;
-            } else {
-                await prisma.$queryRaw`
-                    UPDATE meetings 
-                    SET title = ${title}, description = ${description || null}, meeting_date = ${meeting_date}::date, 
-                        start_time = ${start_time}::time, end_time = ${end_time}::time, location_name = ${location_name || null}, 
-                        map_link = ${map_link || null}, 
-                        is_paid = ${is_paid === 'true' || is_paid === true || is_paid === '1' || Number(is_paid) === 1 ? 1 : 0}, 
-                        payment_amount = ${Number(payment_amount) || 0}, 
-                        feedback_form_id = ${feedback_form_id && feedback_form_id !== 'null' && feedback_form_id !== '' ? Number(feedback_form_id) : null}, 
-                        stream_id = ${stream_id && stream_id !== 'null' && stream_id !== '' ? Number(stream_id) : null}, 
-                        archived = ${archived === 'true' || archived === true || archived === '1' || Number(archived) === 1 ? 1 : 0},
-                        recap_content = ${recap_content || null},
-                        zoom_link = ${zoom_link || null}
-                    WHERE id = ${mId}
-                `;
-            }
         } else {
-            // Create
-            const result = await prisma.$queryRaw`
-                INSERT INTO meetings (title, description, meeting_date, start_time, end_time, location_name, map_link, is_paid, payment_amount, feedback_form_id, stream_id, archived, payment_qr_image, recap_content, zoom_link)
-                VALUES (${title}, ${description || null}, ${meeting_date}::date, ${start_time}::time, ${end_time}::time, ${location_name || null}, ${map_link || null}, ${is_paid === 'true' || is_paid === true || is_paid === '1' || Number(is_paid) === 1 ? 1 : 0}, ${Number(payment_amount) || 0}, ${feedback_form_id && feedback_form_id !== 'null' && feedback_form_id !== '' ? Number(feedback_form_id) : null}, ${stream_id && stream_id !== 'null' && stream_id !== '' ? Number(stream_id) : null}, ${archived === 'true' || archived === true || archived === '1' || Number(archived) === 1 ? 1 : 0}, ${filename}, ${recap_content || null}, ${zoom_link || null})
-                RETURNING id
-            `;
-            finalId = (result as any)[0]?.id;
+            const created = await prisma.meetings.create({
+                data: meetingData
+            });
+            finalId = created.id;
         }
 
         // --- ASYNC Google Calendar Update ---
@@ -450,6 +440,8 @@ import { sendEmail } from '../utils/email.js';
 export const notifyMeetingMembers = async (req: Request, res: Response) => {
     try {
         const id = Number(req.params.id);
+        const { type, templateId } = req.body;
+
         const meeting: any = await prisma.meetings.findUnique({
             where: { id },
             include: { resources: true }
@@ -458,172 +450,76 @@ export const notifyMeetingMembers = async (req: Request, res: Response) => {
         if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
         if (!meeting.stream_id) return res.status(400).json({ message: 'Meeting is not linked to any stream' });
 
-        // Get members in context stream
-        const members: any[] = await prisma.$queryRaw`
-            SELECT m.email, m.first_name, m.last_name 
-            FROM members m
-            INNER JOIN stream_members sm ON sm.user_id = m.id
-            WHERE sm.stream_id = ${meeting.stream_id} AND m.email IS NOT NULL
-        `;
-
-        const defaultSubject = `New Update: ${meeting.title}`;
-        const defaultHtml = `
-            <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-                <h2 style="color: #6366f1;">${meeting.title}</h2>
-                <p>Hello,</p>
-                <p>An update has been posted for the meeting <b>${meeting.title}</b> scheduled for ${new Date(meeting.meeting_date).toLocaleDateString()}.</p>
-                
-                ${meeting.zoom_link ? `<p><b>Zoom Meeting:</b> <a href="${meeting.zoom_link}">${meeting.zoom_link}</a></p>` : ''}
-                
-                ${meeting.recap_content ? `
-                    <div style="background: #f9fafb; padding: 15px; border-radius: 8px; margin-top: 20px;">
-                        <h3 style="margin-top: 0;">Meeting Recap / Notes:</h3>
-                        <div>${meeting.recap_content}</div>
-                    </div>
-                ` : ''}
-
-                <p style="margin-top: 30px;">
-                    <a href="https://goa.city/meetings/${meeting.id}" style="background: #6366f1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">View Meeting Details</a>
-                </p>
-                <hr style="border: 0; border-top: 1px solid #eee; margin-top: 40px;" />
-                <p style="font-size: 12px; color: #999;">You are receiving this because you are part of the stream linked to this meeting.</p>
-            </div>
-        `;
-
-        // Attempt to fetch template from DB
-        let template: any = null;
-        try {
-            template = await prisma.emailTemplate.findUnique({
-                where: { title: 'Meeting Notification' }
-            });
-        } catch (err) {
-            console.warn('[MEETINGS] Could not fetch Meeting Notification template:', err);
-        }
-
-        // Generate .ics attachment
-        let icsAttachment: any[] = [];
-        try {
-            const dtStart = new Date(meeting.meeting_date);
-            if (meeting.start_time) {
-                const st = new Date(meeting.start_time);
-                dtStart.setHours(st.getHours(), st.getMinutes(), 0);
-            }
-            
-            const dtEnd = new Date(meeting.meeting_date);
-            if (meeting.end_time) {
-                const et = new Date(meeting.end_time);
-                dtEnd.setHours(et.getHours(), et.getMinutes(), 0);
-            } else {
-                dtEnd.setHours(dtStart.getHours() + 1); // Default 1 hour
-            }
-
-            const formatICSDate = (date: Date) => {
-                const pad = (n: number) => n.toString().padStart(2, '0');
-                const year = date.getFullYear();
-                const month = pad(date.getMonth() + 1);
-                const day = pad(date.getDate());
-                const hours = pad(date.getHours());
-                const minutes = pad(date.getMinutes());
-                const seconds = pad(date.getSeconds());
-                return `${year}${month}${day}T${hours}${minutes}${seconds}`;
-            };
-
-            const dtStamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-
-            const icsLines = [
-                'BEGIN:VCALENDAR',
-                'VERSION:2.0',
-                'PRODID:-//Goa.City//Meeting Notification//EN',
-                'CALSCALE:GREGORIAN',
-                'METHOD:REQUEST',
-                'BEGIN:VEVENT',
-                `UID:meeting_${meeting.id}@goa.city`,
-                `DTSTAMP:${dtStamp}`,
-                `DTSTART;TZID=Asia/Kolkata:${formatICSDate(dtStart)}`,
-                `DTEND;TZID=Asia/Kolkata:${formatICSDate(dtEnd)}`,
-                'ORGANIZER;CN="Goa.City":mailto:admin@goa.city',
-                `SUMMARY:${meeting.title}`,
-            ];
-
-            if (meeting.description) {
-                icsLines.push(`DESCRIPTION:${meeting.description.replace(/<[^>]*>?/gm, '').replace(/\n/g, '\\n')}`);
-            }
-            if (meeting.location_name) {
-                icsLines.push(`LOCATION:${meeting.location_name}`);
-            }
-
-            icsLines.push(`URL:https://goa.city/meetings/${meeting.id}`);
-            icsLines.push('STATUS:CONFIRMED');
-            icsLines.push('SEQUENCE:0');
-            icsLines.push('END:VEVENT');
-            icsLines.push('END:VCALENDAR');
-
-            const icsContent = icsLines.join('\r\n');
-
-            icsAttachment = [{
-                filename: 'invite.ics',
-                content: icsContent
-            }];
-        } catch (icsErr) {
-            console.warn('[MEETINGS] Failed to generate ICS:', icsErr);
-        }
-
-        let successCount = 0;
-        for (const m of members) {
-            if (m.email) {
-                let subject = defaultSubject;
-                let html = defaultHtml;
-
-                if (template) {
-                    subject = template.subject.replace(/{{meeting_title}}/g, meeting.title);
-                    html = template.message;
-                    
-                    const timeStr = meeting.start_time ? 
-                        `${new Date(meeting.start_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}${meeting.end_time ? ' - ' + new Date(meeting.end_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : ''}` 
-                        : '';
-
-                    // Replace Placeholders
-                    html = html.replace(/{{meeting_title}}/g, meeting.title);
-                    html = html.replace(/{{meeting_date}}/g, new Date(meeting.meeting_date).toLocaleDateString());
-                    html = html.replace(/{{meeting_time}}/g, timeStr);
-                    
-                    // Conditional Location / Map handling
-                    if (meeting.location_name) {
-                        html = html.replace(/{{location_name}}/g, meeting.location_name);
-                    } else {
-                        html = html.replace(/<p><b>📍 Location:<\/b> {{location_name}}<\/p>/g, '');
-                        html = html.replace(/{{location_name}}/g, '');
-                    }
-
-                    if (meeting.map_link) {
-                        html = html.replace(/{{map_link}}/g, meeting.map_link);
-                    } else {
-                        html = html.replace(/<p><b>🔗 Map:<\/b> <a href=\"{{map_link}}\">{{map_link}}<\/a><\/p>/g, '');
-                        html = html.replace(/{{map_link}}/g, '');
-                    }
-
-                    html = html.replace(/{{zoom_link}}/g, meeting.zoom_link || '');
-                    html = html.replace(/{{recap_content}}/g, meeting.recap_content || '');
-                    html = html.replace(/{{meeting_url}}/g, `https://goa.city/meetings/${meeting.id}`);
-                    html = html.replace(/{{first_name}}/g, m.first_name || '');
-                    html = html.replace(/{{last_name}}/g, m.last_name || '');
+        // Get members in stream
+        const members: any[] = await prisma.member.findMany({
+            where: {
+                streams: {
+                    some: { stream_id: meeting.stream_id }
                 }
-
-                const sent = await sendEmail(m.email, subject, html, icsAttachment);
-                if (sent) successCount++;
             }
+        });
+
+        if (members.length === 0) {
+            return res.status(400).json({ message: 'No members found in the linked stream' });
         }
 
-        // COLLECT EMAILS AND SYNC TO GOOGLE CALENDAR AS ATTENDEES
-        const attendeeEmails = members.filter(m => m.email).map(m => m.email);
-        if (attendeeEmails.length > 0) {
-            console.log(`[MEETINGS] Syncing ${attendeeEmails.length} attendees to Google Calendar...`);
-            createGoogleCalendarEvent(meeting, attendeeEmails).catch(err => {
-                console.error('[MEETINGS] Google Calendar Background Sync Error:', err);
+        const dateStr = meeting.meeting_date ? new Date(meeting.meeting_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : 'TBD';
+        const timeStr = meeting.start_time ? new Date(meeting.start_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : 'TBD';
+
+        if (type === 'email') {
+            const template = await prisma.emailTemplate.findUnique({ where: { id: Number(templateId) } });
+            if (!template) return res.status(404).json({ message: 'Email template not found' });
+
+            const emailMembers = members.filter(m => m.email);
+            
+            // Send emails (background)
+            Promise.all(emailMembers.map(m => {
+                let personalizedHtml = template.message
+                    .replace(/{firstname}|{{first_name}}/gi, m.first_name || 'Member')
+                    .replace(/{lastname}|{{last_name}}/gi, m.last_name || '')
+                    .replace(/{meeting_title}|{{meeting_title}}/gi, meeting.title)
+                    .replace(/{meeting_date}|{{meeting_date}}/gi, dateStr)
+                    .replace(/{meeting_time}|{{meeting_time}}/gi, timeStr)
+                    .replace(/{location}|{{location_name}}/gi, meeting.location_name || 'TBD');
+
+                return sendEmail(
+                    m.email,
+                    template.subject.replace(/{meeting_title}|{{meeting_title}}/gi, meeting.title),
+                    personalizedHtml
+                ).catch(err => console.error(`Email failed for ${m.email}:`, err));
+            }));
+
+            return res.json({ success: true, message: `Email notifications queued for ${emailMembers.length} members` });
+        } else if (type === 'whatsapp') {
+            const template = await prisma.whatsAppTemplate.findUnique({ where: { id: Number(templateId) } });
+            if (!template) return res.status(404).json({ message: 'WhatsApp template not found' });
+
+            const whatsappMembers = members.filter(m => m.phone);
+
+            // Format bulk messages
+            const bulkMessages = whatsappMembers.map(m => {
+                let personalizedContent = template.content
+                    .replace(/{firstname}|{{first_name}}/gi, m.first_name || 'Member')
+                    .replace(/{lastname}|{{last_name}}/gi, m.last_name || '')
+                    .replace(/{meeting_title}|{{meeting_title}}/gi, meeting.title)
+                    .replace(/{meeting_date}|{{meeting_date}}/gi, dateStr)
+                    .replace(/{meeting_time}|{{meeting_time}}/gi, timeStr)
+                    .replace(/{location}|{{location_name}}/gi, meeting.location_name || 'TBD');
+
+                return {
+                    to: m.phone,
+                    content: personalizedContent,
+                    memberId: m.id
+                };
             });
+
+            // Start bulk send in background
+            whatsapp.sendBulk(bulkMessages, `Meeting Notify: ${meeting.title}`).catch((err: any) => console.error('WhatsApp bulk notify failed:', err));
+
+            return res.json({ success: true, message: `WhatsApp notifications queued for ${whatsappMembers.length} members` });
         }
 
-        return res.json({ success: true, message: `Notification sent to ${successCount} members.` });
+        return res.status(400).json({ message: 'Invalid notification type' });
     } catch (error: any) {
         console.error('notifyMeetingMembers Error:', error);
         return res.status(500).json({ message: error.message });

@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import { 
     PlusIcon, PencilIcon, TrashIcon, ArchiveBoxIcon, 
-    ArchiveBoxXMarkIcon, CalendarDaysIcon, MagnifyingGlassIcon
+    ArchiveBoxXMarkIcon, CalendarDaysIcon, MagnifyingGlassIcon,
+    ChatBubbleLeftRightIcon
 } from '@heroicons/react/24/solid';
 import { Card } from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
@@ -62,6 +63,17 @@ const AdminMeetings = () => {
         } catch (error) {
             console.error("Failed to delete meeting", error);
             alert("Failed to delete meeting");
+        }
+    };
+
+    const handleWhatsAppAlert = async (id, title) => {
+        if (!window.confirm(`Send WhatsApp alerts for "${title}" to all enrolled members?`)) return;
+        try {
+            await api.post('/admin/whatsapp/meeting-alert', { meetingId: id });
+            showToast('Alerts queued successfully!');
+        } catch (error) {
+            console.error("Failed to send alerts", error);
+            alert("Failed to queue alerts. Is WhatsApp connected?");
         }
     };
 
@@ -166,6 +178,13 @@ const AdminMeetings = () => {
                                         </td>
                                         <td className="px-8 py-5 text-right" onClick={e => e.stopPropagation()}>
                                             <div className="flex items-center justify-end gap-2">
+                                                <button
+                                                    onClick={() => handleWhatsAppAlert(meeting.id, meeting.title)}
+                                                    title="Send WhatsApp Alert"
+                                                    className="p-2 rounded-xl text-zinc-300 group-hover:text-emerald-600 transition-all hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                                                >
+                                                    <ChatBubbleLeftRightIcon className="w-5 h-5" />
+                                                </button>
                                                 <button
                                                     onClick={() => navigate(`/admin/meetings/${meeting.id}`)}
                                                     title="Edit"

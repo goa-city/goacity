@@ -4,11 +4,11 @@ import api from '../../api/axios';
 import { useForm, Controller } from 'react-hook-form';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
-import { 
-    CalendarDaysIcon, ArrowLeftIcon, MapPinIcon, 
+import {
+    CalendarDaysIcon, ArrowLeftIcon, MapPinIcon,
     CurrencyRupeeIcon, BeakerIcon, SwatchIcon, ClockIcon,
     CloudArrowUpIcon, TrashIcon, DocumentIcon, DocumentTextIcon,
-    VideoCameraIcon, EnvelopeIcon
+    VideoCameraIcon, EnvelopeIcon, ChevronDownIcon, ChatBubbleLeftRightIcon
 } from '@heroicons/react/24/solid';
 import { Card } from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
@@ -31,17 +31,24 @@ const AdminMeetingEditor = () => {
     const [meetingResources, setMeetingResources] = useState([]);
     const [uploadingResource, setUploadingResource] = useState(false);
     const [notifying, setNotifying] = useState(false);
+    const [emailTemplates, setEmailTemplates] = useState([]);
+    const [whatsappTemplates, setWhatsappTemplates] = useState([]);
+    const [showNotifyMenu, setShowNotifyMenu] = useState(false);
 
     useEffect(() => {
         const fetchResources = async () => {
-             try {
-                const [formsRes, streamsRes] = await Promise.all([
+            try {
+                const [formsRes, streamsRes, emailRes, whatsappRes] = await Promise.all([
                     api.get('/admin/forms'),
-                    api.get('/admin/streams')
+                    api.get('/admin/streams'),
+                    api.get('/admin/email-templates'),
+                    api.get('/admin/whatsapp-templates')
                 ]);
                 setForms(formsRes.data);
                 setStreams(streamsRes.data);
-             } catch(e) { console.error(e); }
+                setEmailTemplates(emailRes.data);
+                setWhatsappTemplates(whatsappRes.data);
+            } catch (error) { console.error(error); }
         };
         fetchResources();
 
@@ -67,7 +74,7 @@ const AdminMeetingEditor = () => {
             api.get(`/admin/meetings/${id}/responses`)
                 .then(res => setResponses(res.data.data || []))
                 .catch(err => console.error("Failed to fetch form responses", err));
-                
+
             api.get(`/admin/meetings/${id}/actions`)
                 .then(res => setMeetingActions(res.data.data || []))
                 .catch(err => console.error("Failed to fetch meeting actions", err));
@@ -84,9 +91,9 @@ const AdminMeetingEditor = () => {
         try {
             const formData = new FormData();
             if (isEdit) formData.append('id', id);
-            
+
             Object.keys(data).forEach(key => {
-                if (key === 'id' || key === 'payment_qr_image_url' || key === 'resources' || key === 'description') return; 
+                if (key === 'id' || key === 'payment_qr_image_url' || key === 'resources' || key === 'description') return;
                 if (key === 'payment_qr_image') {
                     if (data[key] && data[key].length > 0) formData.append(key, data[key][0]);
                 } else if (key === 'meeting_date') {
@@ -104,14 +111,12 @@ const AdminMeetingEditor = () => {
                     formData.append(key, data[key] === null || data[key] === undefined ? '' : data[key]);
                 }
             });
-            
+
             formData.append('recap_content', recapContent);
             formData.delete('description'); // Explicitly ensure description is not sent
 
-            const res = await api.post('/admin/meetings', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
-            
+            const res = await api.post('/admin/meetings', formData);
+
             showToast(isEdit ? "Meeting updated successfully!" : "Meeting created successfully!");
             if (!isEdit && res.data.id) {
                 setTimeout(() => navigate(`/admin/meetings/${res.data.id}`, { replace: true }), 1000);
@@ -146,6 +151,21 @@ const AdminMeetingEditor = () => {
         } finally {
             setUploadingResource(false);
             e.target.value = ''; // Reset input
+        }
+    };
+
+    const handleNotify = async (type, templateId) => {
+        if (!window.confirm(`Send ${type} notification using the selected template?`)) return;
+        setNotifying(true);
+        setShowNotifyMenu(false);
+        try {
+            await api.post(`/admin/meetings/${id}/notify`, { type, templateId });
+            showToast("Notifications sent successfully!");
+        } catch (e) {
+            console.error(e);
+            alert("Failed to send notifications.");
+        } finally {
+            setNotifying(false);
         }
     };
 
@@ -192,26 +212,60 @@ const AdminMeetingEditor = () => {
                         </div>
                         <div className="flex items-center gap-3">
                             {isEdit && watch('stream_id') && (
-                                <button
-                                    type="button"
-                                    onClick={async () => {
-                                        if (!window.confirm("Send update notification to all stream members?")) return;
-                                        setNotifying(true);
-                                        try {
-                                            await api.post(`/admin/meetings/${id}/notify`);
-                                            showToast("Notifications sent successfully!");
-                                        } catch (e) {
-                                            alert("Failed to send notifications.");
-                                        } finally {
-                                            setNotifying(false);
-                                        }
-                                    }}
-                                    disabled={notifying}
-                                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 transition-all disabled:opacity-50"
-                                >
-                                    <EnvelopeIcon className="w-4 h-4" />
-                                    {notifying ? 'Sending...' : 'Notify Members'}
-                                </button>
+                                <div className="relative">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowNotifyMenu(!showNotifyMenu)}
+                                        disabled={notifying}
+                                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 transition-all disabled:opacity-50"
+                                    >
+                                        <EnvelopeIcon className="w-4 h-4" />
+                                        {notifying ? 'Sending...' : 'Notify Members'}
+                                        <ChevronDownIcon className={`w-3 h-3 transition-transform ${showNotifyMenu ? 'rotate-180' : ''}`} />
+                                    </button>
+
+                                    {showNotifyMenu && (
+                                        <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl z-50 p-2">
+                                            <div className="p-2 border-b border-zinc-100 dark:border-zinc-800 mb-2">
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Select Template</p>
+                                            </div>
+                                            
+                                            <div className="space-y-3 p-1 max-h-80 overflow-y-auto">
+                                                {/* WhatsApp */}
+                                                <div>
+                                                    <p className="px-2 text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1 flex items-center gap-1">
+                                                        <ChatBubbleLeftRightIcon className="w-3 h-3" /> WhatsApp
+                                                    </p>
+                                                    {whatsappTemplates.map(t => (
+                                                        <button
+                                                            key={t.id}
+                                                            onClick={() => handleNotify('whatsapp', t.id)}
+                                                            className="w-full text-left px-2 py-2 rounded-lg text-[11px] font-bold text-zinc-600 dark:text-zinc-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 hover:text-emerald-600 transition-colors"
+                                                        >
+                                                            {t.title}
+                                                        </button>
+                                                    ))}
+                                                </div>
+
+                                                {/* Email */}
+                                                <div>
+                                                    <p className="px-2 text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1 flex items-center gap-1">
+                                                        <EnvelopeIcon className="w-3 h-3" /> Email
+                                                    </p>
+                                                    {emailTemplates.map(t => (
+                                                        <button
+                                                            key={t.id}
+                                                            onClick={() => handleNotify('email', t.id)}
+                                                            className="w-full text-left px-2 py-2 rounded-lg text-[11px] font-bold text-zinc-600 dark:text-zinc-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 hover:text-indigo-600 transition-colors"
+                                                        >
+                                                            {t.title}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             )}
                             <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold ${isArchived ? 'bg-gray-100 text-gray-600 border-gray-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
                                 {isArchived ? 'Archived' : 'Active'}
@@ -249,7 +303,7 @@ const AdminMeetingEditor = () => {
                                 />
                             </div>
                             {errors.meeting_date && <p className="mt-1 text-[10px] font-black tracking-widest uppercase text-red-500">Date is required</p>}
-                         </div>
+                        </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
@@ -266,10 +320,10 @@ const AdminMeetingEditor = () => {
                             <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Location Name</label>
                             <div className="relative">
                                 <MapPinIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
-                                <input {...register('location_name')} className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 pl-12 h-14 font-medium" placeholder="e.g. Goa Innovation Lab" />
+                                <input {...register('location_name')} className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 pl-12 h-14 font-medium" placeholder="Location Name" />
                             </div>
                         </div>
-                        
+
                         <div>
                             <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Map Link</label>
                             <input {...register('map_link')} className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-4 font-medium" placeholder="Google Maps URL" />
@@ -402,8 +456,8 @@ const AdminMeetingEditor = () => {
                                                 </div>
                                                 <span className="text-sm font-medium text-gray-700 truncate">{res.title}</span>
                                             </div>
-                                            <button 
-                                                type="button" 
+                                            <button
+                                                type="button"
                                                 onClick={() => handleResourceDelete(res.id)}
                                                 className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                                             >
@@ -448,10 +502,10 @@ const AdminMeetingEditor = () => {
                                                         {action.first_name} {action.last_name}
                                                     </td>
                                                     <td className="px-6 py-4">
-                                                        {action.rsvp_status === 'going' ? <span className="text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">Going</span> : 
-                                                         action.rsvp_status === 'not_sure' ? <span className="text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 border border-amber-100 dark:border-amber-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">Maybe</span> : 
-                                                         action.rsvp_status === 'cant_go' ? <span className="text-red-600 bg-red-50 dark:bg-red-950/30 dark:text-red-400 border border-red-100 dark:border-red-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">Can't Go</span> : 
-                                                         <span className="text-zinc-400">None</span>}
+                                                        {action.rsvp_status === 'going' ? <span className="text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">Going</span> :
+                                                            action.rsvp_status === 'not_sure' ? <span className="text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 border border-amber-100 dark:border-amber-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">Maybe</span> :
+                                                                action.rsvp_status === 'cant_go' ? <span className="text-red-600 bg-red-50 dark:bg-red-950/30 dark:text-red-400 border border-red-100 dark:border-red-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">Can't Go</span> :
+                                                                    <span className="text-zinc-400">None</span>}
                                                     </td>
                                                     <td className="px-6 py-4">
                                                         {action.checked_in == 1 ? (
@@ -464,10 +518,10 @@ const AdminMeetingEditor = () => {
                                                     </td>
                                                     <td className="px-6 py-4">
                                                         {action.payment_status === 'paid_online' ? <span className="text-indigo-600 bg-indigo-50 dark:bg-indigo-950/30 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">Paid Online</span> :
-                                                         action.payment_status === 'paid_cash' ? <span className="text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">Paid Cash</span> :
-                                                         <span className="text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 border border-amber-100 dark:border-amber-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">{action.payment_status || 'Pending'}</span>}
+                                                            action.payment_status === 'paid_cash' ? <span className="text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">Paid Cash</span> :
+                                                                <span className="text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 border border-amber-100 dark:border-amber-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">{action.payment_status || 'Pending'}</span>}
                                                     </td>
-                                                     <td className="px-6 py-4 text-zinc-500 font-medium">
+                                                    <td className="px-6 py-4 text-zinc-500 font-medium">
                                                         ₹ {action.paid_amount || '0'}
                                                     </td>
                                                 </tr>
@@ -531,7 +585,7 @@ const AdminMeetingEditor = () => {
                                     try {
                                         await api.delete(`/admin/meetings?id=${id}`);
                                         navigate('/admin/meetings');
-                                    } catch(e) { alert("Delete failed"); }
+                                    } catch (e) { alert("Delete failed"); }
                                 }
                             }}
                             className="px-5 py-2.5 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-sm font-black uppercase tracking-widest rounded-xl hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors border border-red-200 dark:border-red-900/50 mr-auto"

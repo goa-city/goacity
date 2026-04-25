@@ -5,8 +5,15 @@ import fs from 'fs';
 import apiRoutes from './routes/index.js';
 import { errorHandler } from './middleware/error.handler.js';
 
+import { whatsapp } from './services/whatsapp.service.js';
+
 const app = express();
 const PORT = process.env.PORT || 5001;
+
+// Initialize WhatsApp Service
+whatsapp.initialize().catch(err => {
+    console.error('Failed to initialize WhatsApp service:', err);
+});
 
 // Ensure uploads directory exists
 if (!fs.existsSync('uploads')) {

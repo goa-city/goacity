@@ -83,7 +83,7 @@ const FormPreview: React.FC<FormPreviewProps> = ({ fields, onClose }) => {
     }
 
     const rawOptions = currentField?.field_type === 'choice_bool'
-        ? ['Yes', 'No']
+        ? (Array.isArray(currentField?.options) && currentField.options.length > 0 ? currentField.options : ['Yes', 'No'])
         : (Array.isArray(currentField?.options) ? currentField.options : []);
     const options = rawOptions.filter(Boolean);
 
@@ -181,13 +181,13 @@ const FormPreview: React.FC<FormPreviewProps> = ({ fields, onClose }) => {
                             <div className="flex flex-col gap-3 max-w-xl">
                                 {options.map((opt: string, i: number) => {
                                     const isSelected = currentField.field_type === 'choice_bool'
-                                        ? (responses[currentField.field_key] !== undefined && responses[currentField.field_key] === (opt === 'Yes'))
+                                        ? (responses[currentField.field_key] !== undefined && responses[currentField.field_key] === (i === 0))
                                         : responses[currentField.field_key] === opt;
                                     return (
                                         <button
                                             key={opt}
                                             onClick={() => {
-                                                const newVal = currentField.field_type === 'choice_bool' ? (opt === 'Yes') : opt;
+                                                const newVal = currentField.field_type === 'choice_bool' ? (i === 0) : opt;
                                                 handleChange(currentField.field_key, newVal);
                                                 setTimeout(() => handleNext(newVal), 300);
                                             }}

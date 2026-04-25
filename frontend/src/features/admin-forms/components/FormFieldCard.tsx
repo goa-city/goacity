@@ -24,11 +24,20 @@ interface FormFieldCardProps {
 const FormFieldCard: React.FC<FormFieldCardProps> = ({ field, index, totalFields, allFields, onChange, onRemove, onMoveUp, onMoveDown }) => {
     
     const handleOptionChange = (valueString: string) => {
-        const options = valueString.split('\n').map(s => s.trim());
+        const options = valueString.split('\n');
         onChange({ ...field, options });
     };
 
-    const hasOptions = ['choice', 'dropdown_choice', 'multiselect'].includes(field.field_type);
+    const hasOptions = [
+        'choice', 
+        'dropdown_choice', 
+        'multiselect', 
+        'choice_bool', 
+        'radio', 
+        'select', 
+        'checkbox', 
+        'checkboxes'
+    ].includes(field.field_type);
 
     return (
         <Card className="border-zinc-100 dark:border-zinc-800 shadow-lg shadow-zinc-200/50 dark:shadow-none relative overflow-visible">

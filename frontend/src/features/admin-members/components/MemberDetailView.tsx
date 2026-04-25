@@ -18,8 +18,10 @@ import {
     ChevronDownIcon,
     ChevronUpIcon,
     PlusIcon,
-    CheckIcon
+    CheckIcon,
+    ChatBubbleLeftRightIcon
 } from '@heroicons/react/24/solid';
+import MemberWhatsAppTab from '../../admin-whatsapp/components/MemberWhatsAppTab';
 
 const MemberDetailView: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -30,6 +32,7 @@ const MemberDetailView: React.FC = () => {
     const [openResponses, setOpenResponses] = useState<Record<number, boolean>>({});
     const [allStreams, setAllStreams] = useState<any[]>([]);
     const [showStreamPicker, setShowStreamPicker] = useState(false);
+    const [activeTab, setActiveTab] = useState<'attributes' | 'forms' | 'whatsapp'>('attributes');
 
     useEffect(() => {
         if (member) {
@@ -179,72 +182,123 @@ const MemberDetailView: React.FC = () => {
 
                 {/* Right Content */}
                 <div className="lg:col-span-2 space-y-10">
-                    {/* Profile Attributes - only show when onboarding is complete */}
-                    {member.has_completed_onboarding && (
-                    <Card className="border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-950">
-                        <CardContent className="p-8">
-                            <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-8 flex items-center gap-2">
-                                <AcademicCapIcon className="w-4 h-4 text-indigo-600" /> Profile Attributes
-                            </h3>
-                            <div className="divide-y divide-zinc-50 dark:divide-zinc-800/50">
-                                {member.profile_attributes?.map((attr, idx) => (
-                                    <div key={idx} className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-2">
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400 w-48">{attr.label}</span>
-                                        <span className="text-sm font-black text-zinc-700 dark:text-zinc-300">{attr.value || <span className="text-zinc-300 italic font-normal">Not set</span>}</span>
-                                    </div>
-                                ))}
-                                {(!member.profile_attributes || member.profile_attributes.length === 0) && (
-                                    <p className="py-8 text-center text-zinc-400 font-medium italic">No profile attributes synced yet.</p>
-                                )}
-                            </div>
-                        </CardContent>
-                    </Card>
+                    {/* Tabs Header */}
+                    <div className="flex items-center gap-2 p-1 bg-zinc-100 dark:bg-zinc-900 rounded-2xl w-fit">
+                        <button 
+                            onClick={() => setActiveTab('attributes')}
+                            className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                activeTab === 'attributes' 
+                                    ? 'bg-white dark:bg-zinc-800 text-indigo-600 shadow-sm' 
+                                    : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200'
+                            }`}
+                        >
+                            Attributes
+                        </button>
+                        <button 
+                            onClick={() => setActiveTab('forms')}
+                            className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                activeTab === 'forms' 
+                                    ? 'bg-white dark:bg-zinc-800 text-indigo-600 shadow-sm' 
+                                    : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200'
+                            }`}
+                        >
+                            Forms
+                        </button>
+                        <button 
+                            onClick={() => setActiveTab('whatsapp')}
+                            className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                activeTab === 'whatsapp' 
+                                    ? 'bg-white dark:bg-zinc-800 text-emerald-500 shadow-sm' 
+                                    : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200'
+                            }`}
+                        >
+                            WhatsApp
+                        </button>
+                    </div>
+
+                    {activeTab === 'attributes' && (
+                        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            {/* Profile Attributes - only show when onboarding is complete */}
+                            {member.has_completed_onboarding ? (
+                                <Card className="border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+                                    <CardContent className="p-8">
+                                        <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-8 flex items-center gap-2">
+                                            <AcademicCapIcon className="w-4 h-4 text-indigo-600" /> Profile Attributes
+                                        </h3>
+                                        <div className="divide-y divide-zinc-50 dark:divide-zinc-800/50">
+                                            {member.profile_attributes?.map((attr, idx) => (
+                                                <div key={idx} className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-2">
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400 w-48">{attr.label}</span>
+                                                    <span className="text-sm font-black text-zinc-700 dark:text-zinc-300">{attr.value || <span className="text-zinc-300 italic font-normal">Not set</span>}</span>
+                                                </div>
+                                            ))}
+                                            {(!member.profile_attributes || member.profile_attributes.length === 0) && (
+                                                <p className="py-8 text-center text-zinc-400 font-medium italic">No profile attributes synced yet.</p>
+                                            )}
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ) : (
+                                <div className="py-20 text-center border-2 border-dashed border-zinc-100 dark:border-zinc-800 rounded-[2rem]">
+                                    <p className="text-zinc-300 font-black uppercase tracking-widest text-xs">Onboarding not yet complete</p>
+                                </div>
+                            )}
+                        </div>
                     )}
 
-                    {/* Form History - only completed submissions */}
-                    <Card className="border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-950">
-                        <CardContent className="p-8">
-                            <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-8 flex items-center gap-2">
-                                <ClipboardDocumentListIcon className="w-4 h-4 text-indigo-600" /> Form Submissions
-                            </h3>
-                            
-                            <div className="space-y-4">
-                                {member.form_responses?.map((resp) => (
-                                    <div key={resp.response_id} className="border border-zinc-100 dark:border-zinc-800 rounded-xl overflow-hidden">
-                                        <button 
-                                            onClick={() => setOpenResponses(prev => ({ ...prev, [resp.response_id]: !prev[resp.response_id] }))}
-                                            className="w-full flex items-center justify-between p-6 bg-zinc-50/50 dark:bg-zinc-900/50 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-                                        >
-                                            <div className="flex flex-col items-start gap-1">
-                                                <span className="text-sm font-black text-zinc-800 dark:text-white uppercase tracking-tight">{resp.form_title}</span>
-                                                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Submitted {resp.submitted_at}</span>
-                                            </div>
-                                            <div className="flex items-center gap-4">
-                                                {openResponses[resp.response_id] ? <ChevronUpIcon className="w-4 h-4 text-zinc-400" /> : <ChevronDownIcon className="w-4 h-4 text-zinc-400" />}
-                                            </div>
-                                        </button>
-                                        
-                                        {openResponses[resp.response_id] && (
-                                            <div className="p-6 bg-white dark:bg-zinc-950 space-y-4 divide-y divide-zinc-50 dark:divide-zinc-900">
-                                                {resp.answers.map((ans, aidx) => (
-                                                    <div key={aidx} className="pt-4 first:pt-0">
-                                                        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-1">{ans.label}</p>
-                                                        <p className="text-sm font-bold text-zinc-700 dark:text-zinc-300">{ans.value || <span className="text-zinc-200 italic font-normal">No answer</span>}</p>
+                    {activeTab === 'forms' && (
+                        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            <Card className="border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+                                <CardContent className="p-8">
+                                    <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-8 flex items-center gap-2">
+                                        <ClipboardDocumentListIcon className="w-4 h-4 text-indigo-600" /> Form Submissions
+                                    </h3>
+                                    
+                                    <div className="space-y-4">
+                                        {member.form_responses?.map((resp) => (
+                                            <div key={resp.response_id} className="border border-zinc-100 dark:border-zinc-800 rounded-xl overflow-hidden">
+                                                <button 
+                                                    onClick={() => setOpenResponses(prev => ({ ...prev, [resp.response_id]: !prev[resp.response_id] }))}
+                                                    className="w-full flex items-center justify-between p-6 bg-zinc-50/50 dark:bg-zinc-900/50 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                                                >
+                                                    <div className="flex flex-col items-start gap-1">
+                                                        <span className="text-sm font-black text-zinc-800 dark:text-white uppercase tracking-tight">{resp.form_title}</span>
+                                                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Submitted {resp.submitted_at}</span>
                                                     </div>
-                                                ))}
+                                                    <div className="flex items-center gap-4">
+                                                        {openResponses[resp.response_id] ? <ChevronUpIcon className="w-4 h-4 text-zinc-400" /> : <ChevronDownIcon className="w-4 h-4 text-zinc-400" />}
+                                                    </div>
+                                                </button>
+                                                
+                                                {openResponses[resp.response_id] && (
+                                                    <div className="p-6 bg-white dark:bg-zinc-950 space-y-4 divide-y divide-zinc-50 dark:divide-zinc-900">
+                                                        {resp.answers.map((ans, aidx) => (
+                                                            <div key={aidx} className="pt-4 first:pt-0">
+                                                                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-1">{ans.label}</p>
+                                                                <p className="text-sm font-bold text-zinc-700 dark:text-zinc-300">{ans.value || <span className="text-zinc-200 italic font-normal">No answer</span>}</p>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                        
+                                        {(!member.form_responses || member.form_responses.length === 0) && (
+                                            <div className="py-10 text-center border-2 border-dashed border-zinc-100 dark:border-zinc-800 rounded-xl">
+                                                <p className="text-zinc-300 font-black uppercase tracking-widest text-xs">No completed submissions found</p>
                                             </div>
                                         )}
                                     </div>
-                                ))}
-                                
-                                {(!member.form_responses || member.form_responses.length === 0) && (
-                                    <div className="py-10 text-center border-2 border-dashed border-zinc-100 dark:border-zinc-800 rounded-xl">
-                                        <p className="text-zinc-300 font-black uppercase tracking-widest text-xs">No completed submissions found</p>
-                                    </div>
-                                )}
-                            </div>
-                        </CardContent>
-                    </Card>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    )}
+
+                    {activeTab === 'whatsapp' && (
+                        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            <MemberWhatsAppTab memberId={Number(id)} phoneNumber={member.phone || ''} />
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

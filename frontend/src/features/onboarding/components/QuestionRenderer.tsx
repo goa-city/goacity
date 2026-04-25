@@ -70,19 +70,21 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({ question, value, on
 
         case 'choice':
         case 'choice_bool':
-            const rawOptions = question.type === 'choice_bool' ? ['Yes', 'No'] : (question.options || []);
+            const rawOptions = question.type === 'choice_bool' 
+                ? (Array.isArray(question.options) && question.options.length > 0 ? question.options : ['Yes', 'No'])
+                : (question.options || []);
             const options = Array.isArray(rawOptions) ? rawOptions.filter(Boolean) : [];
             return (
                 <div className="flex flex-col gap-3 max-w-xl">
                     {options.map((opt, i) => {
                         const isSelected = question.type === 'choice_bool' 
-                            ? (value !== '' && value !== undefined && value !== null && value === (opt === 'Yes')) 
+                            ? (value !== '' && value !== undefined && value !== null && value === (i === 0)) 
                             : (value === opt);
                         return (
                             <button
                                 key={opt}
                                 onClick={() => {
-                                    const newVal = question.type === 'choice_bool' ? (opt === 'Yes') : opt;
+                                    const newVal = question.type === 'choice_bool' ? (i === 0) : opt;
                                     onChange(question.field, newVal);
                                     setTimeout(() => onNext(newVal), 300);
                                 }}

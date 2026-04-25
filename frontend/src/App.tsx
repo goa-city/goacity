@@ -42,6 +42,12 @@ const AdminPageEditor = lazy(() => import('./pages/admin/AdminPageEditor'));
 const AdminEmailTemplates = lazy(() => import('./pages/admin/AdminEmailTemplates'));
 const AdminEmailTemplateEditor = lazy(() => import('./pages/admin/AdminEmailTemplateEditor'));
 const AdminCities = lazy(() => import('./pages/admin/AdminCities'));
+const AdminWhatsAppStatus = lazy(() => import('./pages/admin/AdminWhatsAppStatus'));
+const AdminWhatsAppBroadcasts = lazy(() => import('./pages/admin/AdminWhatsAppBroadcasts'));
+const AdminWhatsAppTemplates = lazy(() => import('./pages/admin/AdminWhatsAppTemplates'));
+const AdminWhatsAppTemplateEditor = lazy(() => import('./pages/admin/AdminWhatsAppTemplateEditor'));
+const AdminWhatsAppLogs = lazy(() => import('./pages/admin/AdminWhatsAppLogs'));
+const AdminWhatsAppBroadcastDetails = lazy(() => import('./pages/admin/AdminWhatsAppBroadcastDetails'));
 const PageView = lazy(() => import('./pages/PageView'));
 const SuperAdminLogin = lazy(() => import('./pages/superadmin/SuperAdminLogin'));
 
@@ -151,6 +157,13 @@ const App: React.FC = () => {
                                                 <Route path="/admin/email-templates/create" element={<AdminEmailTemplateEditor />} />
                                                 <Route path="/admin/email-templates/:id" element={<AdminEmailTemplateEditor />} />
                                                 <Route path="/admin/admins" element={<AdminAdmins />} />
+                                                <Route path="/admin/whatsapp/status" element={<AdminWhatsAppStatus />} />
+                                                <Route path="/admin/whatsapp/broadcasts" element={<AdminWhatsAppBroadcasts />} />
+                                                <Route path="/admin/whatsapp/templates" element={<AdminWhatsAppTemplates />} />
+                                                <Route path="/admin/whatsapp/templates/create" element={<AdminWhatsAppTemplateEditor />} />
+                                                <Route path="/admin/whatsapp/templates/:id" element={<AdminWhatsAppTemplateEditor />} />
+                                                <Route path="/admin/whatsapp/logs" element={<AdminWhatsAppLogs />} />
+                                                <Route path="/admin/whatsapp/logs/:id" element={<AdminWhatsAppBroadcastDetails />} />
                                             </Route>
                                         </Route>
                                     )}

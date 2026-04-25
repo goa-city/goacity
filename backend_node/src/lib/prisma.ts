@@ -35,20 +35,23 @@ const prisma = prismaClient.$extends({
     query: {
         $allModels: {
             async $allOperations({ model, operation, args, query }: any) {
-                // console.log(`[PRISMA] Model: ${model}, Op: ${operation}`);
-                // Skip scoping for global/unscoped models
-                if (UNSCOPED_MODELS.has(model)) {
+                // Case-insensitive check for unscoped models
+                const normalizedModel = model.toLowerCase();
+                const isUnscoped = Array.from(UNSCOPED_MODELS).some(m => m.toLowerCase() === normalizedModel);
+
+                if (isUnscoped) {
                     return query(args);
                 }
 
                 const store = requestContext.getStore();
-                const cityId = store?.cityId;
+                // FALLBACK: Default to City 1 if no context (prevents failures in background jobs/orphaned requests)
+                const cityId = store?.cityId || 1; 
                 const isSuperAdmin = store?.isSuperAdmin;
 
-                // Only apply scoping if it's NOT a super admin and we have a cityId
+                // Only apply scoping if it's NOT a super admin
                 if (cityId && !isSuperAdmin) {
-                    // For queries with 'where'
-                    if (operation.startsWith('find') || operation.startsWith('update') || operation.startsWith('delete') || operation === 'count') {
+                    // For queries with 'where' (Skip findUnique as it only allows unique fields)
+                    if ((operation.startsWith('find') && operation !== 'findUnique') || operation.startsWith('update') || operation.startsWith('delete') || operation === 'count') {
                         args.where = { ...args.where, city_id: Number(cityId) };
                     }
                     

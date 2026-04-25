@@ -8,106 +8,106 @@ datasource db {
 }
 
 model Member {
-  id            Int       @id @default(autoincrement())
-  email         String?   @unique @db.VarChar(255)
-  phone         String?   @unique @db.VarChar(50)
-  dob           DateTime? @db.Date
-  gender        String?   @db.VarChar(50)
-  location      String?   @db.VarChar(255)
-  role          String?   @default("member") @db.VarChar(50)
-  created_at    DateTime? @default(now()) @db.Timestamp(6)
-  updated_at    DateTime? @default(now()) @db.Timestamp(6)
-  password_hash String?
-  is_onboarded  Int?      @default(0) @db.SmallInt
-  bio           String?
-  profile_photo String?   @db.VarChar(255)
-  linkedin_url  String?   @db.VarChar(255)
-  intro_video   String?   @db.VarChar(255)
-  village       String?   @db.VarChar(100)
-  address       String?
-  age           Int?
-  first_name    String?   @db.VarChar(255)
-  last_name     String?   @db.VarChar(255)
-  fcm_token     String?   @db.VarChar(255)
-
-  city_id       Int?      @default(1)
-  city          City?     @relation(fields: [city_id], references: [id])
-
-  streams         StreamMember[]
-  posts           Post[]
-  responses       FormResponse[]
-  profiles        MemberProfile[]
-  businesses      Business[]
-  stewardshipLogs StewardshipLog[]
-  mentorshipsAsMentor MentorshipRelation[] @relation("MentorshipMentor")
-  mentorshipsAsMentee MentorshipRelation[] @relation("MentorshipMentee")
-  incubatorIdeas  IncubatorIdea[] 
-  ideaFeedbacks   IdeaFeedback[] 
-  services        MemberService[]
-  collabsMade     CollaborationRequest[] @relation("CollabRequester")
-  collabsReceived CollaborationRequest[] @relation("CollabProvider")
-  notifications   Notification[]
-  job_applications JobApplication[] @relation("JobApplications")
+  id                  Int                    @id @default(autoincrement())
+  email               String?                @unique @db.VarChar(255)
+  phone               String?                @unique @db.VarChar(50)
+  dob                 DateTime?              @db.Date
+  gender              String?                @db.VarChar(50)
+  location            String?                @db.VarChar(255)
+  role                String?                @default("member") @db.VarChar(50)
+  created_at          DateTime?              @default(now()) @db.Timestamp(6)
+  updated_at          DateTime?              @default(now()) @db.Timestamp(6)
+  password_hash       String?
+  is_onboarded        Int?                   @default(0) @db.SmallInt
+  bio                 String?
+  profile_photo       String?                @db.VarChar(255)
+  linkedin_url        String?                @db.VarChar(255)
+  intro_video         String?                @db.VarChar(255)
+  village             String?                @db.VarChar(100)
+  address             String?
+  age                 Int?
+  first_name          String?                @db.VarChar(255)
+  last_name           String?                @db.VarChar(255)
+  city_id             Int?                   @default(1)
+  fcm_token           String?                @db.VarChar(255)
+  businesses          Business[]
+  collabsReceived     CollaborationRequest[] @relation("CollabProvider")
+  collabsMade         CollaborationRequest[] @relation("CollabRequester")
+  responses           FormResponse[]
+  ideaFeedbacks       IdeaFeedback[]
+  incubatorIdeas      IncubatorIdea[]
+  job_applications    JobApplication[]       @relation("JobApplications")
+  profiles            MemberProfile[]
+  services            MemberService[]
+  city                City?                  @relation(fields: [city_id], references: [id])
+  mentorshipsAsMentee MentorshipRelation[]   @relation("MentorshipMentee")
+  mentorshipsAsMentor MentorshipRelation[]   @relation("MentorshipMentor")
+  notifications       Notification[]
+  posts               Post[]
+  stewardshipLogs     StewardshipLog[]
+  streams             StreamMember[]
+  whatsapp_id         String?                @db.VarChar(255)
+  whatsappLogs        WhatsAppLog[]
 
   @@map("members")
 }
 
 model City {
-  id                Int       @id @default(autoincrement())
-  name              String    @unique @db.VarChar(255)
-  slug              String    @unique @db.VarChar(100)
-  domain            String?   @unique @db.VarChar(255)
-  timezone          String?   @default("Asia/Kolkata") @db.VarChar(100)
-  email_from_name   String?   @db.VarChar(255)
-  email_from_addr   String?   @db.VarChar(255)
+  id                Int               @id @default(autoincrement())
+  name              String            @unique @db.VarChar(255)
+  slug              String            @unique @db.VarChar(100)
+  domain            String?           @unique @db.VarChar(255)
+  timezone          String?           @default("Asia/Kolkata") @db.VarChar(100)
+  email_from_name   String?           @db.VarChar(255)
+  email_from_addr   String?           @db.VarChar(255)
   theme_config      Json?
-  created_at        DateTime? @default(now()) @db.Timestamp(6)
-  updated_at        DateTime? @default(now()) @db.Timestamp(6)
-
-  members           Member[]
+  created_at        DateTime?         @default(now()) @db.Timestamp(6)
+  updated_at        DateTime?         @default(now()) @db.Timestamp(6)
   admins            Admin[]
-  streams           Stream[]
-  posts             Post[]
-  forms             forms[]
-  meetings          meetings[]
-  jobs              jobs[]
-  resources         resources[]
-  pages             Page[]
   email_templates   EmailTemplate[]
   form_responses    FormResponse[]
+  forms             forms[]
+  jobs              jobs[]
+  meetings          meetings[]
+  members           Member[]
+  pages             Page[]
+  posts             Post[]
+  resources         resources[]
+  streams           Stream[]
+  whatsapp_logs     WhatsAppLog[]
+  whatsapp_sessions WhatsAppSession[]
+  whatsapp_broadcasts WhatsAppBroadcast[]
+  whatsapp_templates WhatsAppTemplate[]
 
   @@map("cities")
 }
 
 model Admin {
-  id            Int       @id @default(autoincrement())
-  full_name     String?   @db.VarChar(255)
-  email         String?   @unique @db.VarChar(255)
-  password_hash String    @db.VarChar(255)
-  role          String?   @default("admin") @db.VarChar(50)
-  is_super_admin Boolean  @default(false)
-  created_at    DateTime? @default(now()) @db.Timestamp(6)
-  updated_at    DateTime? @default(now()) @db.Timestamp(6)
-
-  city_id       Int?      @default(1)
-  city          City?     @relation(fields: [city_id], references: [id])
+  id             Int       @id @default(autoincrement())
+  full_name      String?   @db.VarChar(255)
+  email          String?   @unique @db.VarChar(255)
+  password_hash  String    @db.VarChar(255)
+  role           String?   @default("admin") @db.VarChar(50)
+  is_super_admin Boolean   @default(false)
+  created_at     DateTime? @default(now()) @db.Timestamp(6)
+  updated_at     DateTime? @default(now()) @db.Timestamp(6)
+  city_id        Int?      @default(1)
+  city           City?     @relation(fields: [city_id], references: [id])
 
   @@map("admins")
 }
 
 model Stream {
-  id          Int       @id @default(autoincrement())
-  name        String    @db.VarChar(100)
+  id          Int            @id @default(autoincrement())
+  name        String         @db.VarChar(100)
   description String?
-  color       String?   @default("#6366f1") @db.VarChar(7)
-  created_at  DateTime? @default(now()) @db.Timestamp(6)
+  color       String?        @default("#6366f1") @db.VarChar(7)
+  created_at  DateTime?      @default(now()) @db.Timestamp(6)
   form_id     Int?
-
-  city_id     Int?      @default(1)
-  city        City?     @relation(fields: [city_id], references: [id])
-  form        forms?    @relation(fields: [form_id], references: [id])
-
+  city_id     Int?           @default(1)
   members     StreamMember[]
+  city        City?          @relation(fields: [city_id], references: [id])
+  form        forms?         @relation(fields: [form_id], references: [id])
 
   @@map("streams")
 }
@@ -115,7 +115,6 @@ model Stream {
 model StreamMember {
   stream_id Int
   user_id   Int
-
   stream    Stream @relation(fields: [stream_id], references: [id], onDelete: Cascade)
   user      Member @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
@@ -137,7 +136,6 @@ model Otp {
 model Post {
   id         Int       @id @default(autoincrement())
   user_id    Int?
-  user       Member? @relation(fields: [user_id], references: [id], onDelete: Cascade)
   content    String?
   media_url  String?   @db.VarChar(255)
   media_type String?   @default("none") @db.VarChar(50)
@@ -145,27 +143,26 @@ model Post {
   link_desc  String?   @db.VarChar(255)
   link_image String?   @db.VarChar(255)
   created_at DateTime? @default(now()) @db.Timestamp(6)
-
   city_id    Int?      @default(1)
   city       City?     @relation(fields: [city_id], references: [id])
+  user       Member?   @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@map("posts")
 }
 
 model FormResponse {
-  id           Int       @id @default(autoincrement())
-  form_id      Int?
-  user_id      Int?
-  meeting_id   Int?
-  user         Member?   @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  form         forms?    @relation(fields: [form_id], references: [id], onDelete: Cascade)
-  answers      FormAnswer[]
-  submitted_at DateTime? @default(now()) @db.Timestamp(6)
-  status       String?   @default("draft") @db.VarChar(50)
-  last_step_index Int?   @default(0)
-  
-  city_id      Int?      @default(1)
-  city         City?     @relation(fields: [city_id], references: [id])
+  id              Int          @id @default(autoincrement())
+  form_id         Int?
+  user_id         Int?
+  meeting_id      Int?
+  submitted_at    DateTime?    @default(now()) @db.Timestamp(6)
+  status          String?      @default("draft") @db.VarChar(50)
+  city_id         Int?         @default(1)
+  last_step_index Int?         @default(0)
+  answers         FormAnswer[]
+  city            City?        @relation(fields: [city_id], references: [id])
+  form            forms?       @relation(fields: [form_id], references: [id], onDelete: Cascade)
+  user            Member?      @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@map("form_responses")
 }
@@ -173,10 +170,10 @@ model FormResponse {
 model MemberProfile {
   id            Int       @id @default(autoincrement())
   user_id       Int?
-  user          Member? @relation(fields: [user_id], references: [id], onDelete: Cascade)
   profile_key   String    @db.VarChar(100)
   profile_value String?
   updated_at    DateTime? @default(now()) @db.Timestamp(6)
+  user          Member?   @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@map("member_profiles")
 }
@@ -184,7 +181,6 @@ model MemberProfile {
 model Business {
   id                 Int     @id @default(autoincrement())
   user_id            Int?
-  user               Member? @relation(fields: [user_id], references: [id], onDelete: Cascade)
   business_name      String? @db.VarChar(255)
   business_type      String? @db.VarChar(100)
   industry           String? @db.VarChar(100)
@@ -192,6 +188,7 @@ model Business {
   employees_count    Int?
   website            String? @db.VarChar(255)
   summary            String?
+  user               Member? @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@map("businesses")
 }
@@ -206,12 +203,12 @@ model attendance {
 }
 
 model FormAnswer {
-  id           Int       @id @default(autoincrement())
+  id           Int           @id @default(autoincrement())
   response_id  Int?
-  response     FormResponse? @relation(fields: [response_id], references: [id], onDelete: Cascade)
-  field_key    String    @db.VarChar(100)
+  field_key    String        @db.VarChar(100)
   answer_value String?
-  is_answered  Boolean   @default(true)
+  is_answered  Boolean       @default(true)
+  response     FormResponse? @relation(fields: [response_id], references: [id], onDelete: Cascade)
 
   @@map("form_answers")
 }
@@ -219,7 +216,6 @@ model FormAnswer {
 model FormField {
   id           Int     @id @default(autoincrement())
   form_id      Int?
-  form         forms?  @relation(fields: [form_id], references: [id], onDelete: Cascade)
   field_key    String  @db.VarChar(100)
   field_type   String  @db.VarChar(50)
   label        String? @db.VarChar(255)
@@ -234,64 +230,60 @@ model FormField {
   conditions   Json?
   group_fields Json?
   button_text  String? @default("Next") @db.VarChar(50)
+  form         forms?  @relation(fields: [form_id], references: [id], onDelete: Cascade)
 
   @@map("form_fields")
 }
 
 model forms {
-  id          Int       @id @default(autoincrement())
-  code        String    @unique @db.VarChar(50)
-  title       String    @db.VarChar(255)
+  id          Int            @id @default(autoincrement())
+  code        String         @unique @db.VarChar(50)
+  title       String         @db.VarChar(255)
   description String?
-  is_active   Int?      @default(1) @db.SmallInt
-  created_at  DateTime? @default(now()) @db.Timestamp(6)
-  updated_at  DateTime? @default(now()) @db.Timestamp(6)
+  is_active   Int?           @default(1) @db.SmallInt
+  created_at  DateTime?      @default(now()) @db.Timestamp(6)
+  updated_at  DateTime?      @default(now()) @db.Timestamp(6)
   created_by  Int?
-
+  city_id     Int?           @default(1)
   fields      FormField[]
   responses   FormResponse[]
+  city        City?          @relation(fields: [city_id], references: [id])
   streams     Stream[]
-
-  city_id     Int?      @default(1)
-  city        City?     @relation(fields: [city_id], references: [id])
 }
 
 model jobs {
-  id            Int       @id @default(autoincrement())
-  title         String    @db.VarChar(255)
-  company       String    @db.VarChar(255)
-  location      String    @db.VarChar(255)
-  category      String?   @db.VarChar(100)
-  type          String?   @default("Full Time") @db.VarChar(50)
-  description   String?
+  id              Int              @id @default(autoincrement())
+  title           String           @db.VarChar(255)
+  company         String           @db.VarChar(255)
+  location        String           @db.VarChar(255)
+  category        String?          @db.VarChar(100)
+  type            String?          @default("Full Time") @db.VarChar(50)
+  description     String?
+  url             String?          @db.VarChar(500)
+  contact_email   String?          @db.VarChar(255)
+  posted_by       Int?
+  status          String?          @default("pending") @db.VarChar(50)
+  created_at      DateTime?        @default(now()) @db.Timestamp(6)
+  updated_at      DateTime?        @default(now()) @db.Timestamp(6)
+  city_id         Int?             @default(1)
   company_profile String?
-  url           String?   @db.VarChar(500)
-  contact_email String?   @db.VarChar(255)
-  posted_by     Int?
-  status        String?   @default("pending") @db.VarChar(50)
-  expires_at    DateTime? @db.Timestamp(6)
-  created_at    DateTime? @default(now()) @db.Timestamp(6)
-  updated_at    DateTime? @default(now()) @db.Timestamp(6)
-
-  city_id       Int?      @default(1)
-  city          City?     @relation(fields: [city_id], references: [id])
-
-  applications  JobApplication[]
+  expires_at      DateTime?        @db.Timestamp(6)
+  applications    JobApplication[]
+  city            City?            @relation(fields: [city_id], references: [id])
 }
 
 model JobApplication {
-  id           Int       @id @default(autoincrement())
-  job_id       Int
-  user_id      Int
-  full_name    String    @db.VarChar(255)
-  email        String    @db.VarChar(255)
-  phone        String?   @db.VarChar(50)
-  message      String?   @db.Text
-  cv_url       String    @db.VarChar(500)
-  created_at   DateTime? @default(now()) @db.Timestamp(6)
-
-  job          jobs      @relation(fields: [job_id], references: [id], onDelete: Cascade)
-  applicant    Member    @relation("JobApplications", fields: [user_id], references: [id], onDelete: Cascade)
+  id         Int       @id @default(autoincrement())
+  job_id     Int
+  user_id    Int
+  full_name  String    @db.VarChar(255)
+  email      String    @db.VarChar(255)
+  phone      String?   @db.VarChar(50)
+  message    String?
+  cv_url     String    @db.VarChar(500)
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  job        jobs      @relation(fields: [job_id], references: [id], onDelete: Cascade)
+  applicant  Member    @relation("JobApplications", fields: [user_id], references: [id], onDelete: Cascade)
 
   @@map("job_applications")
 }
@@ -309,41 +301,38 @@ model meeting_responses {
 }
 
 model meetings {
-  id               Int       @id @default(autoincrement())
-  title            String    @db.VarChar(255)
+  id               Int               @id @default(autoincrement())
+  title            String            @db.VarChar(255)
   description      String?
-  meeting_date     DateTime? @db.Date
-  start_time       DateTime? @db.Time(6)
-  end_time         DateTime? @db.Time(6)
-  location_name    String?   @db.VarChar(255)
+  meeting_date     DateTime?         @db.Date
+  start_time       DateTime?         @db.Time(6)
+  end_time         DateTime?         @db.Time(6)
+  location_name    String?           @db.VarChar(255)
   map_link         String?
-  is_paid          Int?      @default(0) @db.SmallInt
-  payment_qr_image String?   @db.VarChar(255)
+  is_paid          Int?              @default(0) @db.SmallInt
+  payment_qr_image String?           @db.VarChar(255)
   feedback_form_id Int?
-  archived         Int?      @default(0) @db.SmallInt
-  created_at       DateTime? @default(now()) @db.Timestamp(6)
-  updated_at       DateTime? @default(now()) @db.Timestamp(6)
+  archived         Int?              @default(0) @db.SmallInt
+  created_at       DateTime?         @default(now()) @db.Timestamp(6)
+  updated_at       DateTime?         @default(now()) @db.Timestamp(6)
   stream_id        Int?
-  payment_amount   Decimal?  @default(0.00) @db.Decimal(10, 2)
-  recap_content    String?   @db.Text
-  zoom_link        String?   @db.VarChar(500)
-  google_event_id  String?   @db.VarChar(255)
-  
-  city_id          Int?      @default(1)
-  city             City?     @relation(fields: [city_id], references: [id])
-
+  payment_amount   Decimal?          @default(0.00) @db.Decimal(10, 2)
+  recap_content    String?
+  zoom_link        String?           @db.VarChar(500)
+  google_event_id  String?           @db.VarChar(255)
+  city_id          Int?              @default(1)
   resources        MeetingResource[]
+  city             City?             @relation(fields: [city_id], references: [id])
 }
 
 model MeetingResource {
-  id          Int      @id @default(autoincrement())
-  meeting_id  Int
-  title       String   @db.VarChar(255)
-  url         String   @db.VarChar(500)
-  type        String?  @default("link") @db.VarChar(50)
-  created_at  DateTime? @default(now()) @db.Timestamp(6)
-
-  meeting     meetings @relation(fields: [meeting_id], references: [id], onDelete: Cascade)
+  id         Int       @id @default(autoincrement())
+  meeting_id Int
+  title      String    @db.VarChar(255)
+  url        String    @db.VarChar(500)
+  type       String?   @default("link") @db.VarChar(50)
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  meeting    meetings  @relation(fields: [meeting_id], references: [id], onDelete: Cascade)
 
   @@map("meeting_resources")
 }
@@ -386,7 +375,6 @@ model resources {
   status       String?   @default("pending") @db.VarChar(50)
   created_at   DateTime? @default(now()) @db.Timestamp(6)
   updated_at   DateTime? @default(now()) @db.Timestamp(6)
-
   city_id      Int?      @default(1)
   city         City?     @relation(fields: [city_id], references: [id])
 }
@@ -410,79 +398,75 @@ model VerificationOrg {
 model StewardshipLog {
   id               Int       @id @default(autoincrement())
   user_id          Int
-  user             Member    @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  type             String    @db.VarChar(50) // "Financial" | "Skill"
-  recipient_id     Int?      // For orgs or members
+  type             String    @db.VarChar(50)
+  recipient_id     Int?
   amount           Decimal?  @db.Decimal(10, 2)
   hours            Decimal?  @db.Decimal(10, 2)
   date             DateTime? @db.Date
   skill_category   String?   @db.VarChar(100)
-  status           String    @default("Pending") @db.VarChar(50) // "Pending" | "Verified"
+  status           String    @default("Pending") @db.VarChar(50)
   impact_note      String?
   impact_image_url String?   @db.VarChar(255)
   created_at       DateTime? @default(now()) @db.Timestamp(6)
   updated_at       DateTime? @default(now()) @db.Timestamp(6)
+  user             Member    @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@map("stewardship_logs")
 }
 
 model MentorshipRelation {
-  id             String    @id @default(uuid())
-  mentor_id      Int
-  mentee_id      Int
-  status         String    @default("Requested") @db.VarChar(50) 
-  type           String    @db.VarChar(50) 
-  focus_area     String?   @db.VarChar(255)
-  goals_json     Json?
-  created_at     DateTime? @default(now()) @db.Timestamp(6)
-  updated_at     DateTime? @default(now()) @db.Timestamp(6)
-
-  mentor         Member    @relation("MentorshipMentor", fields: [mentor_id], references: [id], onDelete: Cascade)
-  mentee         Member    @relation("MentorshipMentee", fields: [mentee_id], references: [id], onDelete: Cascade)
+  id         String    @id @default(uuid())
+  mentor_id  Int
+  mentee_id  Int
+  status     String    @default("Requested") @db.VarChar(50)
+  type       String    @db.VarChar(50)
+  focus_area String?   @db.VarChar(255)
+  goals_json Json?
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  updated_at DateTime? @default(now()) @db.Timestamp(6)
+  mentee     Member    @relation("MentorshipMentee", fields: [mentee_id], references: [id], onDelete: Cascade)
+  mentor     Member    @relation("MentorshipMentor", fields: [mentor_id], references: [id], onDelete: Cascade)
 
   @@map("mentorship_relations")
 }
 
 model IncubatorIdea {
-  id                String    @id @default(uuid())
+  id                String         @id @default(uuid())
   founder_id        Int
-  title             String    @db.VarChar(255)
+  title             String         @db.VarChar(255)
   problem_statement String?
   vision_purpose    String?
-  status            String    @default("Draft") @db.VarChar(50) // Draft, Submitted, Under_Review, Validated, Launched
+  status            String         @default("Draft") @db.VarChar(50)
   needs_json        Json?
-  created_at        DateTime? @default(now()) @db.Timestamp(6)
-  updated_at        DateTime? @default(now()) @db.Timestamp(6)
-
-  founder           Member    @relation(fields: [founder_id], references: [id], onDelete: Cascade)
+  created_at        DateTime?      @default(now()) @db.Timestamp(6)
+  updated_at        DateTime?      @default(now()) @db.Timestamp(6)
   feedbacks         IdeaFeedback[]
+  founder           Member         @relation(fields: [founder_id], references: [id], onDelete: Cascade)
 
   @@map("incubator_ideas")
 }
 
 model IdeaFeedback {
-  id             String    @id @default(uuid())
+  id             String        @id @default(uuid())
   idea_id        String
   contributor_id Int
   comment        String?
-  type           String    @db.VarChar(50) // Guidance, Validation, Resource_Link
-  created_at     DateTime? @default(now()) @db.Timestamp(6)
-
-  idea           IncubatorIdea @relation(fields: [idea_id], references: [id], onDelete: Cascade)
+  type           String        @db.VarChar(50)
+  created_at     DateTime?     @default(now()) @db.Timestamp(6)
   contributor    Member        @relation(fields: [contributor_id], references: [id], onDelete: Cascade)
+  idea           IncubatorIdea @relation(fields: [idea_id], references: [id], onDelete: Cascade)
 
   @@map("idea_feedback")
 }
 
 model MemberService {
-  id          String   @id @default(uuid())
+  id          String  @id @default(uuid())
   member_id   Int
-  title       String   @db.VarChar(255)
-  type        String   @db.VarChar(50) 
-  description String?  
-  status      String   @default("Active") @db.VarChar(50) 
-
-  member      Member   @relation(fields: [member_id], references: [id], onDelete: Cascade)
+  title       String  @db.VarChar(255)
+  type        String  @db.VarChar(50)
+  description String?
+  status      String  @default("Active") @db.VarChar(50)
+  member      Member  @relation(fields: [member_id], references: [id], onDelete: Cascade)
 
   @@map("member_services")
 }
@@ -491,13 +475,12 @@ model CollaborationRequest {
   id           String    @id @default(uuid())
   requester_id Int
   provider_id  Int
-  type         String    @db.VarChar(50) 
-  description  String?   
-  status       String    @default("Pending_Admin") @db.VarChar(50) 
+  type         String    @db.VarChar(50)
+  description  String?
+  status       String    @default("Pending_Admin") @db.VarChar(50)
   created_at   DateTime? @default(now()) @db.Timestamp(6)
-
-  requester    Member    @relation("CollabRequester", fields: [requester_id], references: [id], onDelete: Cascade)
   provider     Member    @relation("CollabProvider", fields: [provider_id], references: [id], onDelete: Cascade)
+  requester    Member    @relation("CollabRequester", fields: [requester_id], references: [id], onDelete: Cascade)
 
   @@map("collaboration_requests")
 }
@@ -506,10 +489,9 @@ model Page {
   id         Int       @id @default(autoincrement())
   slug       String    @unique @db.VarChar(100)
   title      String    @db.VarChar(255)
-  content    String?   @db.Text
+  content    String?
   created_at DateTime? @default(now()) @db.Timestamp(6)
   updated_at DateTime? @default(now()) @db.Timestamp(6)
-
   city_id    Int?      @default(1)
   city       City?     @relation(fields: [city_id], references: [id])
 
@@ -518,12 +500,11 @@ model Page {
 
 model EmailTemplate {
   id         Int       @id @default(autoincrement())
-  title      String    @unique @db.VarChar(255) // For reference in code (slug/id)
+  title      String    @unique @db.VarChar(255)
   subject    String    @db.VarChar(255)
-  message    String    @db.Text
+  message    String
   created_at DateTime? @default(now()) @db.Timestamp(6)
   updated_at DateTime? @default(now()) @db.Timestamp(6)
-
   city_id    Int?      @default(1)
   city       City?     @relation(fields: [city_id], references: [id])
 
@@ -531,16 +512,70 @@ model EmailTemplate {
 }
 
 model Notification {
-  id          Int      @id @default(autoincrement())
-  member_id   Int
-  title       String   @db.VarChar(255)
-  message     String
-  type        String?  @db.VarChar(50) // meeting, stewardship, etc
-  is_read     Boolean  @default(false)
-  created_at  DateTime? @default(now()) @db.Timestamp(6)
-
-  member      Member   @relation(fields: [member_id], references: [id], onDelete: Cascade)
+  id         Int       @id @default(autoincrement())
+  member_id  Int
+  title      String    @db.VarChar(255)
+  message    String
+  type       String?   @db.VarChar(50)
+  is_read    Boolean   @default(false)
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  member     Member    @relation(fields: [member_id], references: [id], onDelete: Cascade)
 
   @@map("notifications")
 }
 
+model WhatsAppLog {
+  id           Int                @id @default(autoincrement())
+  member_id    Int?
+  broadcast_id Int?
+  direction    String             @db.VarChar(10)
+  content      String
+  status       String             @db.VarChar(50)
+  timestamp    DateTime           @default(now()) @db.Timestamp(6)
+  city_id      Int?               @default(1)
+  broadcast    WhatsAppBroadcast? @relation(fields: [broadcast_id], references: [id])
+  city         City?              @relation(fields: [city_id], references: [id])
+  member       Member?            @relation(fields: [member_id], references: [id])
+
+  @@map("whatsapp_logs")
+}
+
+model WhatsAppBroadcast {
+  id          Int           @id @default(autoincrement())
+  city_id     Int?          @default(1)
+  name        String?       @db.VarChar(255)
+  content     String
+  total_count Int           @default(0)
+  sent_count  Int           @default(0)
+  status      String        @default("PENDING")
+  is_hidden   Boolean       @default(false)
+  created_at  DateTime?     @default(now()) @db.Timestamp(6)
+  updated_at  DateTime?     @default(now()) @db.Timestamp(6)
+  city        City?         @relation(fields: [city_id], references: [id])
+  logs        WhatsAppLog[]
+
+  @@map("whatsapp_broadcasts")
+}
+
+model WhatsAppTemplate {
+  id         Int       @id @default(autoincrement())
+  title      String    @unique @db.VarChar(255)
+  content    String
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  updated_at DateTime? @default(now()) @db.Timestamp(6)
+  city_id    Int?      @default(1)
+  city       City?     @relation(fields: [city_id], references: [id])
+
+  @@map("whatsapp_templates")
+}
+
+model WhatsAppSession {
+  id          Int       @id @default(autoincrement())
+  city_id     Int?      @default(1)
+  status      String    @db.VarChar(50)
+  qr_code     String?
+  last_active DateTime? @default(now()) @db.Timestamp(6)
+  city        City?     @relation(fields: [city_id], references: [id])
+
+  @@map("whatsapp_sessions")
+}
