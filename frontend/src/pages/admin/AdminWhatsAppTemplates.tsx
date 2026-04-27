@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
+import { formatDate } from '../../utils/date';
 import { 
     PencilSquareIcon, PlusIcon, ChatBubbleLeftRightIcon, 
     TrashIcon 
@@ -8,9 +9,17 @@ import {
 import { Card } from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
 
-const AdminWhatsAppTemplates = () => {
+interface WhatsAppTemplate {
+    id: number;
+    title: string;
+    content: string;
+    created_at: string;
+    updated_at: string;
+}
+
+const AdminWhatsAppTemplates: React.FC = () => {
     const navigate = useNavigate();
-    const [templates, setTemplates] = useState([]);
+    const [templates, setTemplates] = useState<WhatsAppTemplate[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -28,7 +37,7 @@ const AdminWhatsAppTemplates = () => {
         }
     };
 
-    const handleDelete = async (id) => {
+    const handleDelete = async (id: number): Promise<void> => {
         if (!window.confirm("Are you sure you want to delete this template?")) return;
         try {
             await api.delete(`/admin/whatsapp-templates/${id}`);
@@ -82,7 +91,7 @@ const AdminWhatsAppTemplates = () => {
                                             <div className="max-w-xs truncate">{template.content}</div>
                                         </td>
                                         <td className="px-8 py-5 hidden md:table-cell text-zinc-400 text-xs font-black tracking-widest uppercase">
-                                            {new Date(template.updated_at).toLocaleDateString()}
+                                            {formatDate(template.updated_at)}
                                         </td>
                                         <td className="px-8 py-5 text-right" onClick={e => e.stopPropagation()}>
                                             <div className="flex justify-end gap-2 isolate">
@@ -92,9 +101,11 @@ const AdminWhatsAppTemplates = () => {
                                                 >
                                                     <PencilSquareIcon className="w-5 h-5" />
                                                 </button>
-                                                <button 
+                                                 <button 
                                                     onClick={() => handleDelete(template.id)}
-                                                    className="p-2 rounded-xl text-zinc-300 group-hover:text-red-600 transition-all hover:bg-red-50 dark:hover:bg-red-950/30"
+                                                    disabled={template.id === 1}
+                                                    className={`p-2 rounded-xl transition-all ${template.id === 1 ? 'opacity-20 cursor-not-allowed text-zinc-300' : 'text-zinc-300 group-hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30'}`}
+                                                    title={template.id === 1 ? "System protected template" : "Delete template"}
                                                 >
                                                     <TrashIcon className="w-5 h-5" />
                                                 </button>

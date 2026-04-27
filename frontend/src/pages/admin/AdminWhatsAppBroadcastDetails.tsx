@@ -10,19 +10,25 @@ import {
     MegaphoneIcon,
     ArrowPathIcon
 } from '@heroicons/react/24/outline';
-import { format } from 'date-fns';
+import { formatDate, formatDateTime } from '../../utils/date';
 import { Card } from '../../shared/components/ui/Card';
 import { getWhatsAppBroadcastById, retryWhatsAppBroadcast } from '../../features/admin-whatsapp/api/whatsapp.api';
 
 const AdminWhatsAppBroadcastDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const [retrying, setRetrying] = React.useState(false);
+    const [toast, setToast] = React.useState('');
     
     const { data: broadcast, isLoading, refetch } = useQuery({
         queryKey: ['whatsapp-broadcast', id],
         queryFn: () => getWhatsAppBroadcastById(Number(id)),
         refetchInterval: (query) => query.state.data?.status === 'ONGOING' ? 3000 : false
     });
+
+    const showToast = (msg: string) => {
+        setToast(msg);
+        setTimeout(() => setToast(''), 3000);
+    };
 
     const handleRetry = async () => {
         if (!window.confirm('Retry failed messages in this broadcast?')) return;
@@ -32,7 +38,7 @@ const AdminWhatsAppBroadcastDetails: React.FC = () => {
             refetch();
         } catch (err) {
             console.error('Retry failed:', err);
-            alert('Failed to initiate retry');
+            showToast('Failed to initiate retry');
         } finally {
             setRetrying(false);
         }
@@ -44,6 +50,7 @@ const AdminWhatsAppBroadcastDetails: React.FC = () => {
 
     return (
         <div className="max-w-7xl mx-auto py-10 px-6 space-y-8">
+            {toast && <div className="fixed bottom-4 right-4 bg-emerald-500 text-white px-6 py-3 rounded-xl font-bold tracking-widest uppercase text-[10px] shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-4">{toast}</div>}
             <div className="flex items-center gap-4">
                 <Link to="/admin/whatsapp/logs" className="p-3 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-sm hover:bg-zinc-50 transition-all">
                     <ChevronLeftIcon className="w-5 h-5 text-zinc-500" />
@@ -150,7 +157,7 @@ const AdminWhatsAppBroadcastDetails: React.FC = () => {
                                             <td className="px-8 py-4 text-[10px] font-bold text-zinc-500">
                                                 <div className="flex items-center gap-2">
                                                     <ClockIcon className="w-4 h-4" />
-                                                    {format(new Date(log.timestamp), 'HH:mm:ss')}
+                                                    {formatDateTime(log.timestamp)}
                                                 </div>
                                             </td>
                                         </tr>

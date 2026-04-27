@@ -24,7 +24,10 @@ if (!fs.existsSync('uploads')) {
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
-app.use('/uploads', express.static('uploads'));
+app.use('/uploads', (req, res, next) => {
+    res.setHeader('Content-Disposition', 'attachment');
+    next();
+}, express.static('uploads'));
 
 // API Routes
 app.use('/api', apiRoutes);
@@ -39,4 +42,15 @@ app.use(errorHandler);
 
 app.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`Server is running on http://0.0.0.0:${PORT}`);
+});
+
+// Process-Level Crash Guards — prevent server crash from unhandled errors
+process.on('uncaughtException', (error: Error) => {
+    console.error('[FATAL] Uncaught Exception:', error);
+    // Don't exit — PM2 will restart if the process becomes unresponsive
+});
+
+process.on('unhandledRejection', (reason: unknown) => {
+    console.error('[FATAL] Unhandled Promise Rejection:', reason);
+    // Don't exit — PM2 will restart if the process becomes unresponsive
 });

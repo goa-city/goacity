@@ -16,6 +16,12 @@ async function main() {
     console.log('Meetings counts:', meetingsCount);
     const meetingsTotal = await prisma.meetings.count();
     console.log('Meetings total:', meetingsTotal);
+
+    const orphans = await prisma.$queryRaw`
+        SELECT COUNT(*)::int FROM meeting_responses 
+        WHERE meeting_id NOT IN (SELECT id FROM meetings)
+    `;
+    console.log('Orphaned meeting responses:', orphans);
 }
 
 main().catch(console.error).finally(() => prisma.$disconnect());

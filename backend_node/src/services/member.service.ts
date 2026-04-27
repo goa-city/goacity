@@ -67,11 +67,57 @@ export class MemberService {
 
                 if (!hasResponse) {
                     pending_actions.push({
+                        id: `onboarding-${sf.form_id}`,
                         type: 'onboarding',
                         form_id: sf.form_id,
                         message: `Complete ${sf.name} Onboarding`,
                         stream_name: sf.name,
                         stream_color: sf.color
+                    });
+                }
+            }
+
+            // Fetch today's meetings for check-in
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+
+            const todayMeetings = await prisma.meetings.findMany({
+                where: {
+                    stream_id: { in: streamIds },
+                    meeting_date: {
+                        gte: today,
+                        lt: tomorrow
+                    }
+                },
+                include: {
+                    stream: true,
+                    meeting_responses: {
+                        where: { user_id: userId }
+                    }
+                }
+            });
+
+            for (const meeting of todayMeetings) {
+                console.log(`[DASHBOARD_DEBUG] Meeting: ${meeting.id}, is_paid: ${meeting.is_paid}, qr: ${meeting.payment_qr_image}`);
+                const myResponse = meeting.meeting_responses[0];
+                if (!myResponse || !myResponse.checked_in) {
+                    const apiUrl = process.env.VITE_API_URL || '';
+                    const baseUrl = apiUrl.replace(/\/api\/?$/, '');
+
+                    pending_actions.push({
+                        id: `checkin-${meeting.id}`,
+                        type: 'checkin',
+                        meeting_id: meeting.id,
+                        message: `Check-in for ${meeting.title}`,
+                        stream_name: (meeting as any).stream?.name,
+                        stream_color: (meeting as any).stream?.color,
+                        is_paid: meeting.is_paid,
+                        payment_amount: meeting.payment_amount,
+                        payment_qr_image: meeting.payment_qr_image,
+                        payment_qr_image_url: meeting.payment_qr_image ? `${baseUrl}/uploads/${meeting.payment_qr_image}` : null,
+                        title: meeting.title // Add title for the modal
                     });
                 }
             }

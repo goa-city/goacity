@@ -5,6 +5,7 @@ import { Card, CardContent } from '../../../shared/components/ui/Card';
 import Button from '../../../shared/components/ui/Button';
 import Input from '../../../shared/components/ui/Input';
 import httpClient from '../../../shared/api/httpClient';
+import { formatDate } from '../../../utils/date';
 import { 
     ArrowLeftIcon, 
     UserCircleIcon, 
@@ -19,14 +20,16 @@ import {
     ChevronUpIcon,
     PlusIcon,
     CheckIcon,
-    ChatBubbleLeftRightIcon
+    ChatBubbleLeftRightIcon,
+    TrashIcon,
+    ArrowLongLeftIcon
 } from '@heroicons/react/24/solid';
 import MemberWhatsAppTab from '../../admin-whatsapp/components/MemberWhatsAppTab';
 
 const MemberDetailView: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const { member, isLoading, updateMember, isUpdating } = useAdminMembers(Number(id));
+    const { member, isLoading, updateMember, isUpdating, deleteMember, isDeleting } = useAdminMembers(Number(id));
 
     const [editBasic, setEditBasic] = useState({ first_name: '', last_name: '', email: '', phone: '' });
     const [openResponses, setOpenResponses] = useState<Record<number, boolean>>({});
@@ -70,15 +73,42 @@ const MemberDetailView: React.FC = () => {
         }
         await updateMember({ stream_ids: newIds });
     };
+    
+    const handleDelete = async () => {
+        if (window.confirm(`Are you absolutely sure you want to delete ${member?.first_name}? This will permanently remove all their profile data, form responses, and meeting history. This action cannot be undone.`)) {
+            try {
+                await deleteMember(Number(id));
+                navigate('/admin/members');
+            } catch (e) {
+                console.error(e);
+                alert('Failed to delete member. Please try again.');
+            }
+        }
+    };
 
     if (isLoading) return <div className="p-10 animate-pulse text-zinc-400 font-black uppercase text-center tracking-widest">Retrieving deep profile metrics...</div>;
     if (!member) return null;
 
     return (
         <div className="max-w-7xl mx-auto py-10 px-6">
-            <Button variant="ghost" onClick={() => navigate('/admin/members')} className="mb-8 text-zinc-500 font-black uppercase text-xs tracking-widest group">
-                <ArrowLeftIcon className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" /> Back to Directory
-            </Button>
+            <div className="flex items-center justify-between mb-8">
+                <button 
+                    onClick={() => navigate('/admin/members')} 
+                    className="flex items-center text-zinc-500 hover:text-zinc-800 transition-colors group"
+                >
+                    <ArrowLongLeftIcon className="w-6 h-6 mr-2 group-hover:-translate-x-1 transition-transform stroke-[1.5]" />
+                    <span className="text-xl font-medium">Back to Members</span>
+                </button>
+                
+                <Button 
+                    variant="ghost" 
+                    onClick={handleDelete} 
+                    isLoading={isDeleting}
+                    className="text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 font-black uppercase text-xs tracking-widest group"
+                >
+                    <TrashIcon className="w-4 h-4 mr-2" /> Delete Member
+                </Button>
+            </div>
 
             {/* Identity Header */}
             <Card className="mb-10 border-zinc-100 dark:border-zinc-800 bg-indigo-50/20 dark:bg-indigo-950/10 overflow-hidden">
@@ -100,7 +130,7 @@ const MemberDetailView: React.FC = () => {
                         <div className="flex flex-wrap gap-6 text-zinc-500 dark:text-zinc-400 font-bold text-sm">
                             <span className="flex items-center gap-2"><EnvelopeIcon className="w-4 h-4 text-zinc-300" /> {member.email}</span>
                             <span className="flex items-center gap-2"><PhoneIcon className="w-4 h-4 text-zinc-300" /> {member.phone || 'No phone'}</span>
-                            <span className="flex items-center gap-2"><CalendarIcon className="w-4 h-4 text-zinc-300" /> Joined {new Date(member.created_at).toLocaleDateString()}</span>
+                            <span className="flex items-center gap-2"><CalendarIcon className="w-4 h-4 text-zinc-300" /> Joined {formatDate(member.created_at)}</span>
                         </div>
                     </div>
                     <div className="bg-white dark:bg-zinc-900 px-8 py-5 rounded-xl shadow-xl shadow-indigo-600/5 border border-zinc-100 dark:border-zinc-800 text-center min-w-[140px]">

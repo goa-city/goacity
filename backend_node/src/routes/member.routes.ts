@@ -10,7 +10,8 @@ import {
     getVerifiedOrgs, getMemberDirectory, createStewardshipLog 
 } from '../controllers/stewardship.controller.js';
 import { 
-    getUpcomingMeetings, getPastMeetings, getMeeting, rsvpMeeting
+    getUpcomingMeetings, getPastMeetings, getMeeting, rsvpMeeting,
+    checkInMeeting, payMeeting
 } from '../controllers/meetings.controller.js';
 import { 
     requestMentorship, getMyMentorships, 
@@ -48,6 +49,8 @@ router.get('/meetings/upcoming', getUpcomingMeetings);
 router.get('/meetings/past', getPastMeetings);
 router.get('/meeting/:id', getMeeting);
 router.post('/meeting/:id/rsvp', rsvpMeeting);
+router.post('/meeting/:id/checkin', checkInMeeting);
+router.post('/meeting/:id/pay', payMeeting);
 
 // Stewardship
 router.get('/stewardship/summary', getStewardshipSummary);

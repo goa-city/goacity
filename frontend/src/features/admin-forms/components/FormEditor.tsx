@@ -7,12 +7,10 @@ import Input from '../../../shared/components/ui/Input';
 import FormFieldCard from './FormFieldCard';
 import FormPreview from './FormPreview';
 import { FormField } from '../api/admin-forms.api';
-import { 
-    PlusIcon, 
-    ArrowLeftIcon, 
     EyeIcon, 
     CheckIcon,
 } from '@heroicons/react/24/solid';
+import { ArrowLeftIcon as ArrowLeftOutline } from '@heroicons/react/24/outline';
 
 const FormEditor: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -167,9 +165,13 @@ const FormEditor: React.FC = () => {
 
             {/* Header */}
             <div className="flex justify-between items-center mb-8">
-                <Button variant="ghost" onClick={() => navigate('/admin/forms')} className="text-zinc-500 font-black uppercase text-xs tracking-widest">
-                    <ArrowLeftIcon className="w-4 h-4 mr-2" /> Back to Forms
-                </Button>
+                <button 
+                    onClick={() => navigate('/admin/forms')} 
+                    className="flex items-center text-zinc-500 hover:text-zinc-800 transition-colors group"
+                >
+                    <ArrowLeftOutline className="w-6 h-6 mr-2 group-hover:-translate-x-1 transition-transform stroke-[1.5]" />
+                    <span className="text-xl font-medium">Back to Forms</span>
+                </button>
                 <div className="flex gap-3">
                     <Button variant="secondary" onClick={() => setIsPreviewOpen(true)} className="px-6">
                         <EyeIcon className="w-4 h-4 mr-2" /> Preview

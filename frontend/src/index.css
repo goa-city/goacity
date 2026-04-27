@@ -30,19 +30,19 @@
      Rounded: XL (12px)
   */
   .member-card {
-    @apply bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-xl shadow-sm transition-all;
+    @apply bg-white dark:bg-zinc-900/30 border-none rounded-2xl shadow-2xl shadow-zinc-200/50 dark:shadow-none transition-all;
   }
   
   .member-btn {
-    @apply px-6 py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition-all active:scale-[0.98] flex items-center justify-center gap-2;
+    @apply px-6 py-3 bg-indigo-600 text-white font-bold rounded-2xl hover:bg-indigo-700 transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-xl shadow-indigo-600/20;
   }
   
   .member-btn-secondary {
-    @apply px-6 py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white font-bold rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all active:scale-[0.98] flex items-center justify-center gap-2;
+    @apply px-6 py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white font-bold rounded-2xl hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all active:scale-[0.98] flex items-center justify-center gap-2;
   }
 
   .member-input {
-    @apply w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:ring-2 focus:ring-primary focus:outline-none transition-all text-zinc-900 dark:text-white;
+    @apply w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-900/50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-600 focus:outline-none transition-all text-zinc-900 dark:text-white shadow-sm;
   }
 
   /* 
@@ -50,11 +50,11 @@
      Rounded: LG (8px)
   */
   .admin-card {
-    @apply bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-sm overflow-hidden;
+    @apply bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-2xl shadow-zinc-200/20 dark:shadow-none overflow-hidden;
   }
   
   .admin-btn {
-    @apply px-5 py-2.5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-all active:scale-[0.98] flex items-center justify-center gap-2 text-sm uppercase tracking-wider;
+    @apply px-5 py-2.5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-all active:scale-[0.98] flex items-center justify-center gap-2 text-sm uppercase tracking-wider shadow-lg shadow-indigo-600/10;
   }
   
   .admin-btn-secondary {

@@ -186,11 +186,13 @@ const AdminWhatsAppBroadcasts: React.FC = () => {
                     <button 
                         onClick={() => {
                             if (!isAllMembers && selectedStreams.length === 0) {
-                                alert('Please select at least one stream or choose All Members.');
+                                setToast('Please select at least one stream or choose All Members.');
+                                setTimeout(() => setToast(null), 3000);
                                 return;
                             }
                             if (!message.trim()) {
-                                alert('Please enter a message content.');
+                                setToast('Please enter a message content.');
+                                setTimeout(() => setToast(null), 3000);
                                 return;
                             }
                             broadcastMutation.mutate();

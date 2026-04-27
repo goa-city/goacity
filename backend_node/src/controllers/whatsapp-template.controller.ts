@@ -1,5 +1,7 @@
 import type { Request, Response } from 'express';
 import prisma from '../lib/prisma.js';
+import { PROTECTED_WHATSAPP_IDS } from '../config/constants.js';
+import { AppError } from '../utils/errors.js';
 
 export const getTemplates = async (req: Request, res: Response) => {
     try {
@@ -54,10 +56,16 @@ export const updateTemplate = async (req: Request, res: Response) => {
 export const deleteTemplate = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        if (!id) return res.status(400).json({ success: false, message: 'ID required' });
+        if (!id) throw new AppError('ID required', 400);
         
+        const templateId = parseInt(id as string);
+        
+        if (PROTECTED_WHATSAPP_IDS.includes(templateId)) {
+            throw new AppError('Cannot delete system-protected template', 400);
+        }
+
         await prisma.whatsAppTemplate.delete({
-            where: { id: parseInt(id as string) }
+            where: { id: templateId }
         });
         return res.json({ success: true, message: 'Template deleted' });
     } catch (error: any) {

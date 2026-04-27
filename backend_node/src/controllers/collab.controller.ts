@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import prisma from '../lib/prisma.js';
+import { formatDateDDMMYYYY, formatAnswerValue } from '../lib/utils.js';
 
 // GET /api/my-people
 export const getMyPeople = async (req: Request, res: Response) => {
@@ -99,31 +100,6 @@ export const getMemberProfile = async (req: Request, res: Response) => {
 
         // ── Build profile_attributes from form definition ──
         // Same form-first approach as admin: only show fields where is_profile = 1
-        const formatDateDDMMYYYY = (dateVal: any): string => {
-            if (!dateVal) return '';
-            const d = new Date(dateVal);
-            if (isNaN(d.getTime())) return String(dateVal);
-            const dd = String(d.getDate()).padStart(2, '0');
-            const mm = String(d.getMonth() + 1).padStart(2, '0');
-            return `${dd}/${mm}/${d.getFullYear()}`;
-        };
-
-        const formatVal = (raw: string, type: string): string => {
-            if (!raw && raw !== '0') return '';
-            if (type === 'date') return formatDateDDMMYYYY(raw);
-            if (type === 'choice_bool') {
-                if (raw === 'true') return 'Yes';
-                if (raw === 'false') return 'No';
-            }
-            if (typeof raw === 'string' && (raw.startsWith('[') || raw.startsWith('{'))) {
-                try {
-                    const p = JSON.parse(raw);
-                    if (Array.isArray(p)) return p.join(', ');
-                } catch (_) {}
-            }
-            return raw;
-        };
-
         let profileAttributes: any[] = [];
 
         // Find onboarding form from member's response, or fall back to mp-onboarding
@@ -166,7 +142,7 @@ export const getMemberProfile = async (req: Request, res: Response) => {
                         for (const sf of subs) {
                             profileAttributes.push({
                                 label: sf.label || sf.name.replace(/_/g, ' '),
-                                value: formatVal(lookup[sf.name] ?? '', sf.type || 'text')
+                                value: formatAnswerValue(lookup[sf.name] ?? '', sf.type || 'text')
                             });
                         }
                     }
@@ -175,7 +151,7 @@ export const getMemberProfile = async (req: Request, res: Response) => {
 
                 profileAttributes.push({
                     label: ff.label || ff.field_key.replace(/_/g, ' '),
-                    value: formatVal(lookup[ff.field_key] ?? '', ff.field_type)
+                    value: formatAnswerValue(lookup[ff.field_key] ?? '', ff.field_type)
                 });
             }
         }

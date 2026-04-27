@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../features/auth/context/AuthContext';
 import { useDashboard } from '../hooks/useDashboard';
+import { useMeetings } from '../../meetings/hooks/useMeetings';
+import CheckInModal from '../../meetings/components/CheckInModal';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../../shared/components/ui/Card';
 import Button from '../../../shared/components/ui/Button';
 import StreamCard from './StreamCard';
@@ -14,11 +16,14 @@ import {
     ArrowPathIcon 
 } from '@heroicons/react/24/solid';
 
+import { formatDate } from '../../../utils/date';
 const DashboardView: React.FC = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const { data, collabs, isLoading, refetch } = useDashboard();
+    const { checkIn } = useMeetings();
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [checkInMeeting, setCheckInMeeting] = useState<any>(null);
 
     const handleManualRefresh = async () => {
         setIsRefreshing(true);
@@ -26,9 +31,7 @@ const DashboardView: React.FC = () => {
         setIsRefreshing(false);
     };
 
-    const dateString = new Date().toLocaleDateString('en-GB', { 
-        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' 
-    });
+    const dateString = formatDate(new Date());
 
     if (isLoading && !isRefreshing) {
         return <div className="min-h-screen flex items-center justify-center dark:bg-zinc-950 animate-pulse text-zinc-400 font-black uppercase tracking-[0.2em] text-xs">Accessing Platform Nodes...</div>;
@@ -75,7 +78,7 @@ const DashboardView: React.FC = () => {
                                     <StreamCard key={stream.id} stream={stream} />
                                 ))}
                                 {(!data?.streams || data.streams.length === 0) && !isLoading && (
-                                    <Card className="col-span-full border-dashed border-2 border-zinc-100 dark:border-zinc-800 p-12 text-center bg-transparent rounded-xl">
+                                    <Card className="col-span-full border-dashed border-2 border-zinc-100 dark:border-zinc-800 p-12 text-center bg-transparent rounded-2xl">
                                         <p className="text-zinc-400 font-bold uppercase text-[10px] tracking-widest italic">No streams joined yet. Contact an admin to get plugged in.</p>
                                     </Card>
                                 )}
@@ -89,16 +92,38 @@ const DashboardView: React.FC = () => {
                                 <div className="space-y-4">
                                     {data?.pending_actions?.length > 0 ? (
                                         data.pending_actions.map((action: any, idx: number) => (
-                                            <Card key={idx} onClick={() => action.form_id && navigate(`/onboarding/form/${action.form_id}`)} className="p-5 cursor-pointer hover:border-indigo-600 dark:hover:border-indigo-600 transition-all flex items-center gap-5 group rounded-xl border-zinc-100 dark:border-zinc-800">
-                                                <div className="w-2 h-12 rounded-full shrink-0 group-hover:scale-y-110 transition-transform" style={{ backgroundColor: action.stream_color || '#6366f1' }} />
-                                                <div>
-                                                    <h4 className="font-black text-sm text-zinc-900 dark:text-white leading-tight">{action.message}</h4>
-                                                    <p className="text-[10px] text-zinc-400 font-black uppercase tracking-[0.1em] mt-1">Pending Onboarding</p>
+                                            <Card 
+                                                key={action.id || idx} 
+                                                onClick={() => {
+                                                    if (action.type === 'onboarding') navigate(`/onboarding/form/${action.form_id}`);
+                                                    if (action.type === 'checkin') setCheckInMeeting({
+                                                        id: action.meeting_id,
+                                                        title: action.title || action.message.replace('Check-in for ', ''),
+                                                        is_paid: action.is_paid,
+                                                        payment_amount: action.payment_amount,
+                                                        payment_qr_image: action.payment_qr_image
+                                                    });
+                                                }} 
+                                                className="p-5 cursor-pointer hover:shadow-2xl hover:shadow-indigo-600/10 hover:-translate-y-0.5 transition-all flex items-center justify-between gap-5 group rounded-2xl border-none bg-white dark:bg-zinc-900/30"
+                                            >
+                                                <div className="flex items-center gap-5">
+                                                    <div className="w-1.5 h-10 rounded-full shrink-0 group-hover:scale-y-110 transition-transform" style={{ backgroundColor: action.stream_color || '#6366f1' }} />
+                                                    <div>
+                                                        <h4 className="font-black text-sm text-zinc-900 dark:text-white leading-tight">{action.message}</h4>
+                                                        <p className="text-[10px] text-zinc-400 font-black uppercase tracking-[0.1em] mt-1">
+                                                            {action.type === 'onboarding' ? 'Pending Onboarding' : 'Meeting Check-in'}
+                                                        </p>
+                                                    </div>
                                                 </div>
+                                                {action.type === 'checkin' && (
+                                                    <Button size="sm" className="rounded-xl px-4 py-2 text-[10px] uppercase font-black tracking-widest h-auto">
+                                                        Check In
+                                                    </Button>
+                                                )}
                                             </Card>
                                         ))
                                     ) : (
-                                        <Card className="p-10 text-center bg-zinc-50 dark:bg-zinc-900/50 border-none shadow-none rounded-xl">
+                                        <Card className="p-10 text-center bg-zinc-50 dark:bg-zinc-900/50 border-none shadow-none rounded-2xl">
                                             <p className="text-zinc-400 text-[10px] font-black uppercase tracking-widest">No actions pending. You're all caught up!</p>
                                         </Card>
                                     )}
@@ -107,7 +132,7 @@ const DashboardView: React.FC = () => {
 
                             <div>
                                 <h2 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-6 px-2">Kingdom Impact</h2>
-                                <Card onClick={() => navigate('/stewardship')} className="bg-primary text-white p-10 cursor-pointer hover:shadow-2xl hover:shadow-primary/30 hover:-translate-y-1 transition-all border-none rounded-xl relative overflow-hidden group">
+                                <Card onClick={() => navigate('/stewardship')} className="bg-indigo-600 text-white p-10 cursor-pointer hover:shadow-2xl hover:shadow-indigo-600/30 hover:-translate-y-1 transition-all border-none rounded-2xl relative overflow-hidden group">
                                     <SparklesIcon className="w-20 h-20 mb-6 opacity-20 absolute -right-4 -bottom-4 group-hover:scale-125 transition-transform" />
                                     <h3 className="text-2xl font-black leading-tight relative z-10">Every gift tells a story of the kingdom.</h3>
                                     <p className="text-white/70 text-sm mt-4 font-bold relative z-10">Log your time and resources to track collective impact across Goa.</p>
@@ -136,6 +161,14 @@ const DashboardView: React.FC = () => {
 
                 </div>
             </PullToRefresh>
+
+            {checkInMeeting && (
+                <CheckInModal 
+                    meeting={checkInMeeting}
+                    onClose={() => setCheckInMeeting(null)}
+                    onSuccess={() => refetch()}
+                />
+            )}
         </DashboardLayout>
     );
 };

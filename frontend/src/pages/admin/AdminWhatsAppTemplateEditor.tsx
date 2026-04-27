@@ -1,23 +1,27 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
-import { 
-    ArrowLeftIcon, ChatBubbleLeftRightIcon, CheckIcon, 
     VariableIcon 
 } from '@heroicons/react/24/solid';
+import { ArrowLeftIcon as ArrowLeftOutline } from '@heroicons/react/24/outline';
 import { Card, CardContent } from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
 import Input from '../../shared/components/ui/Input';
 
-const AdminWhatsAppTemplateEditor = () => {
-    const { id } = useParams();
+interface TemplateFormData {
+    title: string;
+    content: string;
+}
+
+const AdminWhatsAppTemplateEditor: React.FC = () => {
+    const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const isEdit = id && id !== 'create';
 
-    const [loading, setLoading] = useState(isEdit);
+    const [loading, setLoading] = useState(!!isEdit);
     const [saving, setSaving] = useState(false);
     const [toast, setToast] = useState('');
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<TemplateFormData>({
         title: '',
         content: ''
     });
@@ -28,7 +32,7 @@ const AdminWhatsAppTemplateEditor = () => {
         }
     }, [id]);
 
-    const showToast = (msg) => {
+    const showToast = (msg: string): void => {
         setToast(msg);
         setTimeout(() => setToast(''), 3000);
     };
@@ -48,7 +52,7 @@ const AdminWhatsAppTemplateEditor = () => {
         }
     };
 
-    const handleSave = async (e) => {
+    const handleSave = async (e: React.FormEvent): Promise<void> => {
         e.preventDefault();
         setSaving(true);
         try {
@@ -68,7 +72,7 @@ const AdminWhatsAppTemplateEditor = () => {
         }
     };
 
-    const insertVariable = (variable) => {
+    const insertVariable = (variable: string): void => {
         setFormData(prev => ({
             ...prev,
             content: prev.content + ` {${variable}} `
@@ -85,9 +89,13 @@ const AdminWhatsAppTemplateEditor = () => {
                 </div>
             )}
             <div className="flex justify-between items-center mb-8">
-                <Button variant="ghost" onClick={() => navigate('/admin/whatsapp/templates')} className="text-zinc-500 font-black uppercase text-xs tracking-widest">
-                    <ArrowLeftIcon className="w-4 h-4 mr-2" /> Back to Templates
-                </Button>
+                <button 
+                    onClick={() => navigate('/admin/whatsapp/templates')} 
+                    className="flex items-center text-zinc-500 hover:text-zinc-800 transition-colors group"
+                >
+                    <ArrowLeftOutline className="w-6 h-6 mr-2 group-hover:-translate-x-1 transition-transform stroke-[1.5]" />
+                    <span className="text-xl font-medium">Back to Templates</span>
+                </button>
                 <div className="flex gap-3">
                     <Button onClick={handleSave} isLoading={saving} className="px-8 shadow-xl shadow-emerald-600/20 bg-emerald-600 hover:bg-emerald-700 border-none">
                         <CheckIcon className="w-4 h-4 mr-2" /> {isEdit ? 'Update Template' : 'Save Template'}

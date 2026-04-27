@@ -4,6 +4,9 @@ import { rsvpMeeting } from '../controllers/meeting.controller.js';
 import { getFormWithFields } from '../controllers/forms.controller.js';
 import { getJobs, createJob, createPost, getResources, createResource } from '../controllers/member.controller.js';
 import { getPage } from '../controllers/pages.controller.js';
+import { validate } from '../middleware/validate.js';
+import { createJobSchema } from '../validations/job.schema.js';
+import { createResourceSchema } from '../validations/resource.schema.js';
 import multer from 'multer';
 
 const router = Router();
@@ -19,10 +22,10 @@ router.post('/posts', upload.single('file'), createPost);
 router.get('/forms/get', getFormWithFields);
 
 router.get('/jobs', getJobs);
-router.post('/jobs', upload.any(), createJob);
+router.post('/jobs', upload.any(), validate(createJobSchema), createJob);
 
 router.get('/resources', getResources);
-router.post('/resources', upload.any(), createResource);
+router.post('/resources', upload.any(), validate(createResourceSchema), createResource);
 
 router.get('/pages/:slug', getPage);
 

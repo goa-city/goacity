@@ -83,13 +83,47 @@ export class FormService {
             }
 
             if (answers && typeof answers === 'object') {
+                const entries = Object.entries(answers);
                 await tx.formAnswer.createMany({
-                    data: Object.entries(answers).map(([key, value]) => ({
+                    data: entries.map(([key, value]) => ({
                         response_id: response.id,
                         field_key: key,
                         answer_value: String(value)
                     }))
                 });
+
+                // Sync to Profile Logic
+                if (userId && !isPartial) {
+                    const fields = await tx.formField.findMany({
+                        where: { form_id: formId, is_profile: 1 }
+                    });
+
+                    for (const field of fields) {
+                        const answer = answers[field.field_key];
+                        if (answer !== undefined) {
+                            await tx.memberProfile.upsert({
+                                where: { 
+                                    // We need a unique constraint on (user_id, profile_key) to use upsert effectively
+                                    // or check if it exists first. 
+                                    // Checking schema.prisma... it doesn't have a unique constraint on (user_id, profile_key).
+                                    // I'll check manually.
+                                    id: (await tx.memberProfile.findFirst({
+                                        where: { user_id: userId, profile_key: field.field_key }
+                                    }))?.id || 0
+                                },
+                                create: {
+                                    user_id: userId,
+                                    profile_key: field.field_key,
+                                    profile_value: String(answer)
+                                },
+                                update: {
+                                    profile_value: String(answer),
+                                    updated_at: new Date()
+                                }
+                            });
+                        }
+                    }
+                }
             }
 
             return response;

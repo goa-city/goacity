@@ -10,7 +10,7 @@ import {
     ChevronRightIcon,
     TrashIcon
 } from '@heroicons/react/24/outline';
-import { format } from 'date-fns';
+import { formatDateTime } from '../../utils/date';
 import { Link } from 'react-router-dom';
 import axios from '../../api/axios';
 import { Card } from '../../shared/components/ui/Card';
@@ -135,7 +135,7 @@ const AdminWhatsAppLogs: React.FC = () => {
                                     <td className="px-8 py-5">
                                         <div className="flex items-center gap-2 text-zinc-500">
                                             <CalendarIcon className="w-4 h-4" />
-                                            <span className="text-xs font-bold">{format(new Date(b.created_at), 'MMM d, HH:mm')}</span>
+                                            <span className="text-xs font-bold">{formatDateTime(b.created_at)}</span>
                                         </div>
                                     </td>
                                     <td className="px-8 py-5 text-right">

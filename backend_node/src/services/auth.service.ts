@@ -3,6 +3,7 @@ import { generateToken } from '../utils/jwt.js';
 import { sendEmail } from '../utils/email.js';
 import bcrypt from 'bcryptjs';
 import { AppError } from '../utils/errors.js';
+import { SYSTEM_TEMPLATES } from '../config/constants.js';
 
 export class AuthService {
     static async sendOtp(identifier: string) {
@@ -51,7 +52,7 @@ export class AuthService {
 
         try {
             const template = await prisma.emailTemplate.findUnique({
-                where: { title: 'OTP Login' }
+                where: { id: SYSTEM_TEMPLATES.EMAIL.OTP.ID }
             });
 
             if (template) {

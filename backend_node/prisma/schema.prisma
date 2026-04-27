@@ -30,6 +30,7 @@ model Member {
   last_name           String?                @db.VarChar(255)
   city_id             Int?                   @default(1)
   fcm_token           String?                @db.VarChar(255)
+  whatsapp_id         String?                @db.VarChar(255)
   businesses          Business[]
   collabsReceived     CollaborationRequest[] @relation("CollabProvider")
   collabsMade         CollaborationRequest[] @relation("CollabRequester")
@@ -46,38 +47,40 @@ model Member {
   posts               Post[]
   stewardshipLogs     StewardshipLog[]
   streams             StreamMember[]
-  whatsapp_id         String?                @db.VarChar(255)
   whatsappLogs        WhatsAppLog[]
+  resources           resources[] @relation("SubmittedResources")
+  jobPostings         jobs[]      @relation("JobPostings")
+  meeting_responses   meeting_responses[]
 
   @@map("members")
 }
 
 model City {
-  id                Int               @id @default(autoincrement())
-  name              String            @unique @db.VarChar(255)
-  slug              String            @unique @db.VarChar(100)
-  domain            String?           @unique @db.VarChar(255)
-  timezone          String?           @default("Asia/Kolkata") @db.VarChar(100)
-  email_from_name   String?           @db.VarChar(255)
-  email_from_addr   String?           @db.VarChar(255)
-  theme_config      Json?
-  created_at        DateTime?         @default(now()) @db.Timestamp(6)
-  updated_at        DateTime?         @default(now()) @db.Timestamp(6)
-  admins            Admin[]
-  email_templates   EmailTemplate[]
-  form_responses    FormResponse[]
-  forms             forms[]
-  jobs              jobs[]
-  meetings          meetings[]
-  members           Member[]
-  pages             Page[]
-  posts             Post[]
-  resources         resources[]
-  streams           Stream[]
-  whatsapp_logs     WhatsAppLog[]
-  whatsapp_sessions WhatsAppSession[]
+  id                  Int                 @id @default(autoincrement())
+  name                String              @unique @db.VarChar(255)
+  slug                String              @unique @db.VarChar(100)
+  domain              String?             @unique @db.VarChar(255)
+  timezone            String?             @default("Asia/Kolkata") @db.VarChar(100)
+  email_from_name     String?             @db.VarChar(255)
+  email_from_addr     String?             @db.VarChar(255)
+  theme_config        Json?
+  created_at          DateTime?           @default(now()) @db.Timestamp(6)
+  updated_at          DateTime?           @default(now()) @db.Timestamp(6)
+  admins              Admin[]
+  email_templates     EmailTemplate[]
+  form_responses      FormResponse[]
+  forms               forms[]
+  jobs                jobs[]
+  meetings            meetings[]
+  members             Member[]
+  pages               Page[]
+  posts               Post[]
+  resources           resources[]
+  streams             Stream[]
   whatsapp_broadcasts WhatsAppBroadcast[]
-  whatsapp_templates WhatsAppTemplate[]
+  whatsapp_logs       WhatsAppLog[]
+  whatsapp_sessions   WhatsAppSession[]
+  whatsapp_templates  WhatsAppTemplate[]
 
   @@map("cities")
 }
@@ -106,6 +109,7 @@ model Stream {
   form_id     Int?
   city_id     Int?           @default(1)
   members     StreamMember[]
+  meetings    meetings[]
   city        City?          @relation(fields: [city_id], references: [id])
   form        forms?         @relation(fields: [form_id], references: [id])
 
@@ -262,6 +266,7 @@ model jobs {
   url             String?          @db.VarChar(500)
   contact_email   String?          @db.VarChar(255)
   posted_by       Int?
+  poster          Member?          @relation("JobPostings", fields: [posted_by], references: [id])
   status          String?          @default("pending") @db.VarChar(50)
   created_at      DateTime?        @default(now()) @db.Timestamp(6)
   updated_at      DateTime?        @default(now()) @db.Timestamp(6)
@@ -298,6 +303,10 @@ model meeting_responses {
   paid_amount    Decimal?  @default(0.00) @db.Decimal(10, 2)
   created_at     DateTime? @default(now()) @db.Timestamp(6)
   updated_at     DateTime? @default(now()) @db.Timestamp(6)
+  meeting        meetings? @relation(fields: [meeting_id], references: [id])
+  user           Member?   @relation(fields: [user_id], references: [id])
+
+  @@map("meeting_responses")
 }
 
 model meetings {
@@ -305,8 +314,8 @@ model meetings {
   title            String            @db.VarChar(255)
   description      String?
   meeting_date     DateTime?         @db.Date
-  start_time       DateTime?         @db.Time(6)
-  end_time         DateTime?         @db.Time(6)
+  start_time       String?           @db.VarChar(20)
+  end_time         String?           @db.VarChar(20)
   location_name    String?           @db.VarChar(255)
   map_link         String?
   is_paid          Int?              @default(0) @db.SmallInt
@@ -316,6 +325,7 @@ model meetings {
   created_at       DateTime?         @default(now()) @db.Timestamp(6)
   updated_at       DateTime?         @default(now()) @db.Timestamp(6)
   stream_id        Int?
+  stream           Stream?           @relation(fields: [stream_id], references: [id])
   payment_amount   Decimal?          @default(0.00) @db.Decimal(10, 2)
   recap_content    String?
   zoom_link        String?           @db.VarChar(500)
@@ -323,6 +333,7 @@ model meetings {
   city_id          Int?              @default(1)
   resources        MeetingResource[]
   city             City?             @relation(fields: [city_id], references: [id])
+  meeting_responses meeting_responses[]
 }
 
 model MeetingResource {
@@ -372,6 +383,7 @@ model resources {
   description  String?
   content      String?
   submitted_by Int?
+  submitter    Member?   @relation("SubmittedResources", fields: [submitted_by], references: [id])
   status       String?   @default("pending") @db.VarChar(50)
   created_at   DateTime? @default(now()) @db.Timestamp(6)
   updated_at   DateTime? @default(now()) @db.Timestamp(6)
@@ -527,12 +539,12 @@ model Notification {
 model WhatsAppLog {
   id           Int                @id @default(autoincrement())
   member_id    Int?
-  broadcast_id Int?
   direction    String             @db.VarChar(10)
   content      String
   status       String             @db.VarChar(50)
   timestamp    DateTime           @default(now()) @db.Timestamp(6)
   city_id      Int?               @default(1)
+  broadcast_id Int?
   broadcast    WhatsAppBroadcast? @relation(fields: [broadcast_id], references: [id])
   city         City?              @relation(fields: [city_id], references: [id])
   member       Member?            @relation(fields: [member_id], references: [id])

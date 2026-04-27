@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { whatsapp } from '../services/whatsapp.service.js';
 import prisma from '../lib/prisma.js';
+import { SYSTEM_TEMPLATES } from '../config/constants.js';
 
 export const getWhatsAppStatus = async (req: Request, res: Response) => {
     try {
@@ -132,11 +133,23 @@ export const sendMeetingAlert = async (req: Request, res: Response) => {
             return res.status(400).json({ error: 'No members with phone numbers found in this stream' });
         }
 
-        // 3. Format message
-        const dateStr = meeting.meeting_date ? new Date(meeting.meeting_date).toLocaleDateString() : 'TBD';
-        const timeStr = meeting.start_time ? new Date(meeting.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'TBD';
-        
-        const messageTemplate = `🚀 *Meeting Alert: ${meeting.title}*\n\n📅 *When:* ${dateStr}\n⏰ *Time:* ${timeStr}\n📍 *Where:* ${meeting.location_name}\n\nWe look forward to seeing you there!`;
+        // 3. Format message using template
+        const template = await prisma.whatsAppTemplate.findUnique({
+            where: { id: SYSTEM_TEMPLATES.WHATSAPP.DEFAULT.ID }
+        });
+
+        if (!template) {
+            return res.status(404).json({ error: 'WhatsApp Default Template not found' });
+        }
+
+        const dateStr = meeting.meeting_date ? new Date(meeting.meeting_date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'TBD';
+        const timeStr = meeting.start_time ? new Date(meeting.start_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'TBD';
+
+        let messageTemplate = template.content
+            .replace(/{meeting_title}|{{meeting_title}}/gi, meeting.title)
+            .replace(/{meeting_date}|{{meeting_date}}/gi, dateStr)
+            .replace(/{meeting_time}|{{meeting_time}}/gi, timeStr)
+            .replace(/{location}|{{location_name}}/gi, meeting.location_name || 'TBD');
 
         // 4. Send bulk
         const bulkMessages = members.map(m => ({

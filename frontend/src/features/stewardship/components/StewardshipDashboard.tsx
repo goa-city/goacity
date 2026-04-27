@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { formatDate } from '../../../utils/date';
 import { useStewardship } from '../hooks/useStewardship';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../../shared/components/ui/Card';
 import Button from '../../../shared/components/ui/Button';
@@ -85,7 +86,7 @@ const StewardshipDashboard: React.FC = () => {
                             <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800">
                                 {logs.map((log: any) => (
                                     <tr key={log.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-all group">
-                                        <td className="px-10 py-6 text-zinc-400 font-bold uppercase text-[10px] tracking-widest">{new Date(log.date).toLocaleDateString('en-GB')}</td>
+                                        <td className="px-10 py-6 text-zinc-400 font-bold uppercase text-[10px] tracking-widest">{formatDate(log.date)}</td>
                                         <td className="px-10 py-6">
                                             <span className={`text-[10px] font-black px-3 py-1 rounded-full border uppercase tracking-widest ${log.type === 'Financial' ? 'bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800' : 'bg-indigo-50 text-indigo-700 border-indigo-100 dark:bg-indigo-900/20 dark:text-indigo-400 dark:border-indigo-800'}`}>
                                                 {log.type}

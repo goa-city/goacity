@@ -2,6 +2,8 @@ import type { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import { whatsapp } from '../services/whatsapp.service.js';
+import { SYSTEM_TEMPLATES } from '../config/constants.js';
+import { formatDateDDMMYYYY, formatTime12h, parseTime24h } from '../lib/utils.js';
 
 // GET /api/admin/meetings
 export const getMeetings = async (req: Request, res: Response) => {
@@ -9,38 +11,88 @@ export const getMeetings = async (req: Request, res: Response) => {
         const singleId = req.query.id;
         const archived = req.query.archived === '1';
 
-        const rawMeetings: any[] = await (singleId 
-            ? prisma.$queryRaw`
-                SELECT m.*, s.name as stream_name, s.color as stream_color 
-                FROM meetings m 
-                LEFT JOIN streams s ON s.id = m.stream_id 
-                WHERE m.id = ${Number(singleId)}
-                LIMIT 1
-            `
-            : prisma.$queryRaw`
-                SELECT m.*, s.name as stream_name, s.color as stream_color 
-                FROM meetings m 
-                LEFT JOIN streams s ON s.id = m.stream_id 
-                WHERE m.archived = ${archived ? 1 : 0}
-                ORDER BY m.meeting_date DESC
-            `);
+        if (singleId) {
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
 
-        const formatted = rawMeetings.map(m => ({
+            const meetingId = Number(singleId);
+            const meeting = await prisma.meetings.findUnique({
+                where: { id: meetingId },
+                include: { 
+                    city: true, 
+                    stream: true,
+                    resources: true,
+                    meeting_responses: {
+                        include: {
+                            user: true
+                        },
+                        orderBy: {
+                            user: {
+                                first_name: 'asc'
+                            }
+                        }
+                    }
+                }
+            });
+            if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
+            
+            const apiUrl = process.env.VITE_API_URL || '';
+            const baseUrl = apiUrl.replace(/\/api\/?$/, ''); // Remove /api if present
+
+            // Format single meeting
+            const formatted = {
+                ...meeting,
+                payment_qr_image_url: meeting.payment_qr_image ? `${baseUrl}/uploads/${meeting.payment_qr_image}` : null,
+                meeting_date_display: formatDateDDMMYYYY(meeting.meeting_date),
+                start_time_display: meeting.start_time || '-',
+                end_time_display: meeting.end_time || '-',
+                resources: meeting.resources.map(r => ({
+                    ...r,
+                    url_display: `${baseUrl}/uploads/${r.url}`
+                })),
+                meeting_responses: meeting.meeting_responses.map((mr: any) => ({
+                    ...mr,
+                    first_name: mr.user?.first_name,
+                    last_name: mr.user?.last_name,
+                    email: mr.user?.email
+                }))
+            };
+            return res.json(formatted);
+        }
+
+        const meetings = await prisma.meetings.findMany({
+            where: { archived: archived ? 1 : 0 },
+            include: { 
+                city: true,
+                stream: true
+            },
+            orderBy: { meeting_date: 'desc' }
+        });
+
+        const apiUrl = process.env.VITE_API_URL || '';
+        const baseUrl = apiUrl.replace(/\/api\/?$/, '');
+
+        const formatted = meetings.map(m => ({
             ...m,
-            meeting_date: m.meeting_date ? new Date(m.meeting_date).toISOString().split('T')[0] : null,
-            start_time: m.start_time ? new Date(m.start_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : null,
-            end_time: m.end_time ? new Date(m.end_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : null
+            stream_name: (m as any).stream?.name,
+            stream_color: (m as any).stream?.color,
+            meeting_date_display: formatDateDDMMYYYY(m.meeting_date),
+            start_time_display: m.start_time || '-',
+            end_time_display: m.end_time || '-',
+            payment_qr_image_url: m.payment_qr_image ? `${baseUrl}/uploads/${m.payment_qr_image}` : null,
+            // Also keep original fields for frontend substring logic if needed, but display fields are preferred
+            start_time: m.start_time,
+            end_time: m.end_time
         }));
 
-        if (singleId) {
-            return res.json(formatted[0] || null);
-        }
         return res.json(formatted);
     } catch (error: any) {
         console.error('getMeetings Error:', error);
         return res.status(500).json({ message: 'Internal server error' });
     }
 };
+
 
 export const getUpcomingMeetings = async (req: Request, res: Response) => {
     try {
@@ -58,11 +110,23 @@ export const getUpcomingMeetings = async (req: Request, res: Response) => {
             ORDER BY m.meeting_date ASC, m.start_time ASC
         `;
 
-        const formatted = rawMeetings.map(m => ({
-            ...m,
-            meeting_date: m.meeting_date ? new Date(m.meeting_date).toISOString().split('T')[0] : null,
-            start_time: m.start_time ? new Date(m.start_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : null,
-            end_time: m.end_time ? new Date(m.end_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : null
+        const formatted = await Promise.all(rawMeetings.map(async m => {
+            const resources = await prisma.meetingResource.findMany({
+                where: { meeting_id: m.id }
+            });
+            const apiUrl = process.env.VITE_API_URL || '';
+            const baseUrl = apiUrl.replace(/\/api\/?$/, '');
+            return {
+                ...m,
+                meeting_date_display: formatDateDDMMYYYY(m.meeting_date),
+                start_time_display: m.start_time || '-',
+                end_time_display: m.end_time || '-',
+                resources: resources.map(r => ({
+                    ...r,
+                    url_display: `${baseUrl}/uploads/${r.url}`
+                })),
+                payment_qr_image_url: m.payment_qr_image ? `${baseUrl}/uploads/${m.payment_qr_image}` : null
+            };
         }));
 
         return res.json(formatted);
@@ -88,11 +152,23 @@ export const getPastMeetings = async (req: Request, res: Response) => {
             ORDER BY m.meeting_date DESC, m.start_time DESC
         `;
 
-        const formatted = rawMeetings.map(m => ({
-            ...m,
-            meeting_date: m.meeting_date ? new Date(m.meeting_date).toISOString().split('T')[0] : null,
-            start_time: m.start_time ? new Date(m.start_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : null,
-            end_time: m.end_time ? new Date(m.end_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : null
+        const formatted = await Promise.all(rawMeetings.map(async m => {
+            const resources = await prisma.meetingResource.findMany({
+                where: { meeting_id: m.id }
+            });
+            const apiUrl = process.env.VITE_API_URL || '';
+            const baseUrl = apiUrl.replace(/\/api\/?$/, '');
+            return {
+                ...m,
+                meeting_date_display: formatDateDDMMYYYY(m.meeting_date),
+                start_time_display: m.start_time || '-',
+                end_time_display: m.end_time || '-',
+                resources: resources.map(r => ({
+                    ...r,
+                    url_display: `${baseUrl}/uploads/${r.url}`
+                })),
+                payment_qr_image_url: m.payment_qr_image ? `${baseUrl}/uploads/${m.payment_qr_image}` : null
+            };
         }));
 
         return res.json(formatted);
@@ -116,11 +192,23 @@ export const getMemberMeetings = async (req: Request, res: Response) => {
             ORDER BY m.meeting_date ASC
         `;
 
-        const formatted = rawMeetings.map(m => ({
-            ...m,
-            meeting_date: m.meeting_date ? new Date(m.meeting_date).toISOString().split('T')[0] : null,
-            start_time: m.start_time ? new Date(m.start_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : null,
-            end_time: m.end_time ? new Date(m.end_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : null
+        const formatted = await Promise.all(rawMeetings.map(async m => {
+            const resources = await prisma.meetingResource.findMany({
+                where: { meeting_id: m.id }
+            });
+            const apiUrl = process.env.VITE_API_URL || '';
+            const baseUrl = apiUrl.replace(/\/api\/?$/, '');
+            return {
+                ...m,
+                meeting_date_display: formatDateDDMMYYYY(m.meeting_date),
+                start_time_display: m.start_time || '-',
+                end_time_display: m.end_time || '-',
+                resources: resources.map(r => ({
+                    ...r,
+                    url_display: `${baseUrl}/uploads/${r.url}`
+                })),
+                payment_qr_image_url: m.payment_qr_image ? `${baseUrl}/uploads/${m.payment_qr_image}` : null
+            };
         }));
 
         return res.json(formatted);
@@ -149,11 +237,15 @@ export const getMeeting = async (req: Request, res: Response) => {
         if (rawMeetings.length === 0) return res.status(404).json({ message: 'Meeting not found' });
 
         const m = rawMeetings[0];
-        const formatted = {
+        const apiUrl = process.env.VITE_API_URL || '';
+        const baseUrl = apiUrl.replace(/\/api\/?$/, '');
+
+        const formatted: any = {
             ...m,
-            meeting_date: m.meeting_date ? new Date(m.meeting_date).toISOString().split('T')[0] : null,
-            start_time: m.start_time ? new Date(m.start_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : null,
-            end_time: m.end_time ? new Date(m.end_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : null
+            meeting_date_display: formatDateDDMMYYYY(m.meeting_date),
+            start_time_display: m.start_time || '-',
+            end_time_display: m.end_time || '-',
+            payment_qr_image_url: m.payment_qr_image ? `${baseUrl}/uploads/${m.payment_qr_image}` : null
         };
 
         // Get resources
@@ -177,17 +269,13 @@ export const createMeeting = async (req: Request, res: Response) => {
     try {
         let { id, title, description, meeting_date, start_time, end_time, location_name, map_link, is_paid, payment_amount, feedback_form_id, stream_id, archived, recap_content, zoom_link } = req.body;
         const filename = req.file ? req.file.filename : null;
-        
-        meeting_date = meeting_date || null;
-        start_time = start_time || null;
-        end_time = end_time || null;
 
         const meetingData: any = {
             title,
             description: description || null,
             meeting_date: meeting_date ? new Date(meeting_date) : null,
-            start_time: start_time ? new Date(`1970-01-01T${start_time}:00`) : null,
-            end_time: end_time ? new Date(`1970-01-01T${end_time}:00`) : null,
+            start_time: start_time || null,
+            end_time: end_time || null,
             location_name: location_name || null,
             map_link: map_link || null,
             is_paid: (is_paid === 'true' || is_paid === true || is_paid === '1' || Number(is_paid) === 1) ? 1 : 0,
@@ -337,25 +425,89 @@ export const rsvpMeeting = async (req: Request, res: Response) => {
 
         if (!status) return res.status(400).json({ message: 'Status required' });
 
-        // Check if response exists
-        const existing: any[] = await prisma.$queryRaw`
-            SELECT id FROM meeting_responses WHERE meeting_id = ${meetingId} AND user_id = ${userId}
-        `;
+        const existing = await prisma.meeting_responses.findFirst({
+            where: { meeting_id: meetingId, user_id: userId }
+        });
 
-        if (existing.length > 0) {
-            await prisma.$queryRaw`
-                UPDATE meeting_responses SET rsvp_status = ${status} WHERE id = ${existing[0].id}
-            `;
+        if (existing) {
+            await prisma.meeting_responses.update({
+                where: { id: existing.id },
+                data: { rsvp_status: status, updated_at: new Date() }
+            });
         } else {
-            await prisma.$queryRaw`
-                INSERT INTO meeting_responses (meeting_id, user_id, rsvp_status)
-                VALUES (${meetingId}, ${userId}, ${status})
-            `;
+            await prisma.meeting_responses.create({
+                data: { meeting_id: meetingId, user_id: userId, rsvp_status: status }
+            });
         }
 
         return res.json({ success: true, message: 'RSVP updated' });
     } catch (error: any) {
         console.error('rsvpMeeting Error:', error);
+        return res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
+export const checkInMeeting = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).userId;
+        const meetingId = Number(req.params.id);
+
+        const existing = await prisma.meeting_responses.findFirst({
+            where: { meeting_id: meetingId, user_id: userId }
+        });
+
+        if (existing) {
+            await prisma.meeting_responses.update({
+                where: { id: existing.id },
+                data: { checked_in: 1, updated_at: new Date() }
+            });
+        } else {
+            await prisma.meeting_responses.create({
+                data: { meeting_id: meetingId, user_id: userId, checked_in: 1 }
+            });
+        }
+
+        return res.json({ success: true, message: 'Checked in successfully' });
+    } catch (error: any) {
+        console.error('checkInMeeting Error:', error);
+        return res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
+export const payMeeting = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).userId;
+        const meetingId = Number(req.params.id);
+        const { method, amount } = req.body;
+
+        const existing = await prisma.meeting_responses.findFirst({
+            where: { meeting_id: meetingId, user_id: userId }
+        });
+
+        const updateData = {
+            payment_status: method,
+            paid_amount: new Prisma.Decimal(amount || 0),
+            updated_at: new Date()
+        };
+
+        if (existing) {
+            await prisma.meeting_responses.update({
+                where: { id: existing.id },
+                data: updateData
+            });
+        } else {
+            await prisma.meeting_responses.create({
+                data: { 
+                    meeting_id: meetingId, 
+                    user_id: userId, 
+                    ...updateData 
+                }
+            });
+        }
+
+        return res.json({ success: true, message: 'Payment recorded' });
+    } catch (error: any) {
+        console.error('payMeeting Error:', error);
         return res.status(500).json({ message: 'Internal server error' });
     }
 };
@@ -463,11 +615,12 @@ export const notifyMeetingMembers = async (req: Request, res: Response) => {
             return res.status(400).json({ message: 'No members found in the linked stream' });
         }
 
-        const dateStr = meeting.meeting_date ? new Date(meeting.meeting_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : 'TBD';
-        const timeStr = meeting.start_time ? new Date(meeting.start_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : 'TBD';
+        const dateStr = formatDateDDMMYYYY(meeting.meeting_date);
+        const timeStr = meeting.start_time ? new Date(meeting.start_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'TBD';
 
         if (type === 'email') {
-            const template = await prisma.emailTemplate.findUnique({ where: { id: Number(templateId) } });
+            const effectiveTemplateId = templateId ? Number(templateId) : SYSTEM_TEMPLATES.EMAIL.MEETING.ID;
+            const template = await prisma.emailTemplate.findUnique({ where: { id: effectiveTemplateId } });
             if (!template) return res.status(404).json({ message: 'Email template not found' });
 
             const emailMembers = members.filter(m => m.email);
@@ -491,7 +644,8 @@ export const notifyMeetingMembers = async (req: Request, res: Response) => {
 
             return res.json({ success: true, message: `Email notifications queued for ${emailMembers.length} members` });
         } else if (type === 'whatsapp') {
-            const template = await prisma.whatsAppTemplate.findUnique({ where: { id: Number(templateId) } });
+            const effectiveTemplateId = templateId ? Number(templateId) : SYSTEM_TEMPLATES.WHATSAPP.DEFAULT.ID;
+            const template = await prisma.whatsAppTemplate.findUnique({ where: { id: effectiveTemplateId } });
             if (!template) return res.status(404).json({ message: 'WhatsApp template not found' });
 
             const whatsappMembers = members.filter(m => m.phone);

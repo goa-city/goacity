@@ -1,27 +1,27 @@
 import React from 'react';
+import { formatDate } from '../../../utils/date';
 import { Card, CardContent, CardTitle } from '../../../shared/components/ui/Card';
 import Button from '../../../shared/components/ui/Button';
-import { 
-    CalendarIcon, 
-    MapPinIcon, 
-    CheckCircleIcon, 
-    QuestionMarkCircleIcon, 
+import {
+    CalendarIcon,
+    MapPinIcon,
+    CheckCircleIcon,
+    QuestionMarkCircleIcon,
     XCircleIcon,
-    ArrowRightIcon
+    ArrowRightIcon,
+    ClockIcon,
+    VideoCameraIcon,
+    ArrowTopRightOnSquareIcon,
+    LinkIcon
 } from '@heroicons/react/24/solid';
 
 const MeetingCard = ({ meeting, onRSVP, onCheckIn, onOpenRecap }) => {
-    const isPast = new Date(meeting.meeting_date) < new Date().setHours(0,0,0,0);
+    const isPast = new Date(meeting.meeting_date) < new Date().setHours(0, 0, 0, 0);
     const isToday = new Date(meeting.meeting_date).toDateString() === new Date().toDateString();
 
-    const formatDate = (dateStr) => {
-        return new Date(dateStr).toLocaleDateString('en-GB', { 
-            day: '2-digit', month: 'long', year: 'numeric' 
-        });
-    };
 
     return (
-        <Card className={`overflow-hidden border-zinc-100 dark:border-zinc-800 transition-all ${isToday ? 'ring-4 ring-indigo-500/10 border-indigo-500' : 'hover:shadow-lg'}`}>
+        <Card className={`overflow-hidden transition-all ${isToday ? 'ring-4 ring-indigo-500/10 border-indigo-500' : 'hover:shadow-2xl'}`}>
             <CardContent className="p-6 relative">
                 {meeting.stream_color && (
                     <div className="absolute top-0 left-0 w-1.5 h-full" style={{ backgroundColor: meeting.stream_color }} />
@@ -42,9 +42,51 @@ const MeetingCard = ({ meeting, onRSVP, onCheckIn, onOpenRecap }) => {
                         <CardTitle className="text-2xl font-black text-zinc-900 dark:text-white leading-tight">
                             {meeting.title}
                         </CardTitle>
-                        <div className="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400 mt-2 text-sm font-medium">
-                            <MapPinIcon className="w-4 h-4 text-zinc-400" />
-                            {meeting.location_name || 'TBA'}
+                        <div className="flex flex-col gap-1.5 text-zinc-500 dark:text-zinc-400 mt-2 text-sm font-medium">
+                            <div className="flex items-center gap-1.5">
+                                <ClockIcon className="w-4 h-4 text-zinc-400" />
+                                {meeting.start_time_display} - {meeting.end_time_display}
+                            </div>
+                            <div className="flex items-start gap-1.5">
+                                <MapPinIcon className="w-4 h-4 text-zinc-400 mt-1" />
+                                <div className="flex flex-col">
+                                    <span className="text-zinc-900 dark:text-white font-bold">{meeting.location_name || 'TBA'}</span>
+                                    {meeting.map_link && (
+                                        <a href={meeting.map_link} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline  break-all">
+                                            {meeting.map_link}
+                                        </a>
+                                    )}
+                                </div>
+                            </div>
+                            {meeting.zoom_link && (
+                                <div className="flex items-start gap-1.5">
+                                    <VideoCameraIcon className="w-4 h-4 text-sky-500 mt-1" />
+                                    <div className="flex flex-col">
+                                        <span className="text-sky-600 font-bold">Zoom Meeting</span>
+                                        <a href={meeting.zoom_link} target="_blank" rel="noopener noreferrer" className="text-sky-600 hover:underline  break-all">
+                                            {meeting.zoom_link}
+                                        </a>
+                                    </div>
+                                </div>
+                            )}
+                            {meeting.resources && meeting.resources.length > 0 && (
+                                <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Attached Resources:</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {meeting.resources.map((res, i) => (
+                                            <a
+                                                key={i}
+                                                href={res.url_display || `${(import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '')}/uploads/${res.url}`}
+                                                download
+                                                className="flex items-center gap-1.5 px-2 py-1 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 rounded-lg  font-bold hover:bg-emerald-100 transition-colors"
+                                            >
+                                                <LinkIcon className="w-3 h-3" />
+                                                {res.title || 'Resource'}
+                                            </a>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -66,11 +108,12 @@ const MeetingCard = ({ meeting, onRSVP, onCheckIn, onOpenRecap }) => {
                                             Checked In
                                         </span>
                                     ) : (
-                                        <Button 
+                                        <Button
                                             onClick={() => onCheckIn(meeting)}
-                                            className="w-full rounded-xl py-3"
+                                            size="sm"
+                                            className="rounded-xl px-8"
                                         >
-                                            Check In Now
+                                            Check In
                                         </Button>
                                     )}
                                     {meeting.my_checkin == 1 && (

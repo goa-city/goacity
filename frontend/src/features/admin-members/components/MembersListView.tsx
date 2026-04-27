@@ -4,6 +4,7 @@ import { useAdminMembers } from '../hooks/useAdminMembers';
 import { Card, CardContent } from '../../../shared/components/ui/Card';
 import Button from '../../../shared/components/ui/Button';
 import Input from '../../../shared/components/ui/Input';
+import { formatDate } from '../../../utils/date';
 import { 
     UsersIcon, 
     PlusIcon, 
@@ -109,7 +110,7 @@ const MembersListView: React.FC = () => {
                                     </td>
                                     <td className="px-8 py-5 hidden lg:table-cell">
                                         <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
-                                            {new Date(user.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                            {formatDate(user.created_at)}
                                         </p>
                                     </td>
                                     <td className="px-8 py-5 text-right">

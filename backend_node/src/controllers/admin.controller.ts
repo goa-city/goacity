@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import prisma from '../lib/prisma.js';
 import bcrypt from 'bcryptjs';
+import { formatDateDDMMYYYY, formatAnswerValue } from '../lib/utils.js';
 
 // ---- ADMIN USERS ----
 
@@ -108,35 +109,6 @@ export const getUsers = async (req: Request, res: Response) => {
             (member as any).profiles.forEach((p: any) => {
                 member_profile[p.profile_key] = p.profile_value;
             });
-
-            // Helper to format dates as dd/mm/yyyy
-            const formatDateDDMMYYYY = (dateVal: any): string => {
-                if (!dateVal) return '';
-                const d = new Date(dateVal);
-                if (isNaN(d.getTime())) return String(dateVal);
-                const day = String(d.getDate()).padStart(2, '0');
-                const month = String(d.getMonth() + 1).padStart(2, '0');
-                const year = d.getFullYear();
-                return `${day}/${month}/${year}`;
-            };
-
-            // Helper to format a raw answer value for display
-            const formatAnswerValue = (rawVal: string, fieldType: string): string => {
-                if (rawVal === undefined || rawVal === null || rawVal === '') return '';
-                if (fieldType === 'date') return formatDateDDMMYYYY(rawVal);
-                if (fieldType === 'choice_bool') {
-                    if (rawVal === 'true') return 'Yes';
-                    if (rawVal === 'false') return 'No';
-                }
-                if (typeof rawVal === 'string' && (rawVal.startsWith('[') || rawVal.startsWith('{'))) {
-                    try {
-                        const parsed = JSON.parse(rawVal);
-                        if (Array.isArray(parsed)) return parsed.join(', ');
-                    } catch (_) {}
-                }
-                return rawVal;
-            };
-
             // ── Build Interaction History ──
             // Approach: the FORM DEFINITION is the single source of truth.
             // We walk its fields in sort_order.  For each field we look up the
@@ -359,6 +331,52 @@ export const updateUser = async (req: Request, res: Response) => {
     }
 };
 
+// DELETE /api/admin/users - Delete a member
+export const deleteUser = async (req: Request, res: Response) => {
+    try {
+        const id = Number(req.query.id);
+        if (!id) return res.status(400).json({ message: 'id required' });
+
+        // Handle dependent records that don't have Cascade Delete in schema
+        // meeting_responses
+        await prisma.meeting_responses.deleteMany({ where: { user_id: id } });
+        
+        // whatsapp_logs
+        await (prisma as any).whatsAppLog.deleteMany({ where: { member_id: id } });
+
+        // attendance
+        await (prisma as any).attendance.deleteMany({ where: { user_id: id } });
+
+        // needs, offers, post_likes
+        await (prisma as any).needs.deleteMany({ where: { user_id: id } });
+        await (prisma as any).offers.deleteMany({ where: { user_id: id } });
+        await (prisma as any).post_likes.deleteMany({ where: { user_id: id } });
+        
+        // job applications are handled by Cascade Delete (schema line 291)
+
+        // resources (set submitted_by to null instead of deleting the resource?)
+        // Actually, if we delete a member, maybe we should keep their resources but mark them as anonymous?
+        // Or just delete them. Usually, it's safer to delete them if it's a full wipe.
+        // But schema shows submitter is optional (Member?).
+        await prisma.resources.updateMany({ 
+            where: { submitted_by: id },
+            data: { submitted_by: null }
+        });
+
+        // jobPostings
+        await prisma.jobs.updateMany({
+            where: { posted_by: id },
+            data: { posted_by: null }
+        });
+
+        await prisma.member.delete({ where: { id } });
+        return res.json({ message: 'Member deleted successfully' });
+    } catch (error: any) {
+        console.error('deleteUser Error:', error);
+        return res.status(500).json({ message: error.message });
+    }
+};
+
 // ---- JOBS ----
 
 // GET /api/admin/jobs
@@ -366,21 +384,56 @@ export const getAdminJobs = async (req: Request, res: Response) => {
     try {
         const id = req.query.id;
         if (id) {
-            const job = await (prisma.jobs as any).findUnique({
+            const job = await prisma.jobs.findUnique({
                 where: { id: Number(id) },
-                include: { city: true } // Assuming we might want city info
+                include: { poster: true }
             });
             if (!job) return res.status(404).json({ message: 'Job not found' });
-            return res.json(job);
+            
+            // Format to match expected output
+            const result = {
+                ...job,
+                first_name: job.poster?.first_name,
+                last_name: job.poster?.last_name,
+                member_email: job.poster?.email,
+                poster: undefined
+            };
+            return res.json(result);
         }
         const status = req.query.status as string || 'all';
-        const jobs = await (prisma.jobs as any).findMany({
+        const jobs = await prisma.jobs.findMany({
             where: status !== 'all' ? { status } : {},
+            include: { poster: true },
             orderBy: { created_at: 'desc' }
         });
-        return res.json(jobs);
+
+        const result = jobs.map((j: any) => ({
+            ...j,
+            first_name: j.poster?.first_name,
+            last_name: j.poster?.last_name,
+            member_email: j.poster?.email,
+            poster: undefined
+        }));
+        return res.json(result);
     } catch (error: any) {
         console.error('getAdminJobs Error:', error);
+        return res.status(500).json({ message: error.message });
+    }
+};
+
+export const createJob = async (req: Request, res: Response) => {
+    try {
+        const { title, company, location, category, type, description, company_profile, url, contact_email, status, expires_at } = req.body;
+        const job = await prisma.jobs.create({
+            data: {
+                title, company, location, category, type, description, company_profile, url, contact_email,
+                status: status || 'pending',
+                expires_at: (expires_at && expires_at !== "") ? new Date(expires_at) : null
+            }
+        });
+        return res.json({ message: 'Job created', id: job.id });
+    } catch (error: any) {
+        console.error('createJob Error:', error);
         return res.status(500).json({ message: error.message });
     }
 };
@@ -423,34 +476,57 @@ export const deleteJob = async (req: Request, res: Response) => {
 // GET /api/admin/resources
 export const getAdminResources = async (req: Request, res: Response) => {
     try {
-        console.log('[RESOURCES] Fetching admin resources...');
         const id = req.query.id;
         if (id) {
-            const resources = await prisma.$queryRawUnsafe(
-                `SELECT r.*, m.first_name, m.last_name, m.email as member_email
-                 FROM resources r LEFT JOIN members m ON m.id = r.submitted_by
-                 WHERE r.id = $1`, Number(id)
-            ) as any[];
-            if (!resources.length) return res.status(404).json({ message: 'Resource not found' });
-            return res.json(resources[0]);
+            const resource = await prisma.resources.findUnique({
+                where: { id: Number(id) },
+                include: { submitter: true }
+            });
+            if (!resource) return res.status(404).json({ message: 'Resource not found' });
+            
+            // Format to match expected output (m.first_name, etc.)
+            const result = {
+                ...resource,
+                first_name: resource.submitter?.first_name,
+                last_name: resource.submitter?.last_name,
+                member_email: resource.submitter?.email,
+                submitter: undefined
+            };
+            return res.json(result);
         }
         const status = req.query.status as string || 'all';
-        let query = `
-            SELECT r.*, m.first_name, m.last_name, m.email as member_email
-            FROM resources r
-            LEFT JOIN members m ON m.id = r.submitted_by
-        `;
-        if (status !== 'all') {
-            query += ` WHERE r.status = '${status}'`;
-        }
-        query += ` ORDER BY r.created_at DESC`;
+        const resources = await prisma.resources.findMany({
+            where: status !== 'all' ? { status } : {},
+            include: { submitter: true },
+            orderBy: { created_at: 'desc' }
+        });
         
-        console.log('[RESOURCES] Executing query:', query);
-        const resources = await prisma.$queryRawUnsafe(query);
-        console.log(`[RESOURCES] Found ${(resources as any[]).length} resources.`);
-        return res.json(resources);
+        const result = resources.map((r: any) => ({
+            ...r,
+            first_name: r.submitter?.first_name,
+            last_name: r.submitter?.last_name,
+            member_email: r.submitter?.email,
+            submitter: undefined
+        }));
+        return res.json(result);
     } catch (error: any) {
         console.error('getAdminResources Error:', error);
+        return res.status(500).json({ message: error.message });
+    }
+};
+
+export const createResource = async (req: Request, res: Response) => {
+    try {
+        const { title, category, author, url, description, status } = req.body;
+        const resource = await prisma.resources.create({
+            data: {
+                title, category, author, url, description,
+                status: status || 'pending'
+            }
+        });
+        return res.json({ message: 'Resource created', id: resource.id });
+    } catch (error: any) {
+        console.error('createResource Error:', error);
         return res.status(500).json({ message: error.message });
     }
 };
@@ -460,16 +536,18 @@ export const updateResource = async (req: Request, res: Response) => {
     try {
         const { id, title, category, author, url, description, status } = req.body;
         if (!id) return res.status(400).json({ message: 'id required' });
-        await prisma.$queryRaw`
-            UPDATE resources SET
-                title = COALESCE(${title || null}, title),
-                category = COALESCE(${category || null}, category),
-                author = COALESCE(${author || null}, author),
-                url = COALESCE(${url || null}, url),
-                description = COALESCE(${description || null}, description),
-                status = COALESCE(${status || null}, status)
-            WHERE id = ${Number(id)}
-        `;
+        
+        await prisma.resources.update({
+            where: { id: Number(id) },
+            data: {
+                title: title !== undefined ? title : undefined,
+                category: category !== undefined ? category : undefined,
+                author: author !== undefined ? author : undefined,
+                url: url !== undefined ? url : undefined,
+                description: description !== undefined ? description : undefined,
+                status: status !== undefined ? status : undefined
+            }
+        });
         return res.json({ message: 'Resource updated' });
     } catch (error: any) {
         console.error('updateResource Error:', error);
@@ -482,7 +560,7 @@ export const deleteResource = async (req: Request, res: Response) => {
     try {
         const id = Number(req.query.id);
         if (!id) return res.status(400).json({ message: 'id required' });
-        await prisma.$queryRaw`DELETE FROM resources WHERE id = ${id}`;
+        await prisma.resources.delete({ where: { id } });
         return res.json({ message: 'Resource deleted' });
     } catch (error: any) {
         console.error('deleteResource Error:', error);
@@ -493,13 +571,18 @@ export const deleteResource = async (req: Request, res: Response) => {
 
 export const getAdminPosts = async (req: Request, res: Response) => {
     try {
-        const posts = await prisma.$queryRaw`
-            SELECT p.*, CONCAT(m.first_name, ' ', m.last_name) as full_name, m.email as member_email
-            FROM posts p
-            LEFT JOIN members m ON m.id = p.user_id
-            ORDER BY p.created_at DESC
-        `;
-        return res.json(posts);
+        const posts = await prisma.post.findMany({
+            include: { user: true },
+            orderBy: { created_at: 'desc' }
+        });
+        
+        const result = posts.map((p: any) => ({
+            ...p,
+            full_name: p.user ? `${p.user.first_name} ${p.user.last_name}` : 'Unknown',
+            member_email: p.user?.email,
+            user: undefined
+        }));
+        return res.json(result);
     } catch (error: any) {
         console.error('getAdminPosts Error:', error);
         return res.status(500).json({ message: 'Internal server error' });
@@ -510,7 +593,7 @@ export const deletePost = async (req: Request, res: Response) => {
     try {
         const id = Number(req.query.id);
         if (!id) return res.status(400).json({ message: 'id required' });
-        await prisma.$queryRaw`DELETE FROM posts WHERE id = ${id}`;
+        await prisma.post.delete({ where: { id } });
         return res.json({ message: 'Post deleted' });
     } catch (error: any) {
         console.error('deletePost Error:', error);
