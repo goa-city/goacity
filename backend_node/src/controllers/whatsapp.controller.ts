@@ -33,9 +33,16 @@ export const sendWhatsAppMessage = async (req: Request, res: Response) => {
                 where: { id: Number(memberId) }
             });
             if (member) {
-                personalizedContent = personalizedContent
-                    .replace(/{firstname}/gi, member.first_name || '')
-                    .replace(/{lastname}/gi, member.last_name || '');
+                const replacements: any = {
+                    '{first_name}': member.first_name || '',
+                    '{firstname}': member.first_name || '',
+                    '{last_name}': member.last_name || '',
+                    '{lastname}': member.last_name || ''
+                };
+                for (const key in replacements) {
+                    const regex = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+                    personalizedContent = personalizedContent.replace(regex, replacements[key]);
+                }
             }
         }
         await whatsapp.sendMessage(to, personalizedContent, memberId ? Number(memberId) : undefined);
@@ -143,18 +150,44 @@ export const sendMeetingAlert = async (req: Request, res: Response) => {
         }
 
         const dateStr = meeting.meeting_date ? new Date(meeting.meeting_date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'TBD';
-        const timeStr = meeting.start_time ? new Date(meeting.start_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'TBD';
+        const startTime = meeting.start_time || '';
+        const endTime = meeting.end_time || '';
+        const timeStr = (startTime && endTime) ? `${startTime} - ${endTime}` : (startTime || endTime || 'TBD');
 
-        let messageTemplate = template.content
-            .replace(/{meeting_title}|{{meeting_title}}/gi, meeting.title)
-            .replace(/{meeting_date}|{{meeting_date}}/gi, dateStr)
-            .replace(/{meeting_time}|{{meeting_time}}/gi, timeStr)
-            .replace(/{location}|{{location_name}}/gi, meeting.location_name || 'TBD');
+        const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+        const host = req.headers.host || '';
+        const baseUrl = (process.env.VITE_API_URL || `${protocol}://${host}`).replace(/\/api\/?$/, '');
+        const meetingUrl = `${baseUrl}/meetings/${meeting.id}`;
+
+        const getReplacements = (m: any) => ({
+            '{first_name}': m.first_name || 'Member',
+            '{firstname}': m.first_name || 'Member',
+            '{last_name}': m.last_name || '',
+            '{lastname}': m.last_name || '',
+            '{meeting_title}': meeting.title || '',
+            '{meeting_date}': dateStr || '',
+            '{meeting_time}': timeStr || '',
+            '{location_name}': meeting.location_name || '',
+            '{location}': meeting.location_name || '',
+            '{map_link}': meeting.map_link || '',
+            '{zoom_link}': meeting.zoom_link || '',
+            '{rsvp_link}': meetingUrl || '',
+            '{{rsvp_link}}': meetingUrl || ''
+        });
+
+        const applyReplacements = (text: string, replacements: any) => {
+            let result = text;
+            for (const key in replacements) {
+                const regex = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+                result = result.replace(regex, replacements[key]);
+            }
+            return result;
+        };
 
         // 4. Send bulk
         const bulkMessages = members.map(m => ({
             to: m.phone!,
-            content: messageTemplate,
+            content: applyReplacements(template.content, getReplacements(m)),
             memberId: m.id
         }));
 

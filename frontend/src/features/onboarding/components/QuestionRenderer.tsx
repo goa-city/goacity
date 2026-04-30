@@ -131,13 +131,18 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({ question, value, on
             );
 
         case 'file':
+            const isBase64 = typeof value === 'string' && value.startsWith('data:image');
+            const previewUrl = value instanceof File 
+                ? URL.createObjectURL(value) 
+                : (isBase64 ? value : (typeof value === 'string' && value ? (value.startsWith('http') ? value : `/uploads/${value}`) : ''));
+
             return (
                 <div className="mt-4">
                     <label className="flex flex-col items-center justify-center w-56 h-56 border-4 border-dashed border-zinc-100 dark:border-zinc-900 rounded-xl hover:border-primary transition-colors cursor-pointer bg-zinc-50 dark:bg-zinc-900/50 relative overflow-hidden group">
-                        {value instanceof File || typeof value === 'string' && value ? (
+                        {previewUrl ? (
                             <>
                                 <img 
-                                    src={value instanceof File ? URL.createObjectURL(value) : (value.startsWith('http') ? value : `/api/uploads/${value}`)} 
+                                    src={previewUrl} 
                                     alt="Preview" 
                                     className="w-full h-full object-cover" 
                                 />
@@ -155,7 +160,20 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({ question, value, on
                             type="file" 
                             className="hidden" 
                             accept="image/*" 
-                            onChange={(e) => onChange(question.field, e.target.files ? e.target.files[0] : null)} 
+                            onChange={async (e) => {
+                                const file = e.target.files ? e.target.files[0] : null;
+                                if (file) {
+                                    // Always resize to Base64 as requested for better reliability
+                                    try {
+                                        const { resizeImageToBase64 } = await import('../../../utils/image');
+                                        const base64 = await resizeImageToBase64(file);
+                                        onChange(question.field, base64);
+                                    } catch (err) {
+                                        console.error("Image processing failed:", err);
+                                        onChange(question.field, file); // Fallback to raw file if resize fails
+                                    }
+                                }
+                            }} 
                         />
                     </label>
                 </div>

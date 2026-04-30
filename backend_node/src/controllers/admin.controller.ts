@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import prisma from '../lib/prisma.js';
 import bcrypt from 'bcryptjs';
-import { formatDateDDMMYYYY, formatAnswerValue } from '../lib/utils.js';
+import { formatDateDDMMYYYY, formatAnswerValue, slugify, generateUniqueSlug } from '../lib/utils.js';
 
 // ---- ADMIN USERS ----
 
@@ -283,16 +283,20 @@ export const getUsers = async (req: Request, res: Response) => {
 // POST /api/admin/users - Create a member
 export const createUser = async (req: Request, res: Response) => {
     try {
-        const { first_name, last_name, email, phone, stream_ids } = req.body;
+        const { first_name, last_name, email, phone, stream_ids, slug } = req.body;
+        const cityId = (req as any).cityId || 1;
+
+        let finalSlug = slug ? slugify(slug) : await generateUniqueSlug(prisma.member, `${first_name}-${last_name}`, cityId);
+
         const member = await prisma.member.create({
-            data: { first_name, last_name, email, phone, role: 'member', is_onboarded: 0 }
+            data: { first_name, last_name, email, phone, role: 'member', is_onboarded: 0, slug: finalSlug }
         });
         if (stream_ids && Array.isArray(stream_ids)) {
             await prisma.streamMember.createMany({
                 data: stream_ids.map((sid: number) => ({ stream_id: Number(sid), user_id: member.id }))
             });
         }
-        return res.json({ message: 'Member created', id: member.id });
+        return res.json({ message: 'Member created', id: member.id, slug: finalSlug });
     } catch (error: any) {
         console.error('createUser Error:', error);
         return res.status(500).json({ message: error.message });
@@ -302,7 +306,7 @@ export const createUser = async (req: Request, res: Response) => {
 // PUT /api/admin/users - Update a member
 export const updateUser = async (req: Request, res: Response) => {
     try {
-        const { id, user_id, first_name, last_name, email, phone, stream_ids } = req.body;
+        const { id, user_id, first_name, last_name, email, phone, stream_ids, slug } = req.body;
         const memberId = Number(id || user_id);
         
         // Only update direct fields if provided
@@ -311,6 +315,7 @@ export const updateUser = async (req: Request, res: Response) => {
         if (last_name !== undefined) updateData.last_name = last_name;
         if (email !== undefined) updateData.email = email;
         if (phone !== undefined) updateData.phone = phone;
+        if (slug !== undefined) updateData.slug = slugify(slug);
 
         if (Object.keys(updateData).length > 0) {
             await prisma.member.update({ where: { id: memberId }, data: updateData });
@@ -423,15 +428,20 @@ export const getAdminJobs = async (req: Request, res: Response) => {
 
 export const createJob = async (req: Request, res: Response) => {
     try {
-        const { title, company, location, category, type, description, company_profile, url, contact_email, status, expires_at } = req.body;
+        const { title, company, location, category, type, description, company_profile, url, contact_email, status, expires_at, slug } = req.body;
+        const cityId = (req as any).cityId || 1;
+
+        let finalSlug = slug ? slugify(slug) : await generateUniqueSlug(prisma.jobs, title, cityId);
+
         const job = await prisma.jobs.create({
             data: {
                 title, company, location, category, type, description, company_profile, url, contact_email,
                 status: status || 'pending',
-                expires_at: (expires_at && expires_at !== "") ? new Date(expires_at) : null
+                expires_at: (expires_at && expires_at !== "") ? new Date(expires_at) : null,
+                slug: finalSlug
             }
         });
-        return res.json({ message: 'Job created', id: job.id });
+        return res.json({ message: 'Job created', id: job.id, slug: finalSlug });
     } catch (error: any) {
         console.error('createJob Error:', error);
         return res.status(500).json({ message: error.message });
@@ -441,14 +451,15 @@ export const createJob = async (req: Request, res: Response) => {
 // PUT /api/admin/jobs
 export const updateJob = async (req: Request, res: Response) => {
     try {
-        const { id, title, company, location, category, type, description, company_profile, url, contact_email, status, expires_at } = req.body;
+        const { id, title, company, location, category, type, description, company_profile, url, contact_email, status, expires_at, slug } = req.body;
         if (!id) return res.status(400).json({ message: 'id required' });
         
         await prisma.jobs.update({
             where: { id: Number(id) },
             data: {
                 title, company, location, category, type, description, company_profile, url, contact_email, status,
-                expires_at: (expires_at && expires_at !== "") ? new Date(expires_at) : null
+                expires_at: (expires_at && expires_at !== "") ? new Date(expires_at) : null,
+                slug: slug !== undefined ? slugify(slug) : undefined
             }
         });
         return res.json({ message: 'Job updated' });

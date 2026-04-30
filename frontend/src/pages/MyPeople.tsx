@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import api from '../api/axios';
 import DashboardLayout from '../layouts/DashboardLayout';
-import { UserGroupIcon, StarIcon } from '@heroicons/react/24/outline';
+import { UserGroupIcon, StarIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 
 interface Peer {
     id: number;
@@ -11,18 +11,30 @@ interface Peer {
     profile_photo?: string;
     role?: string;
     services?: any[];
+    slug?: string;
 }
 
 const MyPeople: React.FC = () => {
     const [peers, setPeers] = useState<Peer[]>([]);
     const [loading, setLoading] = useState(true);
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
 
     useEffect(() => {
         const fetchPeers = async () => {
+            setLoading(true);
             try {
                 const streamId = searchParams.get('stream');
-                const url = streamId ? `/member/my-people?stream=${streamId}` : '/member/my-people';
+                const search = searchParams.get('search');
+                
+                let url = '/member/my-people';
+                const params = new URLSearchParams();
+                if (streamId) params.append('stream', streamId);
+                if (search) params.append('search', search);
+                
+                const queryString = params.toString();
+                if (queryString) url += `?${queryString}`;
+
                 const res = await api.get(url);
                 setPeers(res.data.data || []);
             } catch (err) {
@@ -34,14 +46,42 @@ const MyPeople: React.FC = () => {
         fetchPeers();
     }, [searchParams]);
 
+    // Handle search with debouncing
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            const newParams = new URLSearchParams(searchParams);
+            if (searchTerm) {
+                newParams.set('search', searchTerm);
+            } else {
+                newParams.delete('search');
+            }
+            setSearchParams(newParams);
+        }, 500);
+
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
+
     return (
         <DashboardLayout>
-            <div className="mb-10">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-[9px] font-black uppercase tracking-widest mb-4">
-                    Community
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+                <div>
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-[9px] font-black uppercase tracking-widest mb-4">
+                        Community
+                    </div>
+                    <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight uppercase italic">My People</h1>
+                    <p className="text-zinc-500 dark:text-zinc-400 mt-2 font-medium">Discover members within your streams and view their services.</p>
                 </div>
-                <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight uppercase italic">My People</h1>
-                <p className="text-zinc-500 dark:text-zinc-400 mt-2 font-medium">Discover members within your streams and view their services.</p>
+
+                <div className="relative w-full md:w-80 group">
+                    <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400 group-focus-within:text-indigo-500 transition-colors" />
+                    <input 
+                        type="text" 
+                        placeholder="Search by name..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl py-4 pl-12 pr-6 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm font-medium"
+                    />
+                </div>
             </div>
 
             {loading ? (
@@ -54,7 +94,7 @@ const MyPeople: React.FC = () => {
                     {peers.map(peer => (
                         <Link 
                             key={peer.id} 
-                            to={`/profile/${peer.id}`}
+                            to={`/profile/${peer.slug || peer.id}`}
                             className="bg-white dark:bg-zinc-900 rounded-[2rem] p-8 border border-zinc-100 dark:border-zinc-800 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 flex flex-col items-center text-center group relative overflow-hidden"
                         >
                             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-indigo-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -85,8 +125,12 @@ const MyPeople: React.FC = () => {
             ) : (
                 <div className="text-center py-40 bg-zinc-50 dark:bg-zinc-900/50 rounded-[3rem] border-2 border-dashed border-zinc-200 dark:border-zinc-800">
                     <UserGroupIcon className="w-20 h-20 mx-auto text-zinc-200 dark:text-zinc-800 mb-6" />
-                    <h2 className="text-xl font-black text-zinc-900 dark:text-white mb-2 uppercase tracking-widest italic">Quiet Neighborhood</h2>
-                    <p className="text-zinc-500 dark:text-zinc-400 font-medium">Join streams to connect with peers in your field.</p>
+                    <h2 className="text-xl font-black text-zinc-900 dark:text-white mb-2 uppercase tracking-widest italic">
+                        {searchTerm ? 'No matches found' : 'Quiet Neighborhood'}
+                    </h2>
+                    <p className="text-zinc-500 dark:text-zinc-400 font-medium">
+                        {searchTerm ? 'Try adjusting your search criteria.' : 'Join streams to connect with peers in your field.'}
+                    </p>
                 </div>
             )}
         </DashboardLayout>

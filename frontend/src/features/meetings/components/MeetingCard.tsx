@@ -117,7 +117,7 @@ const MeetingCard = ({ meeting, onRSVP, onCheckIn, onOpenRecap }) => {
                                         </Button>
                                     )}
                                     {meeting.my_checkin == 1 && (
-                                        <Button variant="ghost" onClick={onOpenRecap} className="text-indigo-600 font-bold group">
+                                        <Button variant="ghost" onClick={onOpenRecap} className="member-btn bg-primary text-white group hover:bg-primary/90">
                                             Resources <ArrowRightIcon className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
                                         </Button>
                                     )}

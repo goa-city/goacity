@@ -17,9 +17,15 @@ export class ResourceService {
         });
     }
 
-    static async getJobById(id: number) {
-        const job = await prisma.jobs.findUnique({
-            where: { id },
+    static async getJobByIdOrSlug(idOrSlug: string | number) {
+        const isNumeric = !isNaN(Number(idOrSlug));
+        const job = await prisma.jobs.findFirst({
+            where: {
+                OR: [
+                    { id: isNumeric ? Number(idOrSlug) : -1 },
+                    { slug: idOrSlug as string }
+                ]
+            },
             include: {
                 city: true
             }

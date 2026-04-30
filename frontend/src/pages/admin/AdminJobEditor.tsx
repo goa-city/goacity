@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import {
+    BriefcaseIcon, CheckCircleIcon, XCircleIcon, 
     MapPinIcon, LinkIcon, EnvelopeIcon, ClockIcon
 } from '@heroicons/react/24/solid';
 import { ArrowLeftIcon as ArrowLeftOutline } from '@heroicons/react/24/outline';
@@ -26,6 +28,7 @@ const AdminJobEditor: React.FC = () => {
     const [form, setForm] = useState({
         title: '', company: '', location: '', type: 'Full Time',
         category: '', url: '', contact_email: '', description: '', company_profile: '', expires_at: '', status: 'pending',
+        slug: ''
     });
 
     useEffect(() => {
@@ -46,6 +49,7 @@ const AdminJobEditor: React.FC = () => {
                         company_profile: j.company_profile || '',
                         expires_at: j.expires_at ? new Date(j.expires_at).toISOString().slice(0, 10) : '',
                         status: j.status || 'pending',
+                        slug: j.slug || '',
                         submitter: j.first_name ? `${j.first_name} ${j.last_name} (${j.member_email})` : null,
                         created_at: j.created_at,
                     });
@@ -164,12 +168,31 @@ const AdminJobEditor: React.FC = () => {
             {/* Form */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="p-6 space-y-6">
-                    {/* Title */}
-                    <div>
-                        <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Job Title <span className="text-red-500">*</span></label>
-                        <input name="title" value={form.title} onChange={handleChange} required
-                            placeholder="e.g. Senior Frontend Engineer"
-                            className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-4 font-medium" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div className="md:col-span-1">
+                            <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Job Title <span className="text-red-500">*</span></label>
+                            <input name="title" value={form.title} onChange={handleChange} required
+                                placeholder="e.g. Senior Frontend Engineer"
+                                className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-4 font-medium" />
+                        </div>
+                        <div className="md:col-span-1">
+                            <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">URL Slug</label>
+                            <input 
+                                name="slug" 
+                                value={form.slug} 
+                                onChange={handleChange}
+                                onInput={(e: any) => {
+                                    e.target.value = e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+                                }}
+                                placeholder="auto-generated-if-empty"
+                                className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-4 font-medium" 
+                            />
+                            {form.slug && (
+                                <p className="mt-1 text-[9px] text-indigo-500 font-bold uppercase tracking-widest ml-1">
+                                    Public Link: goa.city/jobs/{form.slug}
+                                </p>
+                            )}
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

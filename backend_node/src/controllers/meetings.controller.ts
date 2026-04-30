@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import { whatsapp } from '../services/whatsapp.service.js';
 import { SYSTEM_TEMPLATES } from '../config/constants.js';
-import { formatDateDDMMYYYY, formatTime12h, parseTime24h } from '../lib/utils.js';
+import { formatDateDDMMYYYY, formatTime12h, parseTime24h, generateICS, slugify, generateUniqueSlug } from '../lib/utils.js';
 
 // GET /api/admin/meetings
 export const getMeetings = async (req: Request, res: Response) => {
@@ -221,8 +221,26 @@ export const getMemberMeetings = async (req: Request, res: Response) => {
 // GET /api/meetings/:id (member-facing single meeting)
 export const getMeeting = async (req: Request, res: Response) => {
     try {
-        const id = Number(req.params.id);
+        const idOrSlug = req.params.id as string;
         const userId = Number(req.query.user_id) || (req as any).userId || 0;
+        
+        const isNumeric = !isNaN(Number(idOrSlug));
+        const cityId = (req as any).cityId || 1;
+
+        // Find the meeting by ID or Slug first to get the correct numeric ID
+        const basicMeeting = await prisma.meetings.findFirst({
+            where: {
+                city_id: cityId,
+                OR: [
+                    { id: isNumeric ? Number(idOrSlug) : -1 },
+                    { slug: idOrSlug }
+                ]
+            }
+        });
+
+        if (!basicMeeting) return res.status(404).json({ message: 'Meeting not found' });
+
+        const id = basicMeeting.id;
         
         const rawMeetings: any[] = await prisma.$queryRaw`
             SELECT m.*, s.name as stream_name, s.color as stream_color,
@@ -267,7 +285,7 @@ import { createGoogleCalendarEvent } from '../utils/google-calendar.js';
 // POST /api/admin/meetings (Handles both Create and Update)
 export const createMeeting = async (req: Request, res: Response) => {
     try {
-        let { id, title, description, meeting_date, start_time, end_time, location_name, map_link, is_paid, payment_amount, feedback_form_id, stream_id, archived, recap_content, zoom_link } = req.body;
+        let { id, title, slug, description, meeting_date, start_time, end_time, location_name, map_link, is_paid, payment_amount, feedback_form_id, stream_id, archived, recap_content, zoom_link } = req.body;
         const filename = req.file ? req.file.filename : null;
 
         const meetingData: any = {
@@ -286,6 +304,22 @@ export const createMeeting = async (req: Request, res: Response) => {
             recap_content: recap_content || null,
             zoom_link: zoom_link || null
         };
+
+        const cityId = (req as any).cityId || 1;
+
+        if (id) {
+            // Updating: Only update slug if provided manually, otherwise keep existing
+            if (slug) {
+                meetingData.slug = slugify(slug);
+            }
+        } else {
+            // Creating: Use manual slug or generate a unique one
+            if (slug) {
+                meetingData.slug = slugify(slug);
+            } else {
+                meetingData.slug = await generateUniqueSlug(prisma.meetings, title, cityId, meeting_date ? new Date(meeting_date) : undefined);
+            }
+        }
 
         if (filename) {
             meetingData.payment_qr_image = filename;
@@ -420,10 +454,26 @@ export const getPosts = async (req: Request, res: Response) => {
 export const rsvpMeeting = async (req: Request, res: Response) => {
     try {
         const userId = (req as any).userId;
-        const meetingId = Number(req.params.id);
+        const idOrSlug = req.params.id as string;
         const { status } = req.body;
 
         if (!status) return res.status(400).json({ message: 'Status required' });
+
+        const isNumeric = !isNaN(Number(idOrSlug));
+        const cityId = (req as any).cityId || 1;
+
+        const basicMeeting = await prisma.meetings.findFirst({
+            where: {
+                city_id: cityId,
+                OR: [
+                    { id: isNumeric ? Number(idOrSlug) : -1 },
+                    { slug: idOrSlug }
+                ]
+            }
+        });
+
+        if (!basicMeeting) return res.status(404).json({ message: 'Meeting not found' });
+        const meetingId = basicMeeting.id;
 
         const existing = await prisma.meeting_responses.findFirst({
             where: { meeting_id: meetingId, user_id: userId }
@@ -450,7 +500,23 @@ export const rsvpMeeting = async (req: Request, res: Response) => {
 export const checkInMeeting = async (req: Request, res: Response) => {
     try {
         const userId = (req as any).userId;
-        const meetingId = Number(req.params.id);
+        const idOrSlug = req.params.id as string;
+
+        const isNumeric = !isNaN(Number(idOrSlug));
+        const cityId = (req as any).cityId || 1;
+
+        const basicMeeting = await prisma.meetings.findFirst({
+            where: {
+                city_id: cityId,
+                OR: [
+                    { id: isNumeric ? Number(idOrSlug) : -1 },
+                    { slug: idOrSlug }
+                ]
+            }
+        });
+
+        if (!basicMeeting) return res.status(404).json({ message: 'Meeting not found' });
+        const meetingId = basicMeeting.id;
 
         const existing = await prisma.meeting_responses.findFirst({
             where: { meeting_id: meetingId, user_id: userId }
@@ -477,8 +543,24 @@ export const checkInMeeting = async (req: Request, res: Response) => {
 export const payMeeting = async (req: Request, res: Response) => {
     try {
         const userId = (req as any).userId;
-        const meetingId = Number(req.params.id);
+        const idOrSlug = req.params.id as string;
         const { method, amount } = req.body;
+
+        const isNumeric = !isNaN(Number(idOrSlug));
+        const cityId = (req as any).cityId || 1;
+
+        const basicMeeting = await prisma.meetings.findFirst({
+            where: {
+                city_id: cityId,
+                OR: [
+                    { id: isNumeric ? Number(idOrSlug) : -1 },
+                    { slug: idOrSlug }
+                ]
+            }
+        });
+
+        if (!basicMeeting) return res.status(404).json({ message: 'Meeting not found' });
+        const meetingId = basicMeeting.id;
 
         const existing = await prisma.meeting_responses.findFirst({
             where: { meeting_id: meetingId, user_id: userId }
@@ -616,7 +698,53 @@ export const notifyMeetingMembers = async (req: Request, res: Response) => {
         }
 
         const dateStr = formatDateDDMMYYYY(meeting.meeting_date);
-        const timeStr = meeting.start_time ? new Date(meeting.start_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'TBD';
+        const startTime = meeting.start_time || '';
+        const endTime = meeting.end_time || '';
+        const timeStr = (startTime && endTime) ? `${startTime} - ${endTime}` : (startTime || endTime || 'TBD');
+
+        const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+        const host = req.headers.host || '';
+        const baseUrl = (process.env.VITE_API_URL || `${protocol}://${host}`).replace(/\/api\/?$/, '');
+        const meetingUrl = `${baseUrl}/meetings/${id}`;
+
+        const getReplacements = (m: any) => ({
+            '{first_name}': m.first_name || 'Member',
+            '{firstname}': m.first_name || 'Member',
+            '{last_name}': m.last_name || '',
+            '{lastname}': m.last_name || '',
+            '{meeting_title}': meeting.title || '',
+            '{meeting_date}': dateStr || '',
+            '{meeting_time}': timeStr || '',
+            '{location_name}': meeting.location_name || '',
+            '{location}': meeting.location_name || '',
+            '{map_link}': meeting.map_link || '',
+            '{zoom_link}': meeting.zoom_link || '',
+            '{rsvp_link}': meetingUrl || '',
+            '{recap_content}': meeting.recap_content || '',
+            '{description}': meeting.description || '',
+            // Legacy / Double Bracket Support
+            '{{first_name}}': m.first_name || 'Member',
+            '{{last_name}}': m.last_name || '',
+            '{{meeting_title}}': meeting.title || '',
+            '{{meeting_date}}': dateStr || '',
+            '{{meeting_time}}': timeStr || '',
+            '{{location_name}}': meeting.location_name || '',
+            '{{map_link}}': meeting.map_link || '',
+            '{{zoom_link}}': meeting.zoom_link || '',
+            '{{meeting_url}}': meetingUrl || '',
+            '{{rsvp_link}}': meetingUrl || '',
+            '{{recap_content}}': meeting.recap_content || '',
+            '{{description}}': meeting.description || ''
+        });
+
+        const applyReplacements = (text: string, replacements: any) => {
+            let result = text;
+            for (const key in replacements) {
+                const regex = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+                result = result.replace(regex, replacements[key]);
+            }
+            return result;
+        };
 
         if (type === 'email') {
             const effectiveTemplateId = templateId ? Number(templateId) : SYSTEM_TEMPLATES.EMAIL.MEETING.ID;
@@ -625,20 +753,25 @@ export const notifyMeetingMembers = async (req: Request, res: Response) => {
 
             const emailMembers = members.filter(m => m.email);
             
+            // Generate ICS file
+            const icsContent = generateICS(meeting);
+            const attachments = [{
+                filename: 'invite.ics',
+                content: icsContent,
+                contentType: 'text/calendar'
+            }];
+            
             // Send emails (background)
             Promise.all(emailMembers.map(m => {
-                let personalizedHtml = template.message
-                    .replace(/{firstname}|{{first_name}}/gi, m.first_name || 'Member')
-                    .replace(/{lastname}|{{last_name}}/gi, m.last_name || '')
-                    .replace(/{meeting_title}|{{meeting_title}}/gi, meeting.title)
-                    .replace(/{meeting_date}|{{meeting_date}}/gi, dateStr)
-                    .replace(/{meeting_time}|{{meeting_time}}/gi, timeStr)
-                    .replace(/{location}|{{location_name}}/gi, meeting.location_name || 'TBD');
+                const replacements = getReplacements(m);
+                const personalizedHtml = applyReplacements(template.message, replacements);
+                const personalizedSubject = applyReplacements(template.subject, replacements);
 
                 return sendEmail(
                     m.email,
-                    template.subject.replace(/{meeting_title}|{{meeting_title}}/gi, meeting.title),
-                    personalizedHtml
+                    personalizedSubject,
+                    personalizedHtml,
+                    attachments
                 ).catch(err => console.error(`Email failed for ${m.email}:`, err));
             }));
 
@@ -652,13 +785,8 @@ export const notifyMeetingMembers = async (req: Request, res: Response) => {
 
             // Format bulk messages
             const bulkMessages = whatsappMembers.map(m => {
-                let personalizedContent = template.content
-                    .replace(/{firstname}|{{first_name}}/gi, m.first_name || 'Member')
-                    .replace(/{lastname}|{{last_name}}/gi, m.last_name || '')
-                    .replace(/{meeting_title}|{{meeting_title}}/gi, meeting.title)
-                    .replace(/{meeting_date}|{{meeting_date}}/gi, dateStr)
-                    .replace(/{meeting_time}|{{meeting_time}}/gi, timeStr)
-                    .replace(/{location}|{{location_name}}/gi, meeting.location_name || 'TBD');
+                const replacements = getReplacements(m);
+                const personalizedContent = applyReplacements(template.content, replacements);
 
                 return {
                     to: m.phone,

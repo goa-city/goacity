@@ -57,9 +57,21 @@ export class AuthService {
 
             if (template) {
                 emailSubject = template.subject;
-                emailContent = template.message.replace('{{otp_code}}', otpCode);
-                emailContent = emailContent.replace('{{first_name}}', member.first_name || '');
-                emailContent = emailContent.replace('{{last_name}}', member.last_name || '');
+                const replacements: any = {
+                    '{otp_code}': otpCode,
+                    '{{otp_code}}': otpCode,
+                    '{first_name}': member.first_name || '',
+                    '{{first_name}}': member.first_name || '',
+                    '{last_name}': member.last_name || '',
+                    '{{last_name}}': member.last_name || ''
+                };
+                
+                emailContent = template.message;
+                for (const key in replacements) {
+                    const regex = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+                    emailContent = emailContent.replace(regex, replacements[key]);
+                    emailSubject = emailSubject.replace(regex, replacements[key]);
+                }
             }
         } catch (err) {
             console.warn('[AUTH SERVICE] Could not fetch OTP template, using default:', err);
@@ -142,6 +154,7 @@ export class AuthService {
                 role: user.role,
                 is_onboarded: user.is_onboarded,
                 profile_photo: user.profile_photo,
+                slug: user.slug,
                 streams
             }
         };
@@ -175,14 +188,24 @@ export class AuthService {
             email: admin.email 
         });
 
+        // Enrich with member data if exists
+        const memberData = await prisma.member.findFirst({
+            where: { email: admin.email }
+        });
+
         return {
             token,
             user: {
                 id: admin.id,
+                first_name: memberData?.first_name || admin.full_name?.split(' ')[0] || '',
+                last_name: memberData?.last_name || admin.full_name?.split(' ').slice(1).join(' ') || '',
                 full_name: admin.full_name,
                 email: admin.email,
                 role: admin.role,
-                isSuperAdmin: (admin as any).is_super_admin
+                isSuperAdmin: (admin as any).is_super_admin,
+                profile_photo: memberData?.profile_photo || null,
+                slug: memberData?.slug || null,
+                phone: memberData?.phone || null
             }
         };
     }

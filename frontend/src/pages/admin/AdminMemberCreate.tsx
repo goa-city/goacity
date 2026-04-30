@@ -5,10 +5,11 @@ import { ArrowLeftIcon } from '@heroicons/react/24/outline'; // Assuming you hav
 
 const AdminMemberCreate: React.FC = () => {
     const navigate = useNavigate();
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<any>({
         first_name: '',
         last_name: '',
-        role: 'member'
+        role: 'member',
+        profile_photo: ''
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<any>(null);
@@ -62,6 +63,38 @@ const AdminMemberCreate: React.FC = () => {
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-6">
+                    <div className="flex flex-col items-center mb-8">
+                        <label className="relative group cursor-pointer">
+                            <div className="w-32 h-32 rounded-2xl bg-zinc-50 border-2 border-dashed border-zinc-200 flex items-center justify-center overflow-hidden">
+                                {formData.profile_photo ? (
+                                    <img src={formData.profile_photo} alt="Preview" className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="text-center p-4">
+                                        <div className="text-zinc-300 text-3xl mb-1">+</div>
+                                        <div className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Photo</div>
+                                    </div>
+                                )}
+                            </div>
+                            <input 
+                                type="file" 
+                                className="hidden" 
+                                accept="image/*" 
+                                onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                        try {
+                                            const { resizeImageToBase64 } = await import('../../utils/image');
+                                            const base64 = await resizeImageToBase64(file);
+                                            setFormData({ ...formData, profile_photo: base64 });
+                                        } catch (err) {
+                                            console.error(err);
+                                        }
+                                    }
+                                }} 
+                            />
+                        </label>
+                    </div>
+
                     <div>
                         <label htmlFor="first_name" className="block text-sm font-medium text-gray-700">First Name *</label>
                         <input

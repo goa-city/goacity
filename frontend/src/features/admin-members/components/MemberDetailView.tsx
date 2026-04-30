@@ -24,6 +24,7 @@ import {
     TrashIcon,
     ArrowLongLeftIcon
 } from '@heroicons/react/24/solid';
+import { ArrowLeftIcon as ArrowLeftOutline } from '@heroicons/react/24/outline';
 import MemberWhatsAppTab from '../../admin-whatsapp/components/MemberWhatsAppTab';
 
 const MemberDetailView: React.FC = () => {
@@ -31,7 +32,7 @@ const MemberDetailView: React.FC = () => {
     const navigate = useNavigate();
     const { member, isLoading, updateMember, isUpdating, deleteMember, isDeleting } = useAdminMembers(Number(id));
 
-    const [editBasic, setEditBasic] = useState({ first_name: '', last_name: '', email: '', phone: '' });
+    const [editBasic, setEditBasic] = useState({ first_name: '', last_name: '', email: '', phone: '', slug: '' });
     const [openResponses, setOpenResponses] = useState<Record<number, boolean>>({});
     const [allStreams, setAllStreams] = useState<any[]>([]);
     const [showStreamPicker, setShowStreamPicker] = useState(false);
@@ -43,7 +44,8 @@ const MemberDetailView: React.FC = () => {
                 first_name: member.first_name || '',
                 last_name: member.last_name || '',
                 email: member.email || '',
-                phone: member.phone || ''
+                phone: member.phone || '',
+                slug: member.slug || ''
             });
         }
     }, [member]);
@@ -113,9 +115,40 @@ const MemberDetailView: React.FC = () => {
             {/* Identity Header */}
             <Card className="mb-10 border-zinc-100 dark:border-zinc-800 bg-indigo-50/20 dark:bg-indigo-950/10 overflow-hidden">
                 <CardContent className="p-10 flex flex-wrap items-center gap-8">
-                    <div className="w-28 h-28 rounded-xl bg-white dark:bg-zinc-900 shadow-xl flex items-center justify-center border border-indigo-100 dark:border-indigo-900/50 overflow-hidden">
-                        <UserCircleIcon className="w-20 h-20 text-indigo-100 dark:text-indigo-900/50" />
-                    </div>
+                    <label className="relative group cursor-pointer">
+                        <div className="w-28 h-28 rounded-xl bg-white dark:bg-zinc-900 shadow-xl flex items-center justify-center border border-indigo-100 dark:border-indigo-900/50 overflow-hidden">
+                            {member.profile_photo ? (
+                                <img 
+                                    src={member.profile_photo.startsWith('data:image') ? member.profile_photo : (member.profile_photo.startsWith('http') ? member.profile_photo : `/uploads/${member.profile_photo}`)} 
+                                    alt="Profile" 
+                                    className="w-full h-full object-cover" 
+                                />
+                            ) : (
+                                <UserCircleIcon className="w-20 h-20 text-indigo-100 dark:text-indigo-900/50" />
+                            )}
+                            <div className="absolute inset-0 bg-indigo-600/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <PlusIcon className="w-8 h-8 text-white" />
+                            </div>
+                        </div>
+                        <input 
+                            type="file" 
+                            className="hidden" 
+                            accept="image/*" 
+                            onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                    try {
+                                        const { resizeImageToBase64 } = await import('../../../utils/image');
+                                        const base64 = await resizeImageToBase64(file);
+                                        await updateMember({ profile_photo: base64 });
+                                    } catch (err) {
+                                        console.error("Failed to process image:", err);
+                                        alert("Failed to process image. Please try a different one.");
+                                    }
+                                }
+                            }}
+                        />
+                    </label>
                     <div className="flex-1">
                         <div className="flex items-center gap-4 mb-2">
                             <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight leading-none">
@@ -155,6 +188,22 @@ const MemberDetailView: React.FC = () => {
                                 </div>
                                 <Input label="Email" value={editBasic.email} onChange={(e) => setEditBasic({...editBasic, email: e.target.value})} />
                                 <Input label="Phone" value={editBasic.phone} onChange={(e) => setEditBasic({...editBasic, phone: e.target.value})} />
+                                <div className="space-y-1">
+                                    <Input 
+                                        label="URL Slug (handle)" 
+                                        value={editBasic.slug} 
+                                        onChange={(e) => setEditBasic({...editBasic, slug: e.target.value})} 
+                                        onInput={(e: any) => {
+                                            e.target.value = e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+                                        }}
+                                        placeholder="firstname-lastname" 
+                                    />
+                                    {editBasic.slug && (
+                                        <p className="text-[9px] text-indigo-500 font-bold uppercase tracking-widest ml-1">
+                                            Public Profile: goa.city/profile/{editBasic.slug}
+                                        </p>
+                                    )}
+                                </div>
                                 <Button type="submit" isLoading={isUpdating} className="w-full rounded-xl h-12 shadow-lg shadow-indigo-600/10">
                                     Update Details
                                 </Button>

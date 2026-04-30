@@ -7,6 +7,8 @@ import Input from '../../../shared/components/ui/Input';
 import FormFieldCard from './FormFieldCard';
 import FormPreview from './FormPreview';
 import { FormField } from '../api/admin-forms.api';
+import {
+    PlusIcon,
     EyeIcon, 
     CheckIcon,
 } from '@heroicons/react/24/solid';

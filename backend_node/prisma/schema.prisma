@@ -20,7 +20,7 @@ model Member {
   password_hash       String?
   is_onboarded        Int?                   @default(0) @db.SmallInt
   bio                 String?
-  profile_photo       String?                @db.VarChar(255)
+  profile_photo       String?
   linkedin_url        String?                @db.VarChar(255)
   intro_video         String?                @db.VarChar(255)
   village             String?                @db.VarChar(100)
@@ -31,6 +31,7 @@ model Member {
   city_id             Int?                   @default(1)
   fcm_token           String?                @db.VarChar(255)
   whatsapp_id         String?                @db.VarChar(255)
+  slug                String?                @db.VarChar(255)
   businesses          Business[]
   collabsReceived     CollaborationRequest[] @relation("CollabProvider")
   collabsMade         CollaborationRequest[] @relation("CollabRequester")
@@ -38,6 +39,8 @@ model Member {
   ideaFeedbacks       IdeaFeedback[]
   incubatorIdeas      IncubatorIdea[]
   job_applications    JobApplication[]       @relation("JobApplications")
+  jobPostings         jobs[]                 @relation("JobPostings")
+  meeting_responses   meeting_responses[]
   profiles            MemberProfile[]
   services            MemberService[]
   city                City?                  @relation(fields: [city_id], references: [id])
@@ -45,13 +48,12 @@ model Member {
   mentorshipsAsMentor MentorshipRelation[]   @relation("MentorshipMentor")
   notifications       Notification[]
   posts               Post[]
+  resources           resources[]            @relation("SubmittedResources")
   stewardshipLogs     StewardshipLog[]
   streams             StreamMember[]
   whatsappLogs        WhatsAppLog[]
-  resources           resources[] @relation("SubmittedResources")
-  jobPostings         jobs[]      @relation("JobPostings")
-  meeting_responses   meeting_responses[]
 
+  @@unique([city_id, slug])
   @@map("members")
 }
 
@@ -108,11 +110,13 @@ model Stream {
   created_at  DateTime?      @default(now()) @db.Timestamp(6)
   form_id     Int?
   city_id     Int?           @default(1)
-  members     StreamMember[]
+  slug        String?        @db.VarChar(255)
   meetings    meetings[]
+  members     StreamMember[]
   city        City?          @relation(fields: [city_id], references: [id])
   form        forms?         @relation(fields: [form_id], references: [id])
 
+  @@unique([city_id, slug])
   @@map("streams")
 }
 
@@ -266,15 +270,18 @@ model jobs {
   url             String?          @db.VarChar(500)
   contact_email   String?          @db.VarChar(255)
   posted_by       Int?
-  poster          Member?          @relation("JobPostings", fields: [posted_by], references: [id])
   status          String?          @default("pending") @db.VarChar(50)
   created_at      DateTime?        @default(now()) @db.Timestamp(6)
   updated_at      DateTime?        @default(now()) @db.Timestamp(6)
   city_id         Int?             @default(1)
   company_profile String?
   expires_at      DateTime?        @db.Timestamp(6)
+  slug            String?          @db.VarChar(255)
   applications    JobApplication[]
   city            City?            @relation(fields: [city_id], references: [id])
+  poster          Member?          @relation("JobPostings", fields: [posted_by], references: [id])
+
+  @@unique([city_id, slug])
 }
 
 model JobApplication {
@@ -310,30 +317,33 @@ model meeting_responses {
 }
 
 model meetings {
-  id               Int               @id @default(autoincrement())
-  title            String            @db.VarChar(255)
-  description      String?
-  meeting_date     DateTime?         @db.Date
-  start_time       String?           @db.VarChar(20)
-  end_time         String?           @db.VarChar(20)
-  location_name    String?           @db.VarChar(255)
-  map_link         String?
-  is_paid          Int?              @default(0) @db.SmallInt
-  payment_qr_image String?           @db.VarChar(255)
-  feedback_form_id Int?
-  archived         Int?              @default(0) @db.SmallInt
-  created_at       DateTime?         @default(now()) @db.Timestamp(6)
-  updated_at       DateTime?         @default(now()) @db.Timestamp(6)
-  stream_id        Int?
-  stream           Stream?           @relation(fields: [stream_id], references: [id])
-  payment_amount   Decimal?          @default(0.00) @db.Decimal(10, 2)
-  recap_content    String?
-  zoom_link        String?           @db.VarChar(500)
-  google_event_id  String?           @db.VarChar(255)
-  city_id          Int?              @default(1)
-  resources        MeetingResource[]
-  city             City?             @relation(fields: [city_id], references: [id])
+  id                Int                 @id @default(autoincrement())
+  title             String              @db.VarChar(255)
+  description       String?
+  meeting_date      DateTime?           @db.Date
+  start_time        String?             @db.VarChar(20)
+  end_time          String?             @db.VarChar(20)
+  location_name     String?             @db.VarChar(255)
+  map_link          String?
+  is_paid           Int?                @default(0) @db.SmallInt
+  payment_qr_image  String?             @db.VarChar(255)
+  feedback_form_id  Int?
+  archived          Int?                @default(0) @db.SmallInt
+  created_at        DateTime?           @default(now()) @db.Timestamp(6)
+  updated_at        DateTime?           @default(now()) @db.Timestamp(6)
+  stream_id         Int?
+  payment_amount    Decimal?            @default(0.00) @db.Decimal(10, 2)
+  recap_content     String?
+  zoom_link         String?             @db.VarChar(500)
+  google_event_id   String?             @db.VarChar(255)
+  city_id           Int?                @default(1)
+  slug              String?             @db.VarChar(255)
+  resources         MeetingResource[]
   meeting_responses meeting_responses[]
+  city              City?               @relation(fields: [city_id], references: [id])
+  stream            Stream?             @relation(fields: [stream_id], references: [id])
+
+  @@unique([city_id, slug])
 }
 
 model MeetingResource {
@@ -383,12 +393,12 @@ model resources {
   description  String?
   content      String?
   submitted_by Int?
-  submitter    Member?   @relation("SubmittedResources", fields: [submitted_by], references: [id])
   status       String?   @default("pending") @db.VarChar(50)
   created_at   DateTime? @default(now()) @db.Timestamp(6)
   updated_at   DateTime? @default(now()) @db.Timestamp(6)
   city_id      Int?      @default(1)
   city         City?     @relation(fields: [city_id], references: [id])
+  submitter    Member?   @relation("SubmittedResources", fields: [submitted_by], references: [id])
 }
 
 model skills {

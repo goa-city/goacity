@@ -24,10 +24,7 @@ if (!fs.existsSync('uploads')) {
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
-app.use('/uploads', (req, res, next) => {
-    res.setHeader('Content-Disposition', 'attachment');
-    next();
-}, express.static('uploads'));
+app.use('/uploads', express.static('uploads'));
 
 // API Routes
 app.use('/api', apiRoutes);

@@ -501,9 +501,16 @@ export class WhatsAppService {
                     });
                     
                     if (member) {
-                        personalizedContent = personalizedContent
-                            .replace(/{firstname}/gi, member.first_name || '')
-                            .replace(/{lastname}/gi, member.last_name || '');
+                        const replacements: any = {
+                            '{first_name}': member.first_name || '',
+                            '{firstname}': member.first_name || '',
+                            '{last_name}': member.last_name || '',
+                            '{lastname}': member.last_name || ''
+                        };
+                        for (const key in replacements) {
+                            const regex = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+                            personalizedContent = personalizedContent.replace(regex, replacements[key]);
+                        }
                     }
                 }
 

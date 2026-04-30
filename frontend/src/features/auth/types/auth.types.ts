@@ -11,6 +11,8 @@ export interface User {
         theme_config?: any;
     };
     profile_photo?: string;
+    slug?: string;
+    phone?: string;
     willing_to_mentor?: boolean;
 }
 

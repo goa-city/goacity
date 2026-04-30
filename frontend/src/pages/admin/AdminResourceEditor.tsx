@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import {
+    BookOpenIcon, CheckCircleIcon, XCircleIcon, 
     LinkIcon, ClockIcon, PaperClipIcon
 } from '@heroicons/react/24/solid';
 import { ArrowLeftIcon as ArrowLeftOutline } from '@heroicons/react/24/outline';

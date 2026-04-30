@@ -76,7 +76,7 @@ export const getJobs = async (req: Request, res: Response, next: NextFunction) =
 export const getJob = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params;
-        const result = await ResourceService.getJobById(Number(id));
+        const result = await ResourceService.getJobByIdOrSlug(id as string);
         res.json(result);
     } catch (error) {
         next(error);
@@ -100,12 +100,13 @@ export const applyJob = async (req: Request, res: Response, next: NextFunction) 
         
         const cv_url = `/uploads/${file.filename}`;
         
-        await ResourceService.applyForJob(userId, Number(id), {
+        // Resolve Job ID if slug is passed
+        const job = await ResourceService.getJobByIdOrSlug(id as string);
+        const jobId = job.id;
+
+        await ResourceService.applyForJob(userId, jobId, {
             full_name, email, phone, message, cv_url
         });
-
-        // Get Job Details for email
-        const job = await ResourceService.getJobById(Number(id));
 
         // Send Email Alerts
         const emailSubject = `New Job Application: ${job.title} at ${job.company}`;

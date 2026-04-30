@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
-    VariableIcon 
+import {
+    ChatBubbleLeftRightIcon, CheckIcon, VariableIcon 
 } from '@heroicons/react/24/solid';
 import { ArrowLeftIcon as ArrowLeftOutline } from '@heroicons/react/24/outline';
 import { Card, CardContent } from '../../shared/components/ui/Card';
@@ -147,7 +148,7 @@ const AdminWhatsAppTemplateEditor: React.FC = () => {
                                 <h3 className="text-xs font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-400">Insert Variables</h3>
                             </div>
                             <div className="flex flex-wrap gap-2">
-                                {['firstname', 'lastname', 'meeting_title', 'meeting_date', 'meeting_time', 'location'].map(v => (
+                                {['first_name', 'last_name', 'meeting_title', 'meeting_date', 'meeting_time', 'location_name', 'map_link', 'zoom_link', 'rsvp_link'].map(v => (
                                     <button 
                                         key={v}
                                         onClick={() => insertVariable(v)}

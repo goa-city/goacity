@@ -24,7 +24,7 @@ export const globalSearch = async (req: any, res: Response) => {
                     { location: { contains: searchStr, mode: 'insensitive' } }
                 ]
             },
-            select: { id: true, first_name: true, last_name: true, profile_photo: true, role: true },
+            select: { id: true, slug: true, first_name: true, last_name: true, profile_photo: true, role: true },
             take: 5
         });
 

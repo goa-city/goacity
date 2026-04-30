@@ -176,15 +176,15 @@ const App: React.FC = () => {
                                         <Route path="/resources" element={<Resources />} />
                                         <Route path="/resources/add" element={<ResourceEditor />} />
                                         <Route path="/jobs" element={<Jobs />} />
-                                        <Route path="/jobs/:id" element={<JobView />} />
+                                        <Route path="/jobs/:slug" element={<JobView />} />
                                         <Route path="/jobs/post" element={<JobEditor />} />
                                         <Route path="/stewardship" element={<StewardshipDashboard />} />
                                         <Route path="/mentors" element={<Mentors />} />
                                         <Route path="/dashboard/mentorship/:id" element={<MentorshipWorkspace />} />
                                         <Route path="/my-people" element={<MyPeople />} />
-                                        <Route path="/profile/:id" element={<PublicProfile />} />
+                                        <Route path="/profile/:slug" element={<PublicProfile />} />
                                         <Route path="/meetings" element={<MemberMeetings />} />
-                                        <Route path="/meetings/:id" element={<MeetingView />} />
+                                        <Route path="/meetings/:slug" element={<MeetingView />} />
                                         <Route path="/incubator/submit" element={<IncubatorSubmit />} />
                                         <Route path="/incubator/explore" element={<IncubatorExplore />} />
                                         <Route path="/onboarding" element={<Onboarding />} />

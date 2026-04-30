@@ -65,7 +65,7 @@ const MeetingsView = () => {
                                 meeting={meeting}
                                 onRSVP={rsvp}
                                 onCheckIn={(m) => setCheckInMeeting(m)}
-                                onOpenRecap={() => navigate(`/meetings/${meeting.id}`)}
+                                onOpenRecap={() => navigate(`/meetings/${meeting.slug || meeting.id}`)}
                             />
                         ))}
                         {upcoming.length === 0 && (
@@ -89,7 +89,7 @@ const MeetingsView = () => {
                                     key={meeting.id}
                                     meeting={meeting}
                                     onRSVP={rsvp}
-                                    onOpenRecap={() => navigate(`/meetings/${meeting.id}`)}
+                                    onOpenRecap={() => navigate(`/meetings/${meeting.slug || meeting.id}`)}
                                 />
                             ))}
                         </div>

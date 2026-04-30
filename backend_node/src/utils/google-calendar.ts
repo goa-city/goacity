@@ -18,16 +18,28 @@ export const createGoogleCalendarEvent = async (meeting: any, attendeeEmails: st
             scopes: ['https://www.googleapis.com/auth/calendar.events']
         });
 
+        const parseTimeStr = (timeStr: string) => {
+            if (!timeStr) return null;
+            const matches = timeStr.match(/(\d+):(\d+)(am|pm)/i);
+            if (!matches || !matches[1] || !matches[2] || !matches[3]) return null;
+            let hours = parseInt(matches[1]);
+            const minutes = parseInt(matches[2]);
+            const modifier = matches[3].toLowerCase();
+            if (modifier === 'pm' && hours < 12) hours += 12;
+            if (modifier === 'am' && hours === 12) hours = 0;
+            return { hours, minutes };
+        };
+
         const start = new Date(meeting.meeting_date);
-        if (meeting.start_time) {
-            const st = new Date(meeting.start_time);
-            start.setHours(st.getHours(), st.getMinutes(), 0);
+        const st = parseTimeStr(meeting.start_time);
+        if (st) {
+            start.setHours(st.hours, st.minutes, 0);
         }
         
         const end = new Date(meeting.meeting_date);
-        if (meeting.end_time) {
-            const et = new Date(meeting.end_time);
-            end.setHours(et.getHours(), et.getMinutes(), 0);
+        const et = parseTimeStr(meeting.end_time);
+        if (et) {
+            end.setHours(et.hours, et.minutes, 0);
         } else {
             end.setHours(start.getHours() + 1);
         }

@@ -3,18 +3,26 @@ import { useParams } from 'react-router-dom';
 import { useSingleMeeting } from '../hooks/useSingleMeeting';
 import DashboardLayout from '../../../layouts/DashboardLayout';
 import { DocumentTextIcon, LinkIcon, VideoCameraIcon } from '@heroicons/react/24/outline';
+import { CheckCircleIcon, QuestionMarkCircleIcon, XCircleIcon } from '@heroicons/react/24/solid';
 import { formatDate } from '../../../utils/date';
 import api from '../../../api/axios';
 import { Card, CardContent } from '../../../shared/components/ui/Card';
 import Button from '../../../shared/components/ui/Button';
 import CheckInModal from './CheckInModal';
 
+const getLocalYYYYMMDD = (dateInput: any) => {
+    const d = new Date(dateInput);
+    const offset = d.getTimezoneOffset() * 60000;
+    return (new Date(d.getTime() - offset)).toISOString().slice(0, 10);
+};
+
 const SingleMeetingView: React.FC = () => {
-    const { id } = useParams<{ id: string }>();
-    const { meeting, isLoading, refetch, checkIn } = useSingleMeeting(id);
+    const { slug } = useParams<{ slug: string }>();
+    const { meeting, isLoading, refetch, rsvp, isRsvping } = useSingleMeeting(slug);
     const [showCheckIn, setShowCheckIn] = React.useState(false);
 
     const isDev = import.meta.env.MODE === 'development' || window.location.hostname === 'localhost';
+    const isPast = meeting ? getLocalYYYYMMDD(meeting.meeting_date) < getLocalYYYYMMDD(new Date()) : false;
 
     const handleDevTest = async () => {
         if (!meeting) return;
@@ -80,10 +88,39 @@ const SingleMeetingView: React.FC = () => {
                     </div>
 
                     <div className="pt-2">
-                        {new Date(meeting.meeting_date).toDateString() === new Date().toDateString() && !meeting.checked_in && (
+                        {new Date(meeting.meeting_date).toDateString() === new Date().toDateString() && !meeting.checked_in ? (
                             <Button onClick={() => setShowCheckIn(true)} className="shadow-xl shadow-indigo-600/20 px-8">
                                 Check In Now
                             </Button>
+                        ) : (
+                            !isPast && !meeting.checked_in && (
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => rsvp('going')}
+                                        disabled={isRsvping}
+                                        className={`flex items-center gap-2 px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'going' ? 'bg-emerald-600 text-white shadow-xl shadow-emerald-600/20' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}
+                                    >
+                                        <CheckCircleIcon className="w-4 h-4" />
+                                        {isRsvping && meeting.my_rsvp === 'going' ? '...' : 'Going'}
+                                    </button>
+                                    <button
+                                        onClick={() => rsvp('not_sure')}
+                                        disabled={isRsvping}
+                                        className={`flex items-center gap-2 px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'not_sure' ? 'bg-amber-500 text-white shadow-xl shadow-amber-500/20' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}
+                                    >
+                                        <QuestionMarkCircleIcon className="w-4 h-4" />
+                                        {isRsvping && meeting.my_rsvp === 'not_sure' ? '...' : 'Maybe'}
+                                    </button>
+                                    <button
+                                        onClick={() => rsvp('cant_go')}
+                                        disabled={isRsvping}
+                                        className={`flex items-center gap-2 px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'cant_go' ? 'bg-red-500 text-white shadow-xl shadow-red-500/20' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}
+                                    >
+                                        <XCircleIcon className="w-4 h-4" />
+                                        {isRsvping && meeting.my_rsvp === 'cant_go' ? '...' : 'No'}
+                                    </button>
+                                </div>
+                            )
                         )}
                         {meeting.checked_in == 1 && (
                             <div className="flex flex-col items-end gap-2">
@@ -141,18 +178,18 @@ const SingleMeetingView: React.FC = () => {
                         )}
 
                         {/* Meeting Resources */}
-                        <Card className="overflow-hidden relative">
-                            <CardContent className="p-6">
-                                <div className="flex items-center gap-3 mb-6">
-                                    <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center">
-                                        <LinkIcon className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+                        {meeting.resources && meeting.resources.length > 0 && (
+                            <Card className="overflow-hidden relative">
+                                <CardContent className="p-6">
+                                    <div className="flex items-center gap-3 mb-6">
+                                        <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center">
+                                            <LinkIcon className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+                                        </div>
+                                        <div>
+                                            <h4 className="font-black text-sm text-zinc-900 dark:text-white leading-tight">Meeting Resources</h4>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h4 className="font-black text-sm text-zinc-900 dark:text-white leading-tight">Meeting Resources</h4>
-                                    </div>
-                                </div>
 
-                                {meeting.resources && meeting.resources.length > 0 ? (
                                     <div className="flex flex-col gap-3">
                                         {meeting.resources.map((res) => (
                                             <a
@@ -173,13 +210,9 @@ const SingleMeetingView: React.FC = () => {
                                             </a>
                                         ))}
                                     </div>
-                                ) : (
-                                    <div className="py-6 text-center border-2 border-dashed border-zinc-100 dark:border-zinc-800 rounded-2xl">
-                                        <p className="text-zinc-400 font-black uppercase text-[9px] tracking-widest italic">No Assets Linked</p>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
+                                </CardContent>
+                            </Card>
+                        )}
                     </div>
                 </div>
             </div>

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/axios';
-    AtSymbolIcon, TagIcon 
+import {
+    EnvelopeOpenIcon, AtSymbolIcon, TagIcon 
 } from '@heroicons/react/24/solid';
 import { ArrowLeftIcon as ArrowLeftOutline } from '@heroicons/react/24/outline';
 import { Card } from '../../shared/components/ui/Card';
@@ -23,18 +24,18 @@ const AdminEmailTemplateEditor: React.FC = () => {
     const [toast, setToast] = useState('');
 
     const commonPlaceholders = [
-        { label: 'First Name', value: '{{first_name}}' },
-        { label: 'Last Name', value: '{{last_name}}' },
-        { label: 'OTP Code (Login Only)', value: '{{otp_code}}' },
-        { label: 'Meeting Title', value: '{{meeting_title}}' },
-        { label: 'Meeting Date', value: '{{meeting_date}}' },
-        { label: 'Meeting Time', value: '{{meeting_time}}' },
-        { label: 'Location Name', value: '{{location_name}}' },
-        { label: 'Map Link', value: '{{map_link}}' },
-        { label: 'Zoom Link', value: '{{zoom_link}}' },
-        { label: 'Meeting Recap', value: '{{recap_content}}' },
-        { label: 'Meeting URL', value: '{{meeting_url}}' },
-        { label: 'Current Date', value: '{{current_date}}' }
+        { label: 'First Name', value: '{first_name}' },
+        { label: 'Last Name', value: '{last_name}' },
+        { label: 'OTP Code (Login Only)', value: '{otp_code}' },
+        { label: 'Meeting Title', value: '{meeting_title}' },
+        { label: 'Meeting Date', value: '{meeting_date}' },
+        { label: 'Meeting Time', value: '{meeting_time}' },
+        { label: 'Location Name', value: '{location_name}' },
+        { label: 'Map Link', value: '{map_link}' },
+        { label: 'Zoom Link', value: '{zoom_link}' },
+        { label: 'Meeting Recap', value: '{recap_content}' },
+        { label: 'Meeting RSVP Link', value: '{rsvp_link}' },
+        { label: 'Current Date', value: '{current_date}' }
     ];
 
     useEffect(() => {
@@ -193,7 +194,7 @@ const AdminEmailTemplateEditor: React.FC = () => {
                     <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/50 rounded-xl p-6">
                         <h3 className="text-xs font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest mb-2">Editor Tip</h3>
                         <p className="text-sm text-amber-700 dark:text-amber-500 font-medium leading-relaxed">
-                            Use placeholders exactly as shown (with double curly braces). The system will automatically replace them with real data when the email is sent.
+                            Use placeholders exactly as shown (with single curly brackets). The system will automatically replace them with real data when the email is sent.
                         </p>
                     </div>
                 </div>

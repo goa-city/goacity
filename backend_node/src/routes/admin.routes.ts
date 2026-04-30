@@ -92,6 +92,8 @@ router.delete('/streams/:id', deleteStream);
 router.get('/forms', getForms);
 router.post('/forms', validate(createFormSchema), createForm);
 router.put('/forms', validate(updateFormSchema), updateForm);
+router.post('/forms/archive', archiveForm);
+router.delete('/forms', deleteForm);
 
 // Email Templates
 router.get('/email-templates', getEmailTemplates);

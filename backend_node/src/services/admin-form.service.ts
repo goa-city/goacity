@@ -58,20 +58,69 @@ export class AdminFormService {
     }
 
     static async createForm(data: any) {
-        return prisma.forms.create({
-            data: {
-                title: data.title,
-                code: data.code || `form_${Date.now()}`,
-                description: data.description,
-                is_active: 1
+        let code = data.code || `form_${Date.now()}`;
+        
+        // Check if code already exists
+        const existing = await prisma.forms.findUnique({ where: { code } });
+        if (existing) {
+            code = `${code}_${Math.floor(Math.random() * 1000)}`;
+        }
+
+        const sourceId = data.source_id ? Number(data.source_id) : null;
+
+        return await prisma.$transaction(async (tx) => {
+            const newForm = await tx.forms.create({
+                data: {
+                    title: data.title,
+                    code: code,
+                    description: data.description,
+                    is_active: 1
+                }
+            });
+
+            if (sourceId) {
+                const sourceFields = await tx.formField.findMany({
+                    where: { form_id: sourceId },
+                    orderBy: { sort_order: 'asc' }
+                });
+
+                if (sourceFields.length > 0) {
+                    await tx.formField.createMany({
+                        data: sourceFields.map(f => ({
+                            form_id: newForm.id,
+                            field_key: f.field_key,
+                            field_type: f.field_type,
+                            label: f.label,
+                            subtitle: f.subtitle,
+                            placeholder: f.placeholder,
+                            options: f.options || {},
+                            is_required: f.is_required,
+                            is_optional: f.is_optional,
+                            is_profile: f.is_profile,
+                            sort_order: f.sort_order,
+                            section: f.section,
+                            conditions: f.conditions || {},
+                            group_fields: f.group_fields || {},
+                            button_text: f.button_text
+                        }))
+                    });
+                }
             }
+
+            return newForm;
         });
     }
 
-    static async archiveForm(id: number) {
+    static async archiveForm(id: number, isActive: number = 0) {
         return prisma.forms.update({
             where: { id },
-            data: { is_active: 0 }
+            data: { is_active: isActive }
+        });
+    }
+
+    static async deleteForm(id: number) {
+        return prisma.forms.delete({
+            where: { id }
         });
     }
 }

@@ -48,7 +48,7 @@ const GlobalSearch: React.FC = () => {
 
         try {
             setLoading(true);
-            const res = await api.get(`/search?q=${encodeURIComponent(searchQuery)}`);
+            const res = await api.get(`/member/search?q=${encodeURIComponent(searchQuery)}`);
             setResults(res.data.data);
             setShowDropdown(true);
         } catch (error) {
@@ -142,7 +142,7 @@ const GlobalSearch: React.FC = () => {
                                     {results.members.map(member => (
                                         <div 
                                             key={member.id} 
-                                            onClick={() => handleNavigate(`/profile/${member.id}`)}
+                                            onClick={() => handleNavigate(`/profile/${member.slug || member.id}`)}
                                             className="px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer flex items-center gap-3 transition-colors"
                                         >
                                             <div className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden">

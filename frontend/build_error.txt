@@ -1,0 +1,31 @@
+
+> frontend@0.0.0 build
+> vite build
+
+vite v7.3.1 building client environment for production...
+transforming...
+✓ 73 modules transformed.
+✗ Build failed in 322ms
+error during build:
+[vite:esbuild] Transform failed with 1 error:
+/Users/stevensdumpala/Imagefile/goa.city/frontend/src/pages/admin/AdminJobEditor.tsx:4:0: ERROR: Unexpected "}"
+file: /Users/stevensdumpala/Imagefile/goa.city/frontend/src/pages/admin/AdminJobEditor.tsx:4:0
+
+Unexpected "}"
+2  |  import { useNavigate, useParams } from 'react-router-dom';
+3  |      MapPinIcon, LinkIcon, EnvelopeIcon, ClockIcon
+4  |  } from '@heroicons/react/24/solid';
+   |  ^
+5  |  import { ArrowLeftIcon as ArrowLeftOutline } from '@heroicons/react/24/outline';
+6  |  import { Card } from '../../shared/components/ui/Card';
+
+    at failureErrorWithLog (/Users/stevensdumpala/Imagefile/goa.city/frontend/node_modules/esbuild/lib/main.js:1467:15)
+    at /Users/stevensdumpala/Imagefile/goa.city/frontend/node_modules/esbuild/lib/main.js:736:50
+    at responseCallbacks.<computed> (/Users/stevensdumpala/Imagefile/goa.city/frontend/node_modules/esbuild/lib/main.js:603:9)
+    at handleIncomingPacket (/Users/stevensdumpala/Imagefile/goa.city/frontend/node_modules/esbuild/lib/main.js:658:12)
+    at Socket.readFromStdout (/Users/stevensdumpala/Imagefile/goa.city/frontend/node_modules/esbuild/lib/main.js:581:7)
+    at Socket.emit (node:events:508:28)
+    at addChunk (node:internal/streams/readable:563:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:514:3)
+    at Readable.push (node:internal/streams/readable:394:5)
+    at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)

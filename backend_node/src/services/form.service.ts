@@ -52,7 +52,14 @@ export class FormService {
         };
     }
 
-    static async submitResponse(userId: number | null, formId: number, answers: any, isPartial = false, lastStepIndex = 0) {
+    static async submitResponse(userId: number | null, formId: number, answers: any, isPartial = false, lastStepIndex = 0, files: any[] = []) {
+        // Merge files into answers
+        if (files && files.length > 0) {
+            files.forEach(file => {
+                answers[file.fieldname] = `/uploads/${file.filename}`;
+            });
+        }
+
         return await prisma.$transaction(async (tx) => {
             let response = await tx.formResponse.findFirst({
                 where: { user_id: userId, form_id: formId }
@@ -88,7 +95,7 @@ export class FormService {
                     data: entries.map(([key, value]) => ({
                         response_id: response.id,
                         field_key: key,
-                        answer_value: String(value)
+                        answer_value: typeof value === 'object' ? JSON.stringify(value) : String(value)
                     }))
                 });
 
@@ -101,26 +108,37 @@ export class FormService {
                     for (const field of fields) {
                         const answer = answers[field.field_key];
                         if (answer !== undefined) {
-                            await tx.memberProfile.upsert({
-                                where: { 
-                                    // We need a unique constraint on (user_id, profile_key) to use upsert effectively
-                                    // or check if it exists first. 
-                                    // Checking schema.prisma... it doesn't have a unique constraint on (user_id, profile_key).
-                                    // I'll check manually.
-                                    id: (await tx.memberProfile.findFirst({
-                                        where: { user_id: userId, profile_key: field.field_key }
-                                    }))?.id || 0
-                                },
-                                create: {
-                                    user_id: userId,
-                                    profile_key: field.field_key,
-                                    profile_value: String(answer)
-                                },
-                                update: {
-                                    profile_value: String(answer),
-                                    updated_at: new Date()
-                                }
+                            // Update MemberProfile (KV table)
+                            const existing = await tx.memberProfile.findFirst({
+                                where: { user_id: userId, profile_key: field.field_key }
                             });
+
+                            const valStr = typeof answer === 'object' ? JSON.stringify(answer) : String(answer);
+
+                            if (existing) {
+                                await tx.memberProfile.update({
+                                    where: { id: existing.id },
+                                    data: { profile_value: valStr, updated_at: new Date() }
+                                });
+                            } else {
+                                await tx.memberProfile.create({
+                                    data: { user_id: userId, profile_key: field.field_key, profile_value: valStr }
+                                });
+                            }
+
+                            // Update Member table directly for core fields
+                            if (field.field_key === 'profile_photo') {
+                                await tx.member.update({
+                                    where: { id: userId },
+                                    data: { profile_photo: valStr }
+                                });
+                            }
+                            if (field.field_key === 'bio') {
+                                await tx.member.update({
+                                    where: { id: userId },
+                                    data: { bio: valStr }
+                                });
+                            }
                         }
                     }
                 }
@@ -130,7 +148,7 @@ export class FormService {
         });
     }
 
-    static async submitOnboarding(userId: number, body: any) {
+    static async submitOnboarding(userId: number, body: any, files: any[] = []) {
         const onboardingForm = await prisma.forms.findFirst({
             where: { code: 'mp-onboarding' }
         });
@@ -145,7 +163,7 @@ export class FormService {
         delete answers.last_step_index;
         delete answers.form_id;
 
-        const result = await this.submitResponse(userId, onboardingForm.id, answers, isPartial, lastStepIndex);
+        const result = await this.submitResponse(userId, onboardingForm.id, answers, isPartial, lastStepIndex, files);
 
         if (!isPartial) {
             await prisma.member.update({
