@@ -260,7 +260,17 @@ export const getUsers = async (req: Request, res: Response) => {
             return res.json(result);
         }
 
+        const status = req.query.status as string; // 'registrations' or 'members'
+        
+        let where: any = {};
+        if (status === 'registrations') {
+            where = { streams: { none: {} } };
+        } else if (status === 'members') {
+            where = { streams: { some: {} } };
+        }
+
         const members = await prisma.member.findMany({
+            where,
             include: { streams: { include: { stream: true } } },
             orderBy: { id: 'desc' }
         });
@@ -276,6 +286,22 @@ export const getUsers = async (req: Request, res: Response) => {
         return res.json(result);
     } catch (error: any) {
         console.error('getUsers Error:', error);
+        return res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
+// GET /api/admin/member-stats - For sidebar badges
+export const getMemberStats = async (req: Request, res: Response) => {
+    try {
+        const registrations = await prisma.member.count({
+            where: { streams: { none: {} } }
+        });
+        const members = await prisma.member.count({
+            where: { streams: { some: {} } }
+        });
+        return res.json({ registrations, members });
+    } catch (error: any) {
+        console.error('getMemberStats Error:', error);
         return res.status(500).json({ message: 'Internal server error' });
     }
 };

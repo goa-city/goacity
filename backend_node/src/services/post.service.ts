@@ -3,7 +3,7 @@ import { AppError } from '../utils/errors.js';
 
 export class PostService {
     static async getFeed(page = 1, limit = 10) {
-        return prisma.post.findMany({
+        const posts = await prisma.post.findMany({
             skip: (page - 1) * limit,
             take: limit,
             include: {
@@ -14,10 +14,21 @@ export class PostService {
                         last_name: true,
                         profile_photo: true
                     }
+                },
+                likes: {
+                    select: { user_id: true }
+                },
+                _count: {
+                    select: { likes: true }
                 }
             },
             orderBy: { created_at: 'desc' }
         });
+
+        return posts.map(post => ({
+            ...post,
+            likes_count: post._count.likes
+        }));
     }
 
     static async createPost(userId: number, data: any) {
@@ -60,5 +71,28 @@ export class PostService {
         }
 
         return prisma.post.delete({ where: { id: postId } });
+    }
+
+    static async updatePost(postId: number, userId: number, data: { content: string }) {
+        const post = await prisma.post.findUnique({ where: { id: postId } });
+        if (!post) throw new AppError('Post not found', 404);
+        
+        if (post.user_id !== userId) {
+            throw new AppError('Unauthorized to edit this post', 403);
+        }
+
+        // Check if 24 hours have passed
+        const now = new Date();
+        const createdAt = new Date(post.created_at || '');
+        const diffInHours = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
+
+        if (diffInHours > 24) {
+            throw new AppError('Edit window has expired (24 hours)', 403);
+        }
+
+        return prisma.post.update({
+            where: { id: postId },
+            data: { content: data.content }
+        });
     }
 }

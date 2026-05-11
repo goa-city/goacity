@@ -26,12 +26,12 @@ const MyPeople: React.FC = () => {
             try {
                 const streamId = searchParams.get('stream');
                 const search = searchParams.get('search');
-                
+
                 let url = '/member/my-people';
                 const params = new URLSearchParams();
                 if (streamId) params.append('stream', streamId);
                 if (search) params.append('search', search);
-                
+
                 const queryString = params.toString();
                 if (queryString) url += `?${queryString}`;
 
@@ -65,17 +65,15 @@ const MyPeople: React.FC = () => {
         <DashboardLayout>
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
                 <div>
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-[9px] font-black uppercase tracking-widest mb-4">
-                        Community
-                    </div>
-                    <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight uppercase italic">My People</h1>
+
+                    <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight">My People</h1>
                     <p className="text-zinc-500 dark:text-zinc-400 mt-2 font-medium">Discover members within your streams and view their services.</p>
                 </div>
 
                 <div className="relative w-full md:w-80 group">
                     <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400 group-focus-within:text-indigo-500 transition-colors" />
-                    <input 
-                        type="text" 
+                    <input
+                        type="text"
                         placeholder="Search by name..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -92,13 +90,13 @@ const MyPeople: React.FC = () => {
             ) : peers.length > 0 ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                     {peers.map(peer => (
-                        <Link 
-                            key={peer.id} 
+                        <Link
+                            key={peer.id}
                             to={`/profile/${peer.slug || peer.id}`}
                             className="bg-white dark:bg-zinc-900 rounded-[2rem] p-8 border border-zinc-100 dark:border-zinc-800 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 flex flex-col items-center text-center group relative overflow-hidden"
                         >
                             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-indigo-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                            
+
                             <div className="relative mb-6">
                                 <div className="absolute -inset-2 bg-gradient-to-br from-indigo-500/20 to-purple-600/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                                 {peer.profile_photo ? (
@@ -114,11 +112,7 @@ const MyPeople: React.FC = () => {
                                     </div>
                                 )}
                             </div>
-                            
                             <h3 className="text-zinc-900 dark:text-white font-black text-sm mb-2 truncate w-full uppercase tracking-widest">{peer.first_name} {peer.last_name}</h3>
-                            <p className="text-[10px] text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em] font-black bg-zinc-50 dark:bg-zinc-800/50 px-3 py-1.5 rounded-full group-hover:bg-indigo-500 group-hover:text-white transition-colors duration-300">
-                                {peer.role || 'Member'}
-                            </p>
                         </Link>
                     ))}
                 </div>

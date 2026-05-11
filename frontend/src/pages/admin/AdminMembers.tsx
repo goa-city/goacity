@@ -4,7 +4,7 @@ import AdminLayout from '../../layouts/AdminLayout';
 
 const AdminMembersPage: React.FC = () => {
     return (
-        <MembersListView />
+        <MembersListView status="members" />
     );
 };
 

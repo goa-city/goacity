@@ -6,9 +6,9 @@ import Button from '../../../shared/components/ui/Button';
 import Input from '../../../shared/components/ui/Input';
 import httpClient from '../../../shared/api/httpClient';
 import { formatDate } from '../../../utils/date';
-import { 
-    ArrowLeftIcon, 
-    UserCircleIcon, 
+import {
+    ArrowLeftIcon,
+    UserCircleIcon,
     ClipboardDocumentListIcon,
     SignalIcon,
     EnvelopeIcon,
@@ -62,6 +62,18 @@ const MemberDetailView: React.FC = () => {
 
     const handleUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Validation
+        if (!editBasic.slug) {
+            alert('Member profile URL (slug) is required.');
+            return;
+        }
+
+        if (!member.stream_ids || member.stream_ids.length === 0) {
+            alert('At least one stream must be assigned to the member.');
+            return;
+        }
+
         await updateMember(editBasic);
     };
 
@@ -75,7 +87,7 @@ const MemberDetailView: React.FC = () => {
         }
         await updateMember({ stream_ids: newIds });
     };
-    
+
     const handleDelete = async () => {
         if (window.confirm(`Are you absolutely sure you want to delete ${member?.first_name}? This will permanently remove all their profile data, form responses, and meeting history. This action cannot be undone.`)) {
             try {
@@ -94,19 +106,19 @@ const MemberDetailView: React.FC = () => {
     return (
         <div className="max-w-7xl mx-auto py-10 px-6">
             <div className="flex items-center justify-between mb-8">
-                <button 
-                    onClick={() => navigate('/admin/members')} 
+                <button
+                    onClick={() => navigate('/admin/members')}
                     className="flex items-center text-zinc-500 hover:text-zinc-800 transition-colors group"
                 >
                     <ArrowLongLeftIcon className="w-6 h-6 mr-2 group-hover:-translate-x-1 transition-transform stroke-[1.5]" />
                     <span className="text-xl font-medium">Back to Members</span>
                 </button>
-                
-                <Button 
-                    variant="ghost" 
-                    onClick={handleDelete} 
+
+                <Button
+                    variant="ghost"
+                    onClick={handleDelete}
                     isLoading={isDeleting}
-                    className="text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 font-black uppercase text-xs tracking-widest group"
+                    className="text-red-500 hover:text-red-700 bg-transparent hover:bg-transparent dark:hover:bg-transparent font-black uppercase text-xs tracking-widest group"
                 >
                     <TrashIcon className="w-4 h-4 mr-2" /> Delete Member
                 </Button>
@@ -118,10 +130,10 @@ const MemberDetailView: React.FC = () => {
                     <label className="relative group cursor-pointer">
                         <div className="w-28 h-28 rounded-xl bg-white dark:bg-zinc-900 shadow-xl flex items-center justify-center border border-indigo-100 dark:border-indigo-900/50 overflow-hidden">
                             {member.profile_photo ? (
-                                <img 
-                                    src={member.profile_photo.startsWith('data:image') ? member.profile_photo : (member.profile_photo.startsWith('http') ? member.profile_photo : `/uploads/${member.profile_photo}`)} 
-                                    alt="Profile" 
-                                    className="w-full h-full object-cover" 
+                                <img
+                                    src={member.profile_photo.startsWith('data:image') ? member.profile_photo : (member.profile_photo.startsWith('http') ? member.profile_photo : `/uploads/${member.profile_photo}`)}
+                                    alt="Profile"
+                                    className="w-full h-full object-cover"
                                 />
                             ) : (
                                 <UserCircleIcon className="w-20 h-20 text-indigo-100 dark:text-indigo-900/50" />
@@ -130,10 +142,10 @@ const MemberDetailView: React.FC = () => {
                                 <PlusIcon className="w-8 h-8 text-white" />
                             </div>
                         </div>
-                        <input 
-                            type="file" 
-                            className="hidden" 
-                            accept="image/*" 
+                        <input
+                            type="file"
+                            className="hidden"
+                            accept="image/*"
                             onChange={async (e) => {
                                 const file = e.target.files?.[0];
                                 if (file) {
@@ -154,9 +166,8 @@ const MemberDetailView: React.FC = () => {
                             <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight leading-none">
                                 {member.first_name} {member.last_name}
                             </h1>
-                            <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border ${
-                                member.role === 'admin' ? 'bg-indigo-500 text-white' : 'bg-emerald-500 text-white'
-                            }`}>
+                            <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border ${member.role === 'admin' ? 'bg-indigo-500 text-white' : 'bg-emerald-500 text-white'
+                                }`}>
                                 {member.role}
                             </span>
                         </div>
@@ -183,27 +194,26 @@ const MemberDetailView: React.FC = () => {
                             </h3>
                             <form onSubmit={handleUpdate} className="space-y-6">
                                 <div className="grid grid-cols-2 gap-4">
-                                    <Input label="First Name" value={editBasic.first_name} onChange={(e) => setEditBasic({...editBasic, first_name: e.target.value})} />
-                                    <Input label="Last Name" value={editBasic.last_name} onChange={(e) => setEditBasic({...editBasic, last_name: e.target.value})} />
+                                    <Input label="First Name" value={editBasic.first_name} onChange={(e) => setEditBasic({ ...editBasic, first_name: e.target.value })} />
+                                    <Input label="Last Name" value={editBasic.last_name} onChange={(e) => setEditBasic({ ...editBasic, last_name: e.target.value })} />
                                 </div>
-                                <Input label="Email" value={editBasic.email} onChange={(e) => setEditBasic({...editBasic, email: e.target.value})} />
-                                <Input label="Phone" value={editBasic.phone} onChange={(e) => setEditBasic({...editBasic, phone: e.target.value})} />
-                                <div className="space-y-1">
-                                    <Input 
-                                        label="URL Slug (handle)" 
-                                        value={editBasic.slug} 
-                                        onChange={(e) => setEditBasic({...editBasic, slug: e.target.value})} 
-                                        onInput={(e: any) => {
-                                            e.target.value = e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-                                        }}
-                                        placeholder="firstname-lastname" 
-                                    />
-                                    {editBasic.slug && (
-                                        <p className="text-[9px] text-indigo-500 font-bold uppercase tracking-widest ml-1">
-                                            Public Profile: goa.city/profile/{editBasic.slug}
-                                        </p>
-                                    )}
-                                </div>
+                                <Input label="Email" value={editBasic.email} onChange={(e) => setEditBasic({ ...editBasic, email: e.target.value })} />
+                                <Input label="Phone" value={editBasic.phone} onChange={(e) => setEditBasic({ ...editBasic, phone: e.target.value })} />
+                                <Input
+                                    label="URL Slug (handle) *"
+                                    value={editBasic.slug}
+                                    onChange={(e) => setEditBasic({ ...editBasic, slug: e.target.value })}
+                                    onInput={(e: any) => {
+                                        e.target.value = e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+                                    }}
+                                    placeholder="firstname-lastname"
+                                    required
+                                />
+                                {editBasic.slug && (
+                                    <p className="text-[9px] text-indigo-500 font-bold tracking-widest ml-1">
+                                        Public Profile: https://goa.city/profile/{editBasic.slug}
+                                    </p>
+                                )}
                                 <Button type="submit" isLoading={isUpdating} className="w-full rounded-xl h-12 shadow-lg shadow-indigo-600/10">
                                     Update Details
                                 </Button>
@@ -217,7 +227,7 @@ const MemberDetailView: React.FC = () => {
                                 <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400 flex items-center gap-2">
                                     <SignalIcon className="w-4 h-4 text-indigo-600" /> Stream Enrollment
                                 </h3>
-                                <button 
+                                <button
                                     onClick={() => setShowStreamPicker(!showStreamPicker)}
                                     className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
                                 >
@@ -229,8 +239,8 @@ const MemberDetailView: React.FC = () => {
                                 <div className="mb-6 p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 space-y-2 animate-in fade-in slide-in-from-top-1">
                                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 mb-2">Available Streams</p>
                                     {allStreams.map(s => (
-                                        <button 
-                                            key={s.id} 
+                                        <button
+                                            key={s.id}
                                             onClick={() => toggleStream(s.id)}
                                             className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-white dark:hover:bg-zinc-800 transition-all text-left group"
                                         >
@@ -263,33 +273,30 @@ const MemberDetailView: React.FC = () => {
                 <div className="lg:col-span-2 space-y-10">
                     {/* Tabs Header */}
                     <div className="flex items-center gap-2 p-1 bg-zinc-100 dark:bg-zinc-900 rounded-2xl w-fit">
-                        <button 
+                        <button
                             onClick={() => setActiveTab('attributes')}
-                            className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                                activeTab === 'attributes' 
-                                    ? 'bg-white dark:bg-zinc-800 text-indigo-600 shadow-sm' 
-                                    : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200'
-                            }`}
+                            className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'attributes'
+                                ? 'bg-white dark:bg-zinc-800 text-indigo-600 shadow-sm'
+                                : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200'
+                                }`}
                         >
                             Attributes
                         </button>
-                        <button 
+                        <button
                             onClick={() => setActiveTab('forms')}
-                            className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                                activeTab === 'forms' 
-                                    ? 'bg-white dark:bg-zinc-800 text-indigo-600 shadow-sm' 
-                                    : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200'
-                            }`}
+                            className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'forms'
+                                ? 'bg-white dark:bg-zinc-800 text-indigo-600 shadow-sm'
+                                : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200'
+                                }`}
                         >
                             Forms
                         </button>
-                        <button 
+                        <button
                             onClick={() => setActiveTab('whatsapp')}
-                            className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                                activeTab === 'whatsapp' 
-                                    ? 'bg-white dark:bg-zinc-800 text-emerald-500 shadow-sm' 
-                                    : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200'
-                            }`}
+                            className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'whatsapp'
+                                ? 'bg-white dark:bg-zinc-800 text-emerald-500 shadow-sm'
+                                : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200'
+                                }`}
                         >
                             WhatsApp
                         </button>
@@ -332,11 +339,11 @@ const MemberDetailView: React.FC = () => {
                                     <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-8 flex items-center gap-2">
                                         <ClipboardDocumentListIcon className="w-4 h-4 text-indigo-600" /> Form Submissions
                                     </h3>
-                                    
+
                                     <div className="space-y-4">
                                         {member.form_responses?.map((resp) => (
                                             <div key={resp.response_id} className="border border-zinc-100 dark:border-zinc-800 rounded-xl overflow-hidden">
-                                                <button 
+                                                <button
                                                     onClick={() => setOpenResponses(prev => ({ ...prev, [resp.response_id]: !prev[resp.response_id] }))}
                                                     className="w-full flex items-center justify-between p-6 bg-zinc-50/50 dark:bg-zinc-900/50 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
                                                 >
@@ -348,7 +355,7 @@ const MemberDetailView: React.FC = () => {
                                                         {openResponses[resp.response_id] ? <ChevronUpIcon className="w-4 h-4 text-zinc-400" /> : <ChevronDownIcon className="w-4 h-4 text-zinc-400" />}
                                                     </div>
                                                 </button>
-                                                
+
                                                 {openResponses[resp.response_id] && (
                                                     <div className="p-6 bg-white dark:bg-zinc-950 space-y-4 divide-y divide-zinc-50 dark:divide-zinc-900">
                                                         {resp.answers.map((ans, aidx) => (
@@ -361,7 +368,7 @@ const MemberDetailView: React.FC = () => {
                                                 )}
                                             </div>
                                         ))}
-                                        
+
                                         {(!member.form_responses || member.form_responses.length === 0) && (
                                             <div className="py-10 text-center border-2 border-dashed border-zinc-100 dark:border-zinc-800 rounded-xl">
                                                 <p className="text-zinc-300 font-black uppercase tracking-widest text-xs">No completed submissions found</p>

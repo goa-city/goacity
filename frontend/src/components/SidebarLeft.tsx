@@ -73,7 +73,7 @@ const SidebarLeft: React.FC<SidebarLeftProps> = ({ mobileOpen, setMobileOpen }) 
             `}>
                 {/* Logo Area */}
                 <div className="p-6 flex justify-between items-center">
-                    <span className="text-xl font-black tracking-widest uppercase text-zinc-900 dark:text-white italic">Goa.City</span>
+                    <span className="text-xl font-black tracking-widest text-zinc-900 dark:text-white">Goa.City</span>
                     <button
                         onClick={() => setMobileOpen(false)}
                         className="lg:hidden p-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white"

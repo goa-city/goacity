@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { 
     getDashboard, getProfile, updateProfile, 
     createPost, createJob, createResource,
-    getNewsFeed, likePost, deletePost,
+    getNewsFeed, likePost, deletePost, updatePost,
     getJobs, getJob, applyJob, getResources
 } from '../controllers/member.controller.js';
 import { 
@@ -40,9 +40,10 @@ router.get('/profile', getProfile);
 router.post('/profile', updateProfile);
 router.get('/search', globalSearch);
 router.get('/news/feed', getNewsFeed);
-router.post('/news/post', createPost);
+router.post('/news/post', upload.single('media'), createPost);
 router.post('/news/post/:id/like', likePost);
 router.delete('/news/post/:id', deletePost);
+router.put('/news/post/:id', updatePost);
 
 // Meetings
 router.get('/meetings/upcoming', getUpcomingMeetings);
@@ -82,9 +83,9 @@ router.get('/jobs/:id', getJob);
 router.post('/jobs/:id/apply', upload.single('cv'), applyJob);
 router.get('/resources', getResources);
 
-// Forms
-router.get('/form-progress', getFormProgress);
-router.post('/onboarding', upload.any(), submitOnboarding);
-router.post('/submit-form', upload.any(), submitForm);
+// Forms are now in public routes with optional auth
+// router.get('/form-progress', getFormProgress);
+// router.post('/onboarding', upload.any(), submitOnboarding);
+// router.post('/submit-form', upload.any(), submitForm);
 
 export default router;

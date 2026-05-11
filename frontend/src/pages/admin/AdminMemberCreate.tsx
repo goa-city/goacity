@@ -26,8 +26,8 @@ const AdminMemberCreate: React.FC = () => {
         setLoading(true);
         setError(null);
 
-        if (!formData.email && !formData.phone) {
-            setError("Either Email or Phone is required.");
+        if (!formData.email || !formData.phone) {
+            setError("Both Email and Phone are required.");
             setLoading(false);
             return;
         }
@@ -63,37 +63,7 @@ const AdminMemberCreate: React.FC = () => {
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="flex flex-col items-center mb-8">
-                        <label className="relative group cursor-pointer">
-                            <div className="w-32 h-32 rounded-2xl bg-zinc-50 border-2 border-dashed border-zinc-200 flex items-center justify-center overflow-hidden">
-                                {formData.profile_photo ? (
-                                    <img src={formData.profile_photo} alt="Preview" className="w-full h-full object-cover" />
-                                ) : (
-                                    <div className="text-center p-4">
-                                        <div className="text-zinc-300 text-3xl mb-1">+</div>
-                                        <div className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Photo</div>
-                                    </div>
-                                )}
-                            </div>
-                            <input 
-                                type="file" 
-                                className="hidden" 
-                                accept="image/*" 
-                                onChange={async (e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) {
-                                        try {
-                                            const { resizeImageToBase64 } = await import('../../utils/image');
-                                            const base64 = await resizeImageToBase64(file);
-                                            setFormData({ ...formData, profile_photo: base64 });
-                                        } catch (err) {
-                                            console.error(err);
-                                        }
-                                    }
-                                }} 
-                            />
-                        </label>
-                    </div>
+
 
                     <div>
                         <label htmlFor="first_name" className="block text-sm font-medium text-gray-700">First Name *</label>
@@ -123,11 +93,12 @@ const AdminMemberCreate: React.FC = () => {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
+                            <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email *</label>
                             <input
                                 type="email"
                                 name="email"
                                 id="email"
+                                required
                                 value={formData.email}
                                 onChange={handleChange}
                                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
@@ -135,32 +106,20 @@ const AdminMemberCreate: React.FC = () => {
                         </div>
 
                         <div>
-                            <label htmlFor="phone" className="block text-sm font-medium text-gray-700">Phone</label>
+                            <label htmlFor="phone" className="block text-sm font-medium text-gray-700">Phone *</label>
                             <input
                                 type="text"
                                 name="phone"
                                 id="phone"
+                                required
                                 value={formData.phone}
                                 onChange={handleChange}
                                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
                             />
                         </div>
                     </div>
-                    <p className="text-xs text-gray-500 -mt-4">* Provide at least one method of contact.</p>
 
-                    <div>
-                        <label htmlFor="role" className="block text-sm font-medium text-gray-700">Role</label>
-                        <select
-                            name="role"
-                            id="role"
-                            value={formData.role}
-                            onChange={handleChange}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
-                        >
-                            <option value="member">Member</option>
-                            <option value="admin">Admin</option>
-                        </select>
-                    </div>
+
 
                     <div className="pt-4 flex justify-end">
                         <button

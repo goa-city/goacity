@@ -24,3 +24,10 @@ export const getMe = async (): Promise<AuthResponse> => {
 export const logout = async (): Promise<void> => {
     await httpClient.post('/auth/logout');
 };
+
+export const registerPublicMember = async (formData: FormData): Promise<any> => {
+    const { data } = await httpClient.post('/register', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return data;
+};

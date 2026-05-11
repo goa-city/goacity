@@ -23,6 +23,15 @@ export class AuthService {
             throw new AppError('Member not found. Please contact admin.', 404);
         }
 
+        // Check for stream assignment
+        const streamCount = await prisma.streamMember.count({
+            where: { user_id: member.id }
+        });
+ 
+        if (streamCount === 0) {
+            throw new AppError('Your registration is pending approval. You will be notified once you are assigned to a stream.', 403);
+        }
+
         console.log(`[AUTH] Member found: ${member.first_name} ${member.last_name}. Generating OTP...`);
 
         // 2. Generate 6-digit OTP

@@ -30,7 +30,15 @@ export const fetchOnboardingForm = async (formId?: number | string | null) => {
     const answers = data.answers || data.data?.answers || {};
     const lastStepIndex = data.last_step_index || data.data?.last_step_index || 0;
     
-    return { questions, answers, lastStepIndex };
+    return { 
+        ...data,
+        questions, 
+        answers, 
+        lastStepIndex,
+        fields_per_page: data.fields_per_page ?? 1,
+        visibility: data.visibility || 'members',
+        redirect_url: data.redirect_url
+    };
 };
 
 export const submitOnboarding = async (formData: any, isPartial = false, lastStepIndex = 0, formId?: number | string | null) => {

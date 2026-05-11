@@ -122,7 +122,6 @@ export class MemberService {
                 }
             }
         }
-
         return {
             user: {
                 id: member.id,
@@ -134,5 +133,104 @@ export class MemberService {
             streams,
             pending_actions
         };
+    }
+
+    static async registerPublicMember(data: any, files: any[] = []) {
+        const formId = Number(data.form_id);
+        const answers = { ...data };
+        delete answers.form_id;
+
+        // Field Mappings (Auto-generated keys provided by User for Form 8)
+        const MAPPINGS = {
+            FIRST_NAME: 'q_1777535957750',
+            LAST_NAME: 'q_1777535965235',
+            PHONE: 'q_1777535983051',
+            EMAIL: 'q_1777535975718'
+        };
+
+        const email = (answers[MAPPINGS.EMAIL] || '').trim().toLowerCase();
+        const phone = (answers[MAPPINGS.PHONE] || '').trim();
+
+        if (!email && !phone) {
+            throw new AppError('Email or Phone is required for registration', 400);
+        }
+
+        // Check for existing member by email or phone
+        const existingConditions = [];
+        if (email) existingConditions.push({ email });
+        if (phone) existingConditions.push({ phone });
+
+        const existing = await prisma.member.findFirst({
+            where: {
+                OR: existingConditions
+            }
+        });
+
+        if (existing) {
+            const conflictField = existing.email === email ? 'email' : 'phone';
+            throw new AppError(`A member with this ${conflictField} already exists`, 400);
+        }
+
+        // Process files
+        if (files && files.length > 0) {
+            files.forEach(file => {
+                answers[file.fieldname] = `/uploads/${file.filename}`;
+            });
+        }
+
+        return await prisma.$transaction(async (tx) => {
+            // 1. Create Member
+            const member = await tx.member.create({
+                data: {
+                    first_name: answers[MAPPINGS.FIRST_NAME] || '',
+                    last_name: answers[MAPPINGS.LAST_NAME] || '',
+                    email: email || null,
+                    phone: phone || null,
+                    role: 'member',
+                    is_onboarded: 0
+                }
+            });
+
+            // 3. Save Form Response
+            const response = await tx.formResponse.create({
+                data: {
+                    user_id: member.id,
+                    form_id: formId,
+                    status: 'completed',
+                    submitted_at: new Date()
+                }
+            });
+
+            const answerEntries = Object.entries(answers).map(([key, value]) => ({
+                response_id: response.id,
+                field_key: key,
+                answer_value: typeof value === 'object' ? JSON.stringify(value) : String(value)
+            }));
+
+            await tx.formAnswer.createMany({
+                data: answerEntries
+            });
+
+            // 4. Sync profile fields
+            const fields = await tx.formField.findMany({
+                where: { form_id: formId, is_profile: 1 }
+            });
+
+            for (const field of fields) {
+                const answer = answers[field.field_key];
+                if (answer !== undefined) {
+                    const valStr = typeof answer === 'object' ? JSON.stringify(answer) : String(answer);
+                    await tx.memberProfile.create({
+                        data: {
+                            user_id: member.id,
+                            profile_key: field.field_key,
+                            profile_value: valStr
+                        }
+                    });
+                }
+            }
+
+            return member;
+        });
     }
 }

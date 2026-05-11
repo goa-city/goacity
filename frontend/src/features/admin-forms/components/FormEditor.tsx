@@ -6,13 +6,14 @@ import Button from '../../../shared/components/ui/Button';
 import Input from '../../../shared/components/ui/Input';
 import FormFieldCard from './FormFieldCard';
 import FormPreview from './FormPreview';
-import { FormField } from '../api/admin-forms.api';
+import { FormField, AdminUser, fetchAdmins } from '../api/admin-forms.api';
 import {
     PlusIcon,
     EyeIcon, 
     CheckIcon,
 } from '@heroicons/react/24/solid';
 import { ArrowLeftIcon as ArrowLeftOutline } from '@heroicons/react/24/outline';
+import { useLocation } from 'react-router-dom';
 
 const FormEditor: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -20,9 +21,30 @@ const FormEditor: React.FC = () => {
     const { form, isLoading, saveForm, isSaving } = useAdminForms(Number(id));
     
     const [fields, setFields] = useState<FormField[]>([]);
-    const [formInfo, setFormInfo] = useState({ title: '', description: '' });
+    const [formInfo, setFormInfo] = useState({ 
+        title: '', 
+        description: '',
+        fields_per_page: 1,
+        visibility: 'members' as 'members' | 'public',
+        redirect_url: '',
+        notify_admin: false,
+        notify_admin_ids: ''
+    });
+    const [admins, setAdmins] = useState<AdminUser[]>([]);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [addAtIndex, setAddAtIndex] = useState<number | null>(null);
+
+    useEffect(() => {
+        const loadAdmins = async () => {
+            try {
+                const data = await fetchAdmins();
+                setAdmins(data);
+            } catch (err) {
+                console.error("Failed to load admins", err);
+            }
+        };
+        loadAdmins();
+    }, []);
 
     useEffect(() => {
         if (form) {
@@ -47,7 +69,15 @@ const FormEditor: React.FC = () => {
                     : null,
             }));
             setFields(normalized);
-            setFormInfo({ title: form.title || '', description: form.description || '' });
+            setFormInfo({ 
+                title: form.title || '', 
+                description: form.description || '',
+                fields_per_page: form.fields_per_page ?? 1,
+                visibility: form.visibility || 'members',
+                redirect_url: form.redirect_url || '',
+                notify_admin: !!form.notify_admin,
+                notify_admin_ids: form.notify_admin_ids || ''
+            });
         }
     }, [form]);
 
@@ -163,7 +193,13 @@ const FormEditor: React.FC = () => {
 
     return (
         <div className="max-w-4xl mx-auto py-10 px-6">
-            {isPreviewOpen && <FormPreview fields={fields} onClose={() => setIsPreviewOpen(false)} />}
+            {isPreviewOpen && (
+                <FormPreview 
+                    fields={fields} 
+                    fieldsPerPage={formInfo.fields_per_page}
+                    onClose={() => setIsPreviewOpen(false)} 
+                />
+            )}
 
             {/* Header */}
             <div className="flex justify-between items-center mb-8">
@@ -200,6 +236,105 @@ const FormEditor: React.FC = () => {
                             onChange={(e) => setFormInfo({ ...formInfo, description: e.target.value })}
                             className="bg-white dark:bg-zinc-950"
                         />
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Form Configurations */}
+            <Card className="mb-10 border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+                <CardContent className="p-8">
+                    <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-6 flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full" />
+                        Form Configuration
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {/* Visibility & Pagination */}
+                        <div className="space-y-6">
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 ml-1">Visibility</label>
+                                <select 
+                                    value={formInfo.visibility}
+                                    onChange={(e) => setFormInfo({ ...formInfo, visibility: e.target.value as any })}
+                                    className="admin-input w-full"
+                                >
+                                    <option value="members">Members Only (Requires Login)</option>
+                                    <option value="public">Public (Anyone can access)</option>
+                                </select>
+                            </div>
+                            
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 ml-1">Questions per Page</label>
+                                <select 
+                                    value={formInfo.fields_per_page}
+                                    onChange={(e) => setFormInfo({ ...formInfo, fields_per_page: Number(e.target.value) })}
+                                    className="admin-input w-full"
+                                >
+                                    <option value={1}>1 Question per page (Standard)</option>
+                                    <option value={2}>2 Questions per page</option>
+                                    <option value={3}>3 Questions per page</option>
+                                    <option value={5}>5 Questions per page</option>
+                                    <option value={0}>Show all questions on one page</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Redirection & Notifications */}
+                        <div className="space-y-6">
+                            <Input 
+                                label="Success Redirect URL"
+                                placeholder="/dashboard"
+                                value={formInfo.redirect_url || ''}
+                                onChange={(e) => setFormInfo({ ...formInfo, redirect_url: e.target.value })}
+                                className="bg-zinc-50 dark:bg-zinc-900/50"
+                            />
+
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-3">
+                                    <input 
+                                        type="checkbox"
+                                        id="notify_admin"
+                                        checked={formInfo.notify_admin}
+                                        onChange={(e) => setFormInfo({ ...formInfo, notify_admin: e.target.checked })}
+                                        className="w-5 h-5 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <label htmlFor="notify_admin" className="text-xs font-bold text-zinc-600 dark:text-zinc-400 cursor-pointer">
+                                        Notify admins on new submission
+                                    </label>
+                                </div>
+
+                                {formInfo.notify_admin && (
+                                    <div className="space-y-1.5 pl-8 animate-in slide-in-from-top-2 fade-in duration-200">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 ml-1">Admins to Notify</label>
+                                        <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto p-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg border border-zinc-100 dark:border-zinc-800 custom-scrollbar">
+                                            {admins.length > 0 ? admins.map(admin => {
+                                                const selectedIds = formInfo.notify_admin_ids ? formInfo.notify_admin_ids.split(',').filter(Boolean) : [];
+                                                const isSelected = selectedIds.includes(String(admin.id));
+                                                return (
+                                                    <label key={admin.id} className="flex items-center gap-3 cursor-pointer group">
+                                                        <input 
+                                                            type="checkbox"
+                                                            checked={isSelected}
+                                                            onChange={(e) => {
+                                                                let newIds = [...selectedIds];
+                                                                if (e.target.checked) newIds.push(String(admin.id));
+                                                                else newIds = newIds.filter(id => id !== String(admin.id));
+                                                                setFormInfo({ ...formInfo, notify_admin_ids: newIds.join(',') });
+                                                            }}
+                                                            className="w-4 h-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500"
+                                                        />
+                                                        <span className="text-[11px] font-medium text-zinc-500 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors">
+                                                            {admin.full_name} ({admin.email})
+                                                        </span>
+                                                    </label>
+                                                );
+                                            }) : (
+                                                <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest text-center py-2">No other admins found</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </CardContent>
             </Card>

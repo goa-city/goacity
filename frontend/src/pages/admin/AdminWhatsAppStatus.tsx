@@ -10,6 +10,7 @@ import {
     DevicePhoneMobileIcon
 } from '@heroicons/react/24/outline';
 import { Card } from '../../shared/components/ui/Card';
+import QRCode from 'react-qr-code';
 
 const AdminWhatsAppStatus: React.FC = () => {
     const { data: status, isLoading, refetch } = useQuery({
@@ -67,7 +68,11 @@ const AdminWhatsAppStatus: React.FC = () => {
                         <div>
                             <h2 className="text-2xl font-black text-zinc-900 dark:text-white uppercase italic leading-none mb-2">Engine Status</h2>
                             <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                                {isConnected ? 'All systems operational. Incoming and outgoing messages are active.' : 'Connection lost. The system is attempting to recover.'}
+                                {status?.status === 'QR_READY' 
+                                    ? 'Engine is ready. Please scan the QR code below to connect.' 
+                                    : isConnected 
+                                        ? 'All systems operational. Incoming and outgoing messages are active.' 
+                                        : 'Connection lost. The system is attempting to recover.'}
                             </p>
                         </div>
                     </div>
@@ -130,11 +135,16 @@ const AdminWhatsAppStatus: React.FC = () => {
                 </Card>
             </div>
 
-            {status?.qr_code && status.status === 'DISCONNECTED' && (
+            {status?.qr_code && (status.status === 'DISCONNECTED' || status.status === 'QR_READY') && (
                 <div className="flex flex-col items-center justify-center p-12 bg-white dark:bg-zinc-900 rounded-xl border-2 border-indigo-500 border-dashed animate-in zoom-in duration-500 shadow-2xl">
                     <h2 className="text-2xl font-black text-zinc-900 dark:text-white uppercase italic tracking-tight mb-8">Scan QR Code</h2>
-                    <div className="p-6 bg-white rounded-2xl shadow-inner border border-zinc-100">
-                        <img src={status.qr_code} alt="WhatsApp QR Code" className="w-64 h-64" />
+                    <div className="p-6 bg-white rounded-2xl shadow-inner border border-zinc-100 flex items-center justify-center">
+                        <QRCode 
+                            value={status.qr_code} 
+                            size={256}
+                            style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+                            viewBox={`0 0 256 256`}
+                        />
                     </div>
                     <p className="mt-8 text-zinc-500 text-sm font-medium animate-pulse">Open WhatsApp on your phone &rarr; Menu &rarr; Linked Devices &rarr; Link a Device</p>
                 </div>

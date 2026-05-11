@@ -22,6 +22,7 @@ const Home = lazy(() => import('./pages/Home'));
 const Onboarding = lazy(() => import('./pages/Onboarding'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const AdminMembers = lazy(() => import('./pages/admin/AdminMembers'));
+const AdminRegistrations = lazy(() => import('./pages/admin/AdminRegistrations'));
 const AdminMemberDetail = lazy(() => import('./pages/admin/AdminMemberDetail'));
 const AdminStreams = lazy(() => import('./pages/admin/AdminStreams'));
 const AdminForms = lazy(() => import('./pages/admin/AdminForms'));
@@ -99,6 +100,8 @@ const queryClient = new QueryClient({
     },
 });
 
+const Register = lazy(() => import('./features/auth/components/RegisterView'));
+
 const App: React.FC = () => {
     const isNative = Capacitor.isNativePlatform();
 
@@ -113,7 +116,10 @@ const App: React.FC = () => {
                                 <Routes>
                                     {/* ── Public ─────────────────────────── */}
                                     <Route path="/" element={<Login />} />
+                                    <Route path="/register" element={<Register />} />
                                     <Route path="/home" element={<Home />} />
+                                    <Route path="/form/:formId" element={<Onboarding />} />
+                                    <Route path="/onboarding/form/:formId" element={<Onboarding />} />
                                     {!isNative && <Route path="/admin/login" element={<AdminLogin />} />}
                                     {isNative && <Route path="/admin/login" element={<Navigate to="/" replace />} />}
 
@@ -134,6 +140,7 @@ const App: React.FC = () => {
                                             <Route element={<AdminLayout />}>
                                                 <Route path="/admin" element={<AdminDashboard />} />
                                                 <Route path="/admin/members" element={<AdminMembers />} />
+                                                <Route path="/admin/registrations" element={<AdminRegistrations />} />
                                                 <Route path="/admin/members/create" element={<AdminMemberCreate />} />
                                                 <Route path="/admin/members/:id" element={<AdminMemberDetail />} />
                                                 <Route path="/admin/meetings" element={<AdminMeetings />} />

@@ -16,7 +16,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ backgroundImage }) => {
     const [step, setStep] = useState(1); // 1: Identifier, 2: OTP
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    
+
     const { sendOtp, verifyOtp } = useAuth();
     const navigate = useNavigate();
 
@@ -49,7 +49,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ backgroundImage }) => {
     return (
         <div className="flex min-h-screen items-center justify-center px-4 sm:px-6 lg:px-8 relative overflow-hidden bg-[#f9f6e8] dark:bg-zinc-950 transition-colors duration-500">
             {/* Background Image */}
-            <div 
+            <div
                 className="absolute inset-0 z-0 bg-cover sm:bg-contain bg-center bg-no-repeat"
                 style={{ backgroundImage: `url(${backgroundImage})` }}
             >
@@ -57,12 +57,12 @@ const LoginForm: React.FC<LoginFormProps> = ({ backgroundImage }) => {
 
             <Card className="w-full max-w-md z-10 relative bg-white/95 backdrop-blur-md border-white/20 mb-12 overflow-hidden rounded-xl">
                 <CardHeader className="text-center pt-10">
-                    <CardTitle className="text-3xl">
+                    <CardTitle className="text-2xl">
                         {step === 1 ? 'Sign in to GOA.CITY' : 'Enter OTP'}
                     </CardTitle>
                     <CardDescription className="mt-2">
-                        {step === 1 
-                            ? 'Enter your email to access your dashboard' 
+                        {step === 1
+                            ? 'Enter your email to access your dashboard'
                             : `Check your inbox, we sent a code to ${identifier}`
                         }
                     </CardDescription>
@@ -112,7 +112,6 @@ const LoginForm: React.FC<LoginFormProps> = ({ backgroundImage }) => {
                                     if (val.length <= 6) setOtp(val);
                                 }}
                             />
-
                             <div className="flex items-center px-1">
                                 <label className="flex items-center gap-2 cursor-pointer group">
                                     <input
@@ -126,7 +125,6 @@ const LoginForm: React.FC<LoginFormProps> = ({ backgroundImage }) => {
                                     </span>
                                 </label>
                             </div>
-
                             <div className="flex gap-3">
                                 <Button
                                     type="button"

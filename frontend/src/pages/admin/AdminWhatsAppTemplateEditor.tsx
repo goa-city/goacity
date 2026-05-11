@@ -8,6 +8,10 @@ import { ArrowLeftIcon as ArrowLeftOutline } from '@heroicons/react/24/outline';
 import { Card, CardContent } from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
 import Input from '../../shared/components/ui/Input';
+import { Popover, PopoverButton, PopoverPanel, Transition } from '@headlessui/react';
+import EmojiPicker, { Theme, EmojiClickData } from 'emoji-picker-react';
+import { Fragment, useRef } from 'react';
+import { FaceSmileIcon } from '@heroicons/react/24/outline';
 
 interface TemplateFormData {
     title: string;
@@ -26,6 +30,7 @@ const AdminWhatsAppTemplateEditor: React.FC = () => {
         title: '',
         content: ''
     });
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     useEffect(() => {
         if (isEdit) {
@@ -73,11 +78,37 @@ const AdminWhatsAppTemplateEditor: React.FC = () => {
         }
     };
 
-    const insertVariable = (variable: string): void => {
+    const insertAtCursor = (text: string): void => {
+        const textarea = textareaRef.current;
+        if (!textarea) {
+            setFormData(prev => ({ ...prev, content: prev.content + text }));
+            return;
+        }
+
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const content = formData.content;
+        
+        const newContent = content.substring(0, start) + text + content.substring(end);
+        
         setFormData(prev => ({
             ...prev,
-            content: prev.content + ` {${variable}} `
+            content: newContent
         }));
+
+        // Reset focus and cursor position after state update
+        setTimeout(() => {
+            textarea.focus();
+            textarea.setSelectionRange(start + text.length, start + text.length);
+        }, 0);
+    };
+
+    const insertVariable = (variable: string): void => {
+        insertAtCursor(`{${variable}}`);
+    };
+
+    const onEmojiClick = (emojiData: EmojiClickData) => {
+        insertAtCursor(emojiData.emoji);
     };
 
     if (loading) return <div className="p-12 text-center font-black uppercase tracking-widest text-zinc-400 animate-pulse">Loading editor...</div>;
@@ -126,8 +157,37 @@ const AdminWhatsAppTemplateEditor: React.FC = () => {
                             />
                             
                             <div>
-                                <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Message Content</label>
+                                <div className="flex justify-between items-center mb-2">
+                                    <label className="block text-xs font-black uppercase tracking-widest text-zinc-500">Message Content</label>
+                                    
+                                    <Popover className="relative">
+                                        <PopoverButton className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-emerald-100 hover:text-emerald-600 dark:hover:bg-emerald-900/30 dark:hover:text-emerald-400 transition-all text-[10px] font-black uppercase tracking-widest outline-none">
+                                            <FaceSmileIcon className="w-4 h-4" />
+                                            Add Emoji
+                                        </PopoverButton>
+                                        <Transition
+                                            as={Fragment}
+                                            enter="transition ease-out duration-200"
+                                            enterFrom="opacity-0 translate-y-1"
+                                            enterTo="opacity-100 translate-y-0"
+                                            leave="transition ease-in duration-150"
+                                            leaveFrom="opacity-100 translate-y-0"
+                                            leaveTo="opacity-0 translate-y-1"
+                                        >
+                                            <PopoverPanel className="absolute right-0 z-50 mt-3 shadow-2xl">
+                                                <EmojiPicker 
+                                                    onEmojiClick={onEmojiClick}
+                                                    autoFocusSearch={false}
+                                                    theme={Theme.AUTO}
+                                                    width={350}
+                                                    height={400}
+                                                />
+                                            </PopoverPanel>
+                                        </Transition>
+                                    </Popover>
+                                </div>
                                 <textarea 
+                                    ref={textareaRef}
                                     className="w-full h-64 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-emerald-500 transition-all font-medium leading-relaxed"
                                     value={formData.content}
                                     onChange={e => setFormData({ ...formData, content: e.target.value })}

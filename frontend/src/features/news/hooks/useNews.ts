@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchNewsFeed, createPost, likePost, deletePost } from '../api/news.api';
+import { fetchNewsFeed, createPost, likePost, deletePost, updatePost } from '../api/news.api';
 
 export const useNews = (page = 1) => {
     const queryClient = useQueryClient();
@@ -31,6 +31,13 @@ export const useNews = (page = 1) => {
         }
     });
 
+    const updateMutation = useMutation({
+        mutationFn: updatePost,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['news-feed'] });
+        }
+    });
+
     return {
         feed: (feedQuery.data as any[]) || [],
         isLoading: feedQuery.isLoading,
@@ -38,6 +45,7 @@ export const useNews = (page = 1) => {
         createPost: createPostMutation.mutateAsync,
         isCreating: createPostMutation.isPending,
         likePost: likeMutation.mutateAsync,
-        deletePost: deleteMutation.mutateAsync
+        deletePost: deleteMutation.mutateAsync,
+        updatePost: updateMutation.mutateAsync
     };
 };

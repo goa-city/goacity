@@ -11,8 +11,8 @@ export const getWhatsAppStatus = async (req: Request, res: Response) => {
         
         res.json({
             status: session?.status || 'INITIALIZING',
-            qr: session?.qr_code || null,
-            lastActive: session?.last_active
+            qr_code: session?.qr_code || null,
+            last_active: session?.last_active
         });
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch WhatsApp status' });

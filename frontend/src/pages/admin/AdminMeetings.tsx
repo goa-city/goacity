@@ -10,6 +10,13 @@ import {
 import { Card } from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
 
+const getLocalYYYYMMDD = (dateInput: any) => {
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return '';
+    const offset = d.getTimezoneOffset() * 60000;
+    return (new Date(d.getTime() - offset)).toISOString().slice(0, 10);
+};
+
 const AdminMeetings: React.FC = () => {
     const navigate = useNavigate();
     const [meetings, setMeetings] = useState<any[]>([]);
@@ -173,9 +180,28 @@ const AdminMeetings: React.FC = () => {
                                             <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{meeting.start_time_display} - {meeting.end_time_display}</p>
                                         </td>
                                         <td className="px-8 py-5">
-                                            <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border ${meeting.archived == 1 ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700' : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/50'}`}>
-                                                {meeting.archived == 1 ? 'Archived' : 'Active'}
-                                            </span>
+                                            {(() => {
+                                                if (meeting.archived == 1) {
+                                                    return (
+                                                        <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700">
+                                                            Archived
+                                                        </span>
+                                                    );
+                                                }
+                                                const isPast = meeting.meeting_date ? getLocalYYYYMMDD(meeting.meeting_date) < getLocalYYYYMMDD(new Date()) : false;
+                                                if (isPast) {
+                                                    return (
+                                                        <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-900/50">
+                                                            Ended
+                                                        </span>
+                                                    );
+                                                }
+                                                return (
+                                                    <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/50">
+                                                        Active
+                                                    </span>
+                                                );
+                                            })()}
                                         </td>
                                         <td className="px-8 py-5 text-right" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                                             <div className="flex items-center justify-end gap-2">

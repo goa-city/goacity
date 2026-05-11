@@ -1,12 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchAdminMembers, fetchAdminMemberDetail, updateAdminMember, deleteAdminMember } from '../api/admin-members.api';
 
-export const useAdminMembers = (memberId?: number) => {
+export const useAdminMembers = (memberId?: number, status?: string) => {
     const queryClient = useQueryClient();
 
     const membersQuery = useQuery({
-        queryKey: ['admin-members'],
-        queryFn: fetchAdminMembers,
+        queryKey: status ? ['admin-members', status] : ['admin-members'],
+        queryFn: () => fetchAdminMembers(status),
         enabled: !memberId
     });
 
@@ -28,6 +28,7 @@ export const useAdminMembers = (memberId?: number) => {
         mutationFn: deleteAdminMember,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['admin-members'] });
+            queryClient.invalidateQueries({ queryKey: ['member-stats'] }); // Also invalidate stats
         }
     });
 

@@ -23,13 +23,22 @@ export class AdminFormService {
     }
 
     static async saveFormStructure(formId: number, data: any) {
-        const { title, description, fields } = data;
+        const { title, description, fields, fields_per_page, visibility, redirect_url, notify_admin, notify_admin_ids } = data;
 
         return await prisma.$transaction(async (tx) => {
             // Update form basic info
             await tx.forms.update({
                 where: { id: formId },
-                data: { title, description, updated_at: new Date() }
+                data: { 
+                    title, 
+                    description, 
+                    fields_per_page: fields_per_page !== undefined ? Number(fields_per_page) : undefined,
+                    visibility,
+                    redirect_url,
+                    notify_admin: notify_admin !== undefined ? !!notify_admin : undefined,
+                    notify_admin_ids,
+                    updated_at: new Date() 
+                }
             });
 
             if (fields && Array.isArray(fields)) {
@@ -69,12 +78,22 @@ export class AdminFormService {
         const sourceId = data.source_id ? Number(data.source_id) : null;
 
         return await prisma.$transaction(async (tx) => {
+            let sourceForm = null;
+            if (sourceId) {
+                sourceForm = await tx.forms.findUnique({ where: { id: sourceId } });
+            }
+
             const newForm = await tx.forms.create({
                 data: {
                     title: data.title,
                     code: code,
                     description: data.description,
-                    is_active: 1
+                    is_active: 1,
+                    fields_per_page: sourceForm ? sourceForm.fields_per_page : (data.fields_per_page || 1),
+                    visibility: sourceForm ? sourceForm.visibility : (data.visibility || 'members'),
+                    redirect_url: sourceForm ? sourceForm.redirect_url : (data.redirect_url || null),
+                    notify_admin: sourceForm ? sourceForm.notify_admin : (!!data.notify_admin),
+                    notify_admin_ids: sourceForm ? sourceForm.notify_admin_ids : (data.notify_admin_ids || null)
                 }
             });
 

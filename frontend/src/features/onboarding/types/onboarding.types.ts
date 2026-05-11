@@ -19,4 +19,7 @@ export interface OnboardingForm {
     questions: OnboardingQuestion[];
     answers: Record<string, any>;
     lastStepIndex: number;
+    fields_per_page?: number;
+    visibility?: 'members' | 'public';
+    redirect_url?: string;
 }

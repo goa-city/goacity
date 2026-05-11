@@ -45,6 +45,32 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
     }
 };
 
+export const optionalAuthMiddleware = (req: Request, res: Response, next: NextFunction) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return next();
+
+    const token = authHeader.split(' ')[1];
+    if (!token) return next();
+
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET) as any;
+        
+        (req as any).userId = Number(decoded.id);
+        (req as any).userRole = decoded.role;
+
+        const store = requestContext.getStore();
+        if (store) {
+            store.adminId = decoded.role === 'admin' ? Number(decoded.id) : undefined;
+            store.memberId = decoded.role === 'member' ? Number(decoded.id) : undefined;
+            store.isSuperAdmin = decoded.isSuperAdmin === true;
+        }
+        next();
+    } catch (error) {
+        // Silently fail and continue as anonymous
+        next();
+    }
+};
+
 export const superAdminMiddleware = (req: Request, res: Response, next: NextFunction) => {
     authMiddleware(req, res, () => {
         const store = requestContext.getStore();

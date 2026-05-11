@@ -1,5 +1,6 @@
 import prisma from '../lib/prisma.js';
 import { AppError } from '../utils/errors.js';
+import { sendEmail } from '../utils/email.js';
 
 export class FormService {
     static async getFormWithFields(code: string) {
@@ -15,7 +16,7 @@ export class FormService {
         return form;
     }
 
-    static async getFormWithUserProgress(userId: number, codeOrId: string | number) {
+    static async getFormWithUserProgress(userId: number | null, codeOrId: string | number) {
         const query = typeof codeOrId === 'number' || !isNaN(Number(codeOrId)) 
             ? { id: Number(codeOrId) } 
             : { code: String(codeOrId) };
@@ -29,20 +30,24 @@ export class FormService {
 
         if (!form) throw new AppError('Form not found', 404);
 
-        const response = await prisma.formResponse.findFirst({
-            where: { user_id: userId, form_id: form.id },
-            include: { answers: true }
-        });
-
         const answers: Record<string, any> = {};
-        if (response) {
-            response.answers.forEach(a => {
-                try {
-                    answers[a.field_key] = JSON.parse(a.answer_value || '');
-                } catch {
-                    answers[a.field_key] = a.answer_value;
-                }
+        let response = null;
+        
+        if (userId) {
+            response = await prisma.formResponse.findFirst({
+                where: { user_id: userId, form_id: form.id },
+                include: { answers: true }
             });
+
+            if (response) {
+                response.answers.forEach(a => {
+                    try {
+                        answers[a.field_key] = JSON.parse(a.answer_value || '');
+                    } catch {
+                        answers[a.field_key] = a.answer_value;
+                    }
+                });
+            }
         }
 
         return {
@@ -61,9 +66,12 @@ export class FormService {
         }
 
         return await prisma.$transaction(async (tx) => {
-            let response = await tx.formResponse.findFirst({
-                where: { user_id: userId, form_id: formId }
-            });
+            let response = null;
+            if (userId) {
+                response = await tx.formResponse.findFirst({
+                    where: { user_id: userId, form_id: formId }
+                });
+            }
 
             if (response) {
                 response = await tx.formResponse.update({
@@ -144,11 +152,62 @@ export class FormService {
                 }
             }
 
+            // Admin Notification Logic
+            if (!isPartial) {
+                const form = await tx.forms.findUnique({ 
+                    where: { id: formId },
+                    include: { fields: true }
+                });
+                if (form?.notify_admin && form.notify_admin_ids) {
+                    const adminIds = form.notify_admin_ids.split(',').map(id => parseInt(id)).filter(id => !isNaN(id));
+                    const admins = await tx.admin.findMany({
+                        where: { id: { in: adminIds } },
+                        select: { email: true, full_name: true }
+                    });
+
+                    const fieldLabels: Record<string, string> = {};
+                    form.fields.forEach(f => { 
+                        if (f.field_key) {
+                            fieldLabels[f.field_key] = f.label || f.field_key; 
+                        }
+                    });
+
+                    for (const admin of admins) {
+                        if (admin.email) {
+                            const summary = Object.entries(answers)
+                                .map(([k, v]) => `<li><strong>${fieldLabels[k] || k}</strong>: ${v}</li>`)
+                                .join('');
+                            
+                            await sendEmail(
+                                admin.email,
+                                `New Submission: ${form.title}`,
+                                `
+                                <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
+                                    <div style="background: #6366f1; padding: 24px; color: white;">
+                                        <h2 style="margin: 0; font-size: 20px;">New form submission received</h2>
+                                        <p style="margin: 8px 0 0 0; opacity: 0.8; font-size: 14px;">${form.title}</p>
+                                    </div>
+                                    <div style="padding: 24px; color: #444;">
+                                        <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
+                                        <p><strong>User:</strong> ${userId ? `User ID ${userId}` : 'Anonymous'}</p>
+                                        <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
+                                        <ul style="list-style: none; padding: 0;">
+                                            ${summary}
+                                        </ul>
+                                    </div>
+                                </div>
+                                `
+                            );
+                        }
+                    }
+                }
+            }
+
             return response;
         });
     }
 
-    static async submitOnboarding(userId: number, body: any, files: any[] = []) {
+    static async submitOnboarding(userId: number | null, body: any, files: any[] = []) {
         const onboardingForm = await prisma.forms.findFirst({
             where: { code: 'mp-onboarding' }
         });
@@ -165,7 +224,7 @@ export class FormService {
 
         const result = await this.submitResponse(userId, onboardingForm.id, answers, isPartial, lastStepIndex, files);
 
-        if (!isPartial) {
+        if (!isPartial && userId) {
             await prisma.member.update({
                 where: { id: userId },
                 data: { is_onboarded: 1 }

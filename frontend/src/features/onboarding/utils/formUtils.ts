@@ -29,3 +29,28 @@ export const getFilteredQuestions = (questions: any[], data: any) => {
         return checkCondition(cond, data);
     });
 };
+
+export const chunkQuestions = (questions: any[], fieldsPerPage: number = 1) => {
+    if (!questions || questions.length === 0) return [];
+    if (fieldsPerPage === 0) return [questions];
+    
+    const chunks: any[][] = [];
+    let currentChunk: any[] = [];
+    
+    questions.forEach(q => {
+        const type = q.type || q.field_type;
+        if (type === 'intro') {
+            if (currentChunk.length > 0) chunks.push(currentChunk);
+            chunks.push([q]);
+            currentChunk = [];
+        } else {
+            currentChunk.push(q);
+            if (currentChunk.length === fieldsPerPage) {
+                chunks.push(currentChunk);
+                currentChunk = [];
+            }
+        }
+    });
+    if (currentChunk.length > 0) chunks.push(currentChunk);
+    return chunks;
+};

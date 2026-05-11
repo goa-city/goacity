@@ -3,6 +3,7 @@ import { MemberService } from '../services/member.service.js';
 import { PostService } from '../services/post.service.js';
 import { ResourceService } from '../services/resource.service.js';
 import { sendEmail } from '../utils/email.js';
+import path from 'path';
 
 export const getDashboard = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -37,7 +38,19 @@ export const updateProfile = async (req: Request, res: Response, next: NextFunct
 export const createPost = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const userId = (req as any).userId;
-        const result = await PostService.createPost(userId, req.body);
+        const postData = req.body;
+        
+        if (req.file) {
+            postData.media_url = `/uploads/${req.file.filename}`;
+            const ext = path.extname(req.file.originalname).toLowerCase();
+            if (['.mp4', '.webm', '.mov', '.avi'].includes(ext)) {
+                postData.media_type = 'video';
+            } else {
+                postData.media_type = 'image';
+            }
+        }
+
+        const result = await PostService.createPost(userId, postData);
         res.json({ success: true, data: result });
     } catch (error) {
         next(error);
@@ -179,6 +192,31 @@ export const deletePost = async (req: Request, res: Response, next: NextFunction
         const { id } = req.params;
         await PostService.deletePost(Number(id), userId);
         res.json({ success: true });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const updatePost = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const userId = (req as any).userId;
+        const { id } = req.params;
+        const result = await PostService.updatePost(Number(id), userId, req.body);
+        res.json({ success: true, data: result });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const registerPublicMember = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const files = req.files as Express.Multer.File[];
+        const result = await MemberService.registerPublicMember(req.body, files);
+        res.json({ 
+            success: true, 
+            message: 'Registration successful! Your application is being reviewed.',
+            data: result 
+        });
     } catch (error) {
         next(error);
     }

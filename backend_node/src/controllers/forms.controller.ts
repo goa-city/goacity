@@ -32,7 +32,7 @@ export const getFormWithFields = async (req: Request, res: Response, next: NextF
 
 export const getFormProgress = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const userId = (req as any).userId;
+        const userId = (req as any).userId || null;
         const { code, id } = req.query;
         const codeOrId = id || code;
         
@@ -70,7 +70,7 @@ export const submitForm = async (req: Request, res: Response, next: NextFunction
 
 export const submitOnboarding = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const userId = (req as any).userId;
+        const userId = (req as any).userId || null;
         const files = req.files as Express.Multer.File[];
         const result = await FormService.submitOnboarding(userId, req.body, files);
         res.json({ success: true, data: result });

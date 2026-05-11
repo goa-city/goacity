@@ -20,11 +20,11 @@ interface CheckInModalProps {
 
 const CheckInModal: React.FC<CheckInModalProps> = ({ meeting, onClose, onSuccess }) => {
     const [loading, setLoading] = useState(false);
-    
+
     React.useEffect(() => {
         console.log("[CHECKIN_DEBUG] Meeting Object:", meeting);
     }, [meeting]);
-    
+
     const performCheckIn = async (paymentMethod?: string) => {
         setLoading(true);
         try {
@@ -34,7 +34,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ meeting, onClose, onSuccess
                     amount: meeting.payment_amount
                 });
             }
-            
+
             await api.post(`/member/meeting/${meeting.id}/checkin`);
             onSuccess();
             onClose();
@@ -52,8 +52,8 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ meeting, onClose, onSuccess
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm animate-in fade-in duration-300">
             <div className="bg-white dark:bg-zinc-900 rounded-[2.5rem] shadow-2xl w-full max-w-md p-8 relative border border-zinc-100 dark:border-zinc-800 animate-in zoom-in-95 duration-300">
-                <button 
-                    onClick={onClose} 
+                <button
+                    onClick={onClose}
                     className="absolute top-8 right-8 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors"
                 >
                     <XMarkIcon className="w-6 h-6" />
@@ -61,7 +61,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ meeting, onClose, onSuccess
 
                 <div className="mb-8">
                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-[9px] font-black uppercase tracking-widest mb-4">
-                        Check-in Protocol
+                        Meeting Check-in
                     </div>
                     <h3 className="text-3xl font-black text-zinc-900 dark:text-white leading-tight tracking-tighter uppercase italic">
                         {isPaid ? <>Check-in <span className="text-indigo-600">& Pay</span></> : 'Confirm Attendance'}
@@ -88,7 +88,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ meeting, onClose, onSuccess
                         ) : (
                             <div className="text-center p-6 bg-amber-50 dark:bg-amber-900/20 rounded-2xl border border-amber-100 dark:border-amber-800">
                                 <p className="text-[10px] text-amber-700 dark:text-amber-400 font-black uppercase tracking-widest italic">
-                                    No QR Code available. Please pay at the counter.
+                                    No QR Code available. Please pay at the registration desk.
                                 </p>
                             </div>
                         )}
@@ -115,12 +115,6 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ meeting, onClose, onSuccess
                     </div>
                 ) : (
                     <div className="pt-4">
-                        <div className="bg-zinc-50 dark:bg-zinc-950 p-10 rounded-3xl text-center border border-zinc-100 dark:border-zinc-800 mb-8">
-                            <CheckCircleIcon className="w-16 h-16 text-emerald-500 mx-auto mb-4 opacity-50" />
-                            <p className="text-sm text-zinc-500 dark:text-zinc-400 font-medium leading-relaxed">
-                                This is a free meeting. Click below to confirm your presence.
-                            </p>
-                        </div>
                         <Button
                             onClick={() => performCheckIn()}
                             loading={loading}

@@ -39,6 +39,7 @@ Meeting attendance includes a `payment_status` field in the `meeting_responses` 
     - **RSVP Going**: Emerald theme.
     - **RSVP Maybe**: Amber theme.
     - **RSVP No**: Rose theme.
+    - **Ended**: Amber theme (`bg-amber-50`, `text-amber-600`) - applied automatically to past meetings in the Admin Panel.
 - **Responsive**: All meeting components must be responsive, especially the check-in modal on mobile devices.
 - **Date Normalization**: All frontend date comparisons (e.g., "Today" vs "Upcoming") must use local `YYYY-MM-DD` strings (ignoring time) to prevent timezone-related discrepancies between the client and server. Use `getLocalYYYYMMDD()` helper for consistency.
 
@@ -51,8 +52,12 @@ Meeting attendance includes a `payment_status` field in the `meeting_responses` 
 ## 7. Admin Configuration
 Admins manage meetings via the Admin Panel:
 - **Paid Toggle**: Enables/disables the payment flow.
+- **Conditional Payments**: In the "Member Actions" table, payment-related columns (Status, Amount) are automatically hidden if the meeting is free to reduce clutter.
 - **QR Code**: Uploaded as a standard image file, served via `/uploads/`. The backend must provide a calculated `payment_qr_image_url` field in all meeting responses to simplify frontend rendering.
-- **Resources**: Files or links accessible to members after check-in (or before, depending on config).
+- **Resources**: Files or links accessible to members after check-in (or before, depending on config). Managed via the "Presentation & Resources" card.
+- **Recap**: Rich text notes managed in a dedicated "Meeting Recap" card.
+- **Notifications**: Triggered via a selection modal that allows choosing different templates and previewing content before broadcast.
+- **Layout Priority**: The Admin Meeting Editor follows a prioritized layout order: Header -> Main Form -> Presentation Uploads -> Member Actions -> Recap Content -> Form Submissions.
 
 ## 8. Development Notes
 - **API Consistency**: Always ensure that `payment_qr_image_url` is included in both list and single-item responses to prevent "No QR Code" errors in the frontend modal.
@@ -90,3 +95,15 @@ Goa.City uses a unified notification engine for Email, WhatsApp, and OTP.
 - **Time Parsing**: NEVER use `new Date(timeString)` on plain time strings (e.g. "06:30pm") as it returns `Invalid Date`. Always use the `parseTimeStr` or `parseTime24h` utilities.
 - **Dynamic UI**: Sections like "Meeting Resources" or "Meeting Recap" should be hidden entirely if their content is empty to maintain a clean "Dashboard" feel.
 - **URL Generation**: Always use request headers (`x-forwarded-proto`, `host`) to dynamically construct absolute URLs for shortcodes like `{rsvp_link}` to ensure environment-agnostic links.
+
+## 11. Broadcasting & Notifications
+Admins can send mass notifications to all meeting participants via the Admin Meeting Editor.
+
+### Selection Modal Protocol
+- **Trigger**: "Notify: Email" or "Notify: WhatsApp" buttons in the editor header.
+- **Protocol**: Instead of immediate sending, a modal opens to allow template selection.
+- **Defaults**:
+    - **Email**: Defaults to Template ID `2`.
+    - **WhatsApp**: Defaults to Template ID `1`.
+- **Preview Engine**: The modal includes a real-time preview of the selected template. It handles field mapping differences automatically (Email templates use `message`, WhatsApp templates use `content`).
+- **Safety Step**: A final confirmation is required within the modal before the broadcast is queued on the backend.

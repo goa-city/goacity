@@ -22,6 +22,17 @@ export interface Form {
     description: string;
     code: string;
     fields?: FormField[];
+    fields_per_page?: number;
+    visibility?: 'members' | 'public';
+    redirect_url?: string;
+    notify_admin?: boolean;
+    notify_admin_ids?: string;
+}
+
+export interface AdminUser {
+    id: number;
+    full_name: string;
+    email: string;
 }
 
 export const fetchAdminForms = async (): Promise<Form[]> => {
@@ -31,6 +42,11 @@ export const fetchAdminForms = async (): Promise<Form[]> => {
 
 export const fetchAdminFormDetail = async (id: number): Promise<Form> => {
     const { data } = await httpClient.get<Form>(`/admin/forms?id=${id}`);
+    return data;
+};
+
+export const fetchAdmins = async (): Promise<AdminUser[]> => {
+    const { data } = await httpClient.get<AdminUser[]>('/admin/admins');
     return data;
 };
 

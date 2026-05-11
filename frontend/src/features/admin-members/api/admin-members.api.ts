@@ -26,8 +26,8 @@ export interface MemberDetail extends AdminMember {
     meeting_count: number;
 }
 
-export const fetchAdminMembers = async (): Promise<AdminMember[]> => {
-    const { data } = await httpClient.get<AdminMember[]>('/admin/users');
+export const fetchAdminMembers = async (status?: string): Promise<AdminMember[]> => {
+    const { data } = await httpClient.get<AdminMember[]>(`/admin/users${status ? `?status=${status}` : ''}`);
     return data;
 };
 

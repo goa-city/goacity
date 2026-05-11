@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAdminAuth } from '../context/AdminAuthContext';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
+import httpClient from '../shared/api/httpClient';
 import { 
     HomeIcon, 
     UsersIcon, 
@@ -45,9 +46,10 @@ const AdminLayout: React.FC<{ children?: React.ReactNode }> = ({ children }) => 
 
         if (path === '/admin') {
             tab = 'overview';
-        } else if (path.includes('/admin/members') || path.includes('/admin/streams') || path.includes('/admin/admins')) {
+        } else if (path.includes('/admin/members') || path.includes('/admin/registrations') || path.includes('/admin/streams') || path.includes('/admin/admins')) {
             group = 'controls';
             if (path.includes('/admin/members')) tab = 'members';
+            if (path.includes('/admin/registrations')) tab = 'registrations';
             if (path.includes('/admin/streams')) tab = 'streams';
             if (path.includes('/admin/admins')) tab = 'admins';
         } else if (path.includes('/admin/meetings') || path.includes('/admin/forms') || path.includes('/admin/email-templates')) {
@@ -101,6 +103,7 @@ const AdminLayout: React.FC<{ children?: React.ReactNode }> = ({ children }) => 
             icon: InboxStackIcon,
             subItems: [
                 { name: 'Members', icon: UsersIcon, id: 'members', path: '/admin/members' },
+                { name: 'Registrations', icon: UserGroupIcon, id: 'registrations', path: '/admin/registrations' },
                 { name: 'Streams', icon: InboxStackIcon, id: 'streams', path: '/admin/streams' },
                 { name: 'Admin Users', icon: UserGroupIcon, id: 'admins', path: '/admin/admins' },
             ]

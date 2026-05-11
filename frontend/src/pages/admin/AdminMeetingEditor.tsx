@@ -8,7 +8,8 @@ import {
     CalendarDaysIcon, ArrowLeftIcon, MapPinIcon,
     CurrencyRupeeIcon, BeakerIcon, SwatchIcon, ClockIcon,
     CloudArrowUpIcon, TrashIcon, DocumentIcon, DocumentTextIcon,
-    VideoCameraIcon, EnvelopeIcon, ChevronDownIcon, ChatBubbleLeftRightIcon, EyeIcon, ArrowDownTrayIcon
+    VideoCameraIcon, EnvelopeIcon, ChevronDownIcon, ChatBubbleLeftRightIcon, EyeIcon, ArrowDownTrayIcon,
+    XMarkIcon
 } from '@heroicons/react/24/solid';
 import { ArrowLeftIcon as ArrowLeftOutline } from '@heroicons/react/24/outline';
 import { Card } from '../../shared/components/ui/Card';
@@ -44,9 +45,24 @@ const AdminMeetingEditor: React.FC = () => {
     const [emailTemplates, setEmailTemplates] = useState<any[]>([]);
     const [whatsappTemplates, setWhatsappTemplates] = useState<any[]>([]);
     const [showNotifyMenu, setShowNotifyMenu] = useState(false);
+    const [showNotifyModal, setShowNotifyModal] = useState(false);
+    const [notifyType, setNotifyType] = useState<'email' | 'whatsapp'>('email');
+    const [selectedTemplateId, setSelectedTemplateId] = useState<any>(null);
     const meetingDate = watch('meeting_date');
+    const title = watch('title');
     const slug = watch('slug');
     const isPastDate = meetingDate ? getLocalYYYYMMDD(meetingDate) < getLocalYYYYMMDD(new Date()) : false;
+
+    // Auto-slug logic
+    useEffect(() => {
+        if (!isEdit && title) {
+            const generatedSlug = title.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+            // Only auto-update if slug is empty or seems to be following the title pattern
+            if (!slug || slug === title.slice(0, -1).toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')) {
+                setValue('slug', generatedSlug);
+            }
+        }
+    }, [title, isEdit, setValue, slug]);
 
     useEffect(() => {
         const fetchResources = async () => {
@@ -105,7 +121,7 @@ const AdminMeetingEditor: React.FC = () => {
 
             Object.keys(data).forEach(key => {
                 if (key === 'id' || key === 'payment_qr_image_url' || key === 'resources' || key === 'description' || key === 'recap_content' || key === 'payment_qr_image') return;
-                
+
                 if (key === 'meeting_date') {
                     if (data[key]) {
                         const date = new Date(data[key]);
@@ -169,12 +185,18 @@ const AdminMeetingEditor: React.FC = () => {
         }
     };
 
-    const handleNotify = async (type, templateId) => {
-        if (!window.confirm(`Send ${type} notification using the selected template?`)) return;
+    const handleNotify = (type) => {
+        setNotifyType(type);
+        setSelectedTemplateId(type === 'email' ? '2' : '1');
+        setShowNotifyModal(true);
+    };
+
+    const executeNotify = async () => {
+        if (!window.confirm(`Send ${notifyType} notification using the selected template?`)) return;
         setNotifying(true);
-        setShowNotifyMenu(false);
+        setShowNotifyModal(false);
         try {
-            await api.post(`/admin/meetings/${id}/notify`, { type, templateId });
+            await api.post(`/admin/meetings/${id}/notify`, { type: notifyType, templateId: selectedTemplateId });
             showToast("Notifications sent successfully!");
         } catch (e) {
             console.error(e);
@@ -230,21 +252,21 @@ const AdminMeetingEditor: React.FC = () => {
                                 <div className="flex items-center gap-2">
                                     <button
                                         type="button"
-                                        onClick={() => handleNotify('email', 2)}
+                                        onClick={() => handleNotify('email')}
                                         disabled={notifying}
                                         className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-indigo-700 transition-all disabled:opacity-50 shadow-lg shadow-indigo-600/20"
                                     >
                                         <EnvelopeIcon className="w-4 h-4" />
-                                        {notifying ? 'Sending...' : 'Notify: Email'}
+                                        {notifying && notifyType === 'email' ? 'Sending...' : 'Notify: Email'}
                                     </button>
                                     <button
                                         type="button"
-                                        onClick={() => handleNotify('whatsapp', 1)}
+                                        onClick={() => handleNotify('whatsapp')}
                                         disabled={notifying}
                                         className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-emerald-700 transition-all disabled:opacity-50 shadow-lg shadow-emerald-600/20"
                                     >
                                         <ChatBubbleLeftRightIcon className="w-4 h-4" />
-                                        {notifying ? 'Sending...' : 'Notify: WhatsApp'}
+                                        {notifying && notifyType === 'whatsapp' ? 'Sending...' : 'Notify: WhatsApp'}
                                     </button>
                                 </div>
                             )}
@@ -258,28 +280,28 @@ const AdminMeetingEditor: React.FC = () => {
                 {/* Main Form Content */}
                 <Card className="border-zinc-100 dark:border-zinc-800 shadow-xl shadow-zinc-200/50 dark:shadow-none overflow-hidden p-6 space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="md:col-span-1">
+                        <div className="md:col-span-2">
                             <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Meeting Title <span className="text-red-500">*</span></label>
                             <input {...register('title', { required: true })} className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-4 font-medium" placeholder="e.g. Monthly Community Meetup" />
                             {errors.title && <p className="mt-1 text-[10px] font-black tracking-widest uppercase text-red-500">Title is required</p>}
                         </div>
 
-                        <div className="md:col-span-1">
+                        <div className="md:col-span-2">
                             <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">URL Slug</label>
-                            <input 
-                                {...register('slug')} 
+                            <input
+                                {...register('slug')}
                                 onInput={(e: any) => {
-                                    e.target.value = e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+                                    e.target.value = e.target.value.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
                                 }}
-                                className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-4 font-medium" 
-                                placeholder="auto-generated-if-empty" 
+                                className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-4 font-medium"
+                                placeholder="auto-generated-if-empty"
                             />
                             {slug && (
                                 <p className="mt-1 text-[9px] text-indigo-500 font-bold uppercase tracking-widest ml-1">
-                                    Public Link: goa.city/meetings/{slug}
+                                    Public Link: <a href={`https://goa.city/meetings/${slug}`} target="_blank" rel="noopener noreferrer" className="hover:underline">goa.city/meetings/{slug}</a>
                                 </p>
                             )}
-                            <p className="mt-1 text-[9px] text-zinc-400 font-bold uppercase tracking-widest">Human-readable URL part. Leave blank to auto-generate.</p>
+                            <p className="mt-1 text-[9px] text-zinc-400 font-bold uppercase tracking-widest">Clean URL. Leave blank to auto-generate.</p>
                         </div>
 
                         <div>
@@ -385,7 +407,7 @@ const AdminMeetingEditor: React.FC = () => {
                                     <div className="relative group/qr w-32 h-32 bg-white rounded-xl border border-zinc-200 shadow-sm overflow-hidden mb-3">
                                         <img src={qrPreview} alt="QR Preview" className="w-full h-full object-contain" />
                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/qr:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                            <button 
+                                            <button
                                                 type="button"
                                                 onClick={() => {
                                                     setQrPreview(null);
@@ -397,7 +419,7 @@ const AdminMeetingEditor: React.FC = () => {
                                             >
                                                 <TrashIcon className="w-4 h-4" />
                                             </button>
-                                            <a 
+                                            <a
                                                 href={qrPreview}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
@@ -413,9 +435,9 @@ const AdminMeetingEditor: React.FC = () => {
                                         <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400">No Image</p>
                                     </div>
                                 )}
-                                <input 
-                                    type="file" 
-                                    accept="image/*" 
+                                <input
+                                    type="file"
+                                    accept="image/*"
                                     onChange={(e) => {
                                         const file = e.target.files?.[0];
                                         if (file) {
@@ -425,7 +447,7 @@ const AdminMeetingEditor: React.FC = () => {
                                             reader.readAsDataURL(file);
                                         }
                                     }}
-                                    className="text-sm text-zinc-500 dark:text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:tracking-widest file:bg-sky-50 file:text-sky-700 dark:file:bg-sky-950/30 dark:file:text-sky-400 hover:file:bg-sky-100 dark:hover:file:bg-sky-900/50" 
+                                    className="text-sm text-zinc-500 dark:text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:tracking-widest file:bg-sky-50 file:text-sky-700 dark:file:bg-sky-950/30 dark:file:text-sky-400 hover:file:bg-sky-100 dark:hover:file:bg-sky-900/50"
                                 />
                             </div>
                         </div>
@@ -440,7 +462,139 @@ const AdminMeetingEditor: React.FC = () => {
                     </div>
                 </Card>
 
-                {/* Recap & Resources Section */}
+                {/* Presentation & Resources Section */}
+                <Card className="border-zinc-100 dark:border-zinc-800 shadow-xl shadow-zinc-200/50 dark:shadow-none overflow-hidden">
+                    <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 bg-sky-50/20 dark:bg-sky-950/10">
+                        <h2 className="text-lg font-black text-zinc-900 dark:text-white flex items-center gap-2">
+                            <CloudArrowUpIcon className="w-5 h-5 text-sky-500" />
+                            Presentation & Resources
+                        </h2>
+                    </div>
+                    <div className="p-6">
+                        <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Upload Presentation / Notes (PDF, Word, PPT)</label>
+                        <div className="mt-2">
+                            <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-xl cursor-pointer transition-all ${uploadingResource ? 'bg-gray-50 border-gray-200' : 'bg-sky-50/30 border-sky-200 hover:bg-sky-50 hover:border-sky-300'}`}>
+                                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                    {uploadingResource ? (
+                                        <div className="flex items-center gap-2 text-sky-600 font-semibold">
+                                            <div className="w-4 h-4 border-2 border-sky-600 border-t-transparent rounded-full animate-spin"></div>
+                                            Uploading...
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <CloudArrowUpIcon className="w-8 h-8 mb-2 text-sky-500" />
+                                            <p className="text-sm text-sky-700 font-medium">Click to upload files</p>
+                                            <p className="text-xs text-sky-500 mt-1">Word, PPT or PDF</p>
+                                        </>
+                                    )}
+                                </div>
+                                <input type="file" className="hidden" disabled={uploadingResource || !isEdit} onChange={handleResourceUpload} />
+                            </label>
+                            {!isEdit && <p className="mt-2 text-[10px] text-red-400">Save the meeting first to upload resource files.</p>}
+                        </div>
+
+                        {meetingResources.length > 0 && (
+                            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {meetingResources.map((res) => (
+                                    <div key={res.id} className="flex items-center justify-between p-3 bg-white border border-gray-100 rounded-xl shadow-sm">
+                                        <div className="flex items-center gap-3 overflow-hidden">
+                                            <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 text-gray-400">
+                                                <DocumentIcon className="w-4 h-4" />
+                                            </div>
+                                            <span className="text-sm font-medium text-gray-700 truncate">{res.title}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <a
+                                                href={res.url_display || `${baseUrl}/uploads/${res.url}`}
+                                                download={res.title || 'download'}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="p-1.5 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                                title="Download File"
+                                            >
+                                                <ArrowDownTrayIcon className="w-4 h-4" />
+                                            </a>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleResourceDelete(res.id)}
+                                                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                title="Delete File"
+                                            >
+                                                <TrashIcon className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </Card>
+
+                {/* Member Actions Section */}
+                {isEdit && (
+                    <Card className="border-zinc-100 dark:border-zinc-800 shadow-xl shadow-zinc-200/50 dark:shadow-none overflow-hidden">
+                        <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
+                            <h2 className="text-xl font-black text-zinc-900 dark:text-white uppercase tracking-widest">Member Actions</h2>
+                        </div>
+                        {meetingActions.length === 0 ? (
+                            <div className="p-8 text-center text-zinc-500 dark:text-zinc-400 font-medium">
+                                No members have RSVP'd or checked in yet.
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-sm whitespace-nowrap">
+                                    <thead className="bg-zinc-50 dark:bg-zinc-900/50 text-[10px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-100 dark:border-zinc-800">
+                                        <tr>
+                                            <th className="px-6 py-4">Member Name</th>
+                                            <th className="px-6 py-4">RSVP Status</th>
+                                            <th className="px-6 py-4">Check-in Status</th>
+                                            {isPaid && <th className="px-6 py-4">Payment Status</th>}
+                                            {isPaid && <th className="px-6 py-4">Payment Amount</th>}
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/50">
+                                        {meetingActions.map((action, idx) => (
+                                            <tr key={idx} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30 transition-colors">
+                                                <td className="px-6 py-4 font-black text-zinc-900 dark:text-white">
+                                                    {action.first_name} {action.last_name}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    {action.rsvp_status === 'going' ? <span className="text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">Going</span> :
+                                                        action.rsvp_status === 'not_sure' ? <span className="text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 border border-amber-100 dark:border-amber-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">Maybe</span> :
+                                                            action.rsvp_status === 'cant_go' ? <span className="text-red-600 bg-red-50 dark:bg-red-950/30 dark:text-red-400 border border-red-100 dark:border-red-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">Can't Go</span> :
+                                                                <span className="text-zinc-400">None</span>}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    {action.checked_in == 1 ? (
+                                                        <span className="text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">
+                                                            Checked In
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-zinc-400">Not Checked In</span>
+                                                    )}
+                                                </td>
+                                                {isPaid && (
+                                                    <td className="px-6 py-4">
+                                                        {action.payment_status === 'paid_online' ? <span className="text-indigo-600 bg-indigo-50 dark:bg-indigo-950/30 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">Paid Online</span> :
+                                                            action.payment_status === 'paid_cash' ? <span className="text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">Paid Cash</span> :
+                                                                <span className="text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 border border-amber-100 dark:border-amber-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">{action.payment_status || 'Pending'}</span>}
+                                                    </td>
+                                                )}
+                                                {isPaid && (
+                                                    <td className="px-6 py-4 text-zinc-500 font-medium">
+                                                        ₹ {action.paid_amount || '0'}
+                                                    </td>
+                                                )}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </Card>
+                )}
+
+                {/* Recap Section */}
                 <Card className="border-zinc-100 dark:border-zinc-800 shadow-xl shadow-zinc-200/50 dark:shadow-none overflow-hidden">
                     <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 bg-sky-50/20 dark:bg-sky-950/10">
                         <h2 className="text-lg font-black text-zinc-900 dark:text-white flex items-center gap-2">
@@ -448,182 +602,60 @@ const AdminMeetingEditor: React.FC = () => {
                             Meeting Recap & Notes
                         </h2>
                     </div>
-                    <div className="p-6 space-y-6">
-                        <div>
-                            <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Recap Content (Rich Text)</label>
-                            <div className="border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-white dark:bg-zinc-950">
-                                <QuillEditor
-                                    value={recapContent}
-                                    onChange={setRecapContent}
-                                    placeholder="Summarize the meeting highlights, decisions, and next steps..."
-                                    style={{ minHeight: '300px' }}
-                                />
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Upload Presentation / Notes (PDF, Word, PPT)</label>
-                            <div className="mt-2">
-                                <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-xl cursor-pointer transition-all ${uploadingResource ? 'bg-gray-50 border-gray-200' : 'bg-sky-50/30 border-sky-200 hover:bg-sky-50 hover:border-sky-300'}`}>
-                                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                        {uploadingResource ? (
-                                            <div className="flex items-center gap-2 text-sky-600 font-semibold">
-                                                <div className="w-4 h-4 border-2 border-sky-600 border-t-transparent rounded-full animate-spin"></div>
-                                                Uploading...
-                                            </div>
-                                        ) : (
-                                            <>
-                                                <CloudArrowUpIcon className="w-8 h-8 mb-2 text-sky-500" />
-                                                <p className="text-sm text-sky-700 font-medium">Click to upload files</p>
-                                                <p className="text-xs text-sky-500 mt-1">Word, PPT or PDF</p>
-                                            </>
-                                        )}
-                                    </div>
-                                    <input type="file" className="hidden" disabled={uploadingResource || !isEdit} onChange={handleResourceUpload} />
-                                </label>
-                                {!isEdit && <p className="mt-2 text-[10px] text-red-400">Save the meeting first to upload resource files.</p>}
-                            </div>
-
-                            {meetingResources.length > 0 && (
-                                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    {meetingResources.map((res) => (
-                                        <div key={res.id} className="flex items-center justify-between p-3 bg-white border border-gray-100 rounded-xl shadow-sm">
-                                            <div className="flex items-center gap-3 overflow-hidden">
-                                                <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 text-gray-400">
-                                                    <DocumentIcon className="w-4 h-4" />
-                                                </div>
-                                                <span className="text-sm font-medium text-gray-700 truncate">{res.title}</span>
-                                            </div>
-                                            <div className="flex items-center gap-1">
-                                                <a 
-                                                    href={res.url_display || `${baseUrl}/uploads/${res.url}`}
-                                                    download={res.title || 'download'}
-                                                    target="_blank" 
-                                                    rel="noopener noreferrer"
-                                                    className="p-1.5 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                                                    title="Download File"
-                                                >
-                                                    <ArrowDownTrayIcon className="w-4 h-4" />
-                                                </a>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleResourceDelete(res.id)}
-                                                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                                    title="Delete File"
-                                                >
-                                                    <TrashIcon className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                    <div className="p-6">
+                        <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Recap Content (Rich Text)</label>
+                        <div className="border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-white dark:bg-zinc-950">
+                            <QuillEditor
+                                value={recapContent}
+                                onChange={setRecapContent}
+                                placeholder="Summarize the meeting highlights, decisions, and next steps..."
+                                style={{ minHeight: '300px' }}
+                            />
                         </div>
                     </div>
                 </Card>
 
-                {/* Member Submissions & Actions */}
+                {/* Form Submissions Section */}
                 {isEdit && (
-                    <div className="space-y-6">
-                        {/* Member RSVP/Check-in/Payment Data */}
-                        <Card className="border-zinc-100 dark:border-zinc-800 shadow-xl shadow-zinc-200/50 dark:shadow-none overflow-hidden">
-                            <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
-                                <h2 className="text-xl font-black text-zinc-900 dark:text-white uppercase tracking-widest">Member Actions</h2>
+                    <Card className="border-zinc-100 dark:border-zinc-800 shadow-xl shadow-zinc-200/50 dark:shadow-none overflow-hidden">
+                        <div className="p-6 border-b border-zinc-100 dark:border-zinc-800">
+                            <h2 className="text-xl font-black text-zinc-900 dark:text-white uppercase tracking-widest">Form Submissions</h2>
+                        </div>
+                        {responses.length === 0 ? (
+                            <div className="p-8 text-center text-zinc-500 font-medium">
+                                No form submissions recorded yet.
                             </div>
-                            {meetingActions.length === 0 ? (
-                                <div className="p-8 text-center text-zinc-500 dark:text-zinc-400 font-medium">
-                                    No members have RSVP'd or checked in yet.
-                                </div>
-                            ) : (
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-left text-sm whitespace-nowrap">
-                                        <thead className="bg-zinc-50 dark:bg-zinc-900/50 text-[10px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-100 dark:border-zinc-800">
-                                            <tr>
-                                                <th className="px-6 py-4">Member Name</th>
-                                                <th className="px-6 py-4">RSVP Status</th>
-                                                <th className="px-6 py-4">Check-in Status</th>
-                                                <th className="px-6 py-4">Payment Status</th>
-                                                <th className="px-6 py-4">Payment Amount</th>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-sm whitespace-nowrap">
+                                    <thead className="bg-zinc-50 dark:bg-zinc-900/50 text-[10px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-100 dark:border-zinc-800">
+                                        <tr>
+                                            <th className="px-6 py-4">Member Name</th>
+                                            <th className="px-6 py-4">Submission Date</th>
+                                            <th className="px-6 py-4 text-right">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/50">
+                                        {responses.map((resp) => (
+                                            <tr key={resp.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30 transition-colors">
+                                                <td className="px-6 py-4 font-black text-zinc-900 dark:text-white">
+                                                    {resp.first_name} {resp.last_name}
+                                                </td>
+                                                <td className="px-6 py-4 text-zinc-500 font-medium">
+                                                    {new Date(resp.submitted_at).toLocaleString()}
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <button type="button" onClick={() => showToast("Deep view not implemented")} className="text-indigo-600 dark:text-indigo-400 font-black uppercase tracking-widest text-[10px] hover:text-indigo-700 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 px-3 py-1.5 rounded-lg">
+                                                        View Full Response
+                                                    </button>
+                                                </td>
                                             </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/50">
-                                            {meetingActions.map((action, idx) => (
-                                                <tr key={idx} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30 transition-colors">
-                                                    <td className="px-6 py-4 font-black text-zinc-900 dark:text-white">
-                                                        {action.first_name} {action.last_name}
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        {action.rsvp_status === 'going' ? <span className="text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">Going</span> :
-                                                            action.rsvp_status === 'not_sure' ? <span className="text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 border border-amber-100 dark:border-amber-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">Maybe</span> :
-                                                                action.rsvp_status === 'cant_go' ? <span className="text-red-600 bg-red-50 dark:bg-red-950/30 dark:text-red-400 border border-red-100 dark:border-red-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">Can't Go</span> :
-                                                                    <span className="text-zinc-400">None</span>}
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        {action.checked_in == 1 ? (
-                                                            <span className="text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">
-                                                                Checked In
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-zinc-400">Not Checked In</span>
-                                                        )}
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        {action.payment_status === 'paid_online' ? <span className="text-indigo-600 bg-indigo-50 dark:bg-indigo-950/30 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">Paid Online</span> :
-                                                            action.payment_status === 'paid_cash' ? <span className="text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">Paid Cash</span> :
-                                                                <span className="text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 border border-amber-100 dark:border-amber-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">{action.payment_status || 'Pending'}</span>}
-                                                    </td>
-                                                    <td className="px-6 py-4 text-zinc-500 font-medium">
-                                                        ₹ {action.paid_amount || '0'}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            )}
-                        </Card>
-
-                        {/* Form Submissions */}
-                        <Card className="border-zinc-100 dark:border-zinc-800 shadow-xl shadow-zinc-200/50 dark:shadow-none overflow-hidden">
-                            <div className="p-6 border-b border-zinc-100 dark:border-zinc-800">
-                                <h2 className="text-xl font-black text-zinc-900 dark:text-white uppercase tracking-widest">Form Submissions</h2>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
-                            {responses.length === 0 ? (
-                                <div className="p-8 text-center text-zinc-500 font-medium">
-                                    No form submissions recorded yet.
-                                </div>
-                            ) : (
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-left text-sm whitespace-nowrap">
-                                        <thead className="bg-zinc-50 dark:bg-zinc-900/50 text-[10px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-100 dark:border-zinc-800">
-                                            <tr>
-                                                <th className="px-6 py-4">Member Name</th>
-                                                <th className="px-6 py-4">Submission Date</th>
-                                                <th className="px-6 py-4 text-right">Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/50">
-                                            {responses.map((resp) => (
-                                                <tr key={resp.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30 transition-colors">
-                                                    <td className="px-6 py-4 font-black text-zinc-900 dark:text-white">
-                                                        {resp.first_name} {resp.last_name}
-                                                    </td>
-                                                    <td className="px-6 py-4 text-zinc-500 font-medium">
-                                                        {new Date(resp.submitted_at).toLocaleString()}
-                                                    </td>
-                                                    <td className="px-6 py-4 text-right">
-                                                        <button type="button" onClick={() => showToast("Deep view not implemented")} className="text-indigo-600 dark:text-indigo-400 font-black uppercase tracking-widest text-[10px] hover:text-indigo-700 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 px-3 py-1.5 rounded-lg">
-                                                            View Full Response
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            )}
-                        </Card>
-                    </div>
+                        )}
+                    </Card>
                 )}
 
                 {/* Footer Actions */}
@@ -650,6 +682,95 @@ const AdminMeetingEditor: React.FC = () => {
                     </Button>
                 </div>
             </form>
+
+            {/* Notification Modal */}
+            {showNotifyModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-white dark:bg-zinc-900 rounded-[2.5rem] shadow-2xl w-full max-w-2xl p-8 relative border border-zinc-100 dark:border-zinc-800 animate-in zoom-in-95 duration-300">
+                        <button 
+                            onClick={() => setShowNotifyModal(false)} 
+                            className="absolute top-8 right-8 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors"
+                        >
+                            <XMarkIcon className="w-6 h-6" />
+                        </button>
+
+                        <div className="mb-8">
+                            <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest mb-4 ${notifyType === 'email' ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-600' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600'}`}>
+                                {notifyType === 'email' ? 'Email Broadcaster' : 'WhatsApp Broadcaster'}
+                            </div>
+                            <h3 className="text-3xl font-black text-zinc-900 dark:text-white leading-tight tracking-tighter uppercase italic">
+                                Select <span className={notifyType === 'email' ? 'text-indigo-600' : 'text-emerald-600'}>Template</span>
+                            </h3>
+                            <p className="text-zinc-500 dark:text-zinc-400 text-sm font-medium mt-2">
+                                Choose a notification template to send to all participants.
+                            </p>
+                        </div>
+
+                        <div className="space-y-6">
+                            <div>
+                                <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Available Templates</label>
+                                <div className="relative">
+                                    <ChevronDownIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400 pointer-events-none" />
+                                    <select 
+                                        value={selectedTemplateId}
+                                        onChange={(e) => setSelectedTemplateId(e.target.value)}
+                                        className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 px-6 h-14 font-medium appearance-none"
+                                    >
+                                        {(notifyType === 'email' ? emailTemplates : whatsappTemplates).map(t => (
+                                            <option key={t.id} value={t.id}>{t.title} {t.subject ? `(${t.subject})` : ''}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="bg-zinc-50 dark:bg-zinc-950 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800">
+                                <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-black uppercase tracking-widest mb-3">Content Preview</p>
+                                <div className="max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                                    {(() => {
+                                        const templates = notifyType === 'email' ? emailTemplates : whatsappTemplates;
+                                        const selected = templates.find(t => String(t.id) === String(selectedTemplateId));
+                                        if (!selected) return <p className="text-zinc-400 italic text-sm">No template selected</p>;
+                                        return (
+                                            <div className="space-y-4">
+                                                {selected.subject && (
+                                                    <div>
+                                                        <p className="text-[10px] font-black uppercase text-zinc-400">Subject:</p>
+                                                        <p className="text-sm font-bold text-zinc-900 dark:text-white">{selected.subject}</p>
+                                                    </div>
+                                                )}
+                                                <div>
+                                                    <p className="text-[10px] font-black uppercase text-zinc-400">Message Body:</p>
+                                                    <div 
+                                                        className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed whitespace-pre-wrap mt-1"
+                                                        dangerouslySetInnerHTML={{ __html: selected.content || selected.message || selected.body || '' }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3 pt-4">
+                                <Button
+                                    onClick={executeNotify}
+                                    loading={notifying}
+                                    className={`flex-1 justify-center py-4 rounded-2xl shadow-xl ${notifyType === 'email' ? 'shadow-indigo-600/20' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'}`}
+                                >
+                                    Confirm & Send {notifyType === 'email' ? 'Email' : 'WhatsApp'}
+                                </Button>
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => setShowNotifyModal(false)}
+                                    className="px-8 justify-center py-4 rounded-2xl"
+                                >
+                                    Cancel
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

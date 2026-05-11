@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { login, getMe } from '../controllers/admin-auth.controller.js';
 import { 
-    getUsers, createUser, updateUser, deleteUser,
+    getUsers, createUser, updateUser, deleteUser, getMemberStats,
     getAdmins, createAdmin, updateAdmin, 
     getAdminJobs, createJob, updateJob, deleteJob, 
     getAdminResources, createResource, updateResource, deleteResource, 
@@ -57,6 +57,7 @@ router.get('/me', getMe);
 
 // Members
 router.get('/users', getUsers);
+router.get('/member-stats', getMemberStats);
 router.post('/users', validate(createMemberSchema), createUser);
 router.put('/users', validate(updateMemberSchema), updateUser);
 router.delete('/users', deleteUser);

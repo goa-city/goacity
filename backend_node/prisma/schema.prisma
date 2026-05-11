@@ -52,6 +52,7 @@ model Member {
   stewardshipLogs     StewardshipLog[]
   streams             StreamMember[]
   whatsappLogs        WhatsAppLog[]
+  post_likes          post_likes[]
 
   @@unique([city_id, slug])
   @@map("members")
@@ -153,7 +154,8 @@ model Post {
   created_at DateTime? @default(now()) @db.Timestamp(6)
   city_id    Int?      @default(1)
   city       City?     @relation(fields: [city_id], references: [id])
-  user       Member?   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user       Member?      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  likes      post_likes[]
 
   @@map("posts")
 }
@@ -253,9 +255,14 @@ model forms {
   updated_at  DateTime?      @default(now()) @db.Timestamp(6)
   created_by  Int?
   city_id     Int?           @default(1)
-  fields      FormField[]
-  responses   FormResponse[]
-  city        City?          @relation(fields: [city_id], references: [id])
+  fields_per_page Int?           @default(1)
+  visibility      String?        @default("members")
+  redirect_url    String?        @db.VarChar(500)
+  notify_admin    Boolean        @default(false)
+  notify_admin_ids String?
+  fields          FormField[]
+  responses       FormResponse[]
+  city            City?          @relation(fields: [city_id], references: [id])
   streams     Stream[]
 }
 
@@ -379,6 +386,8 @@ model post_likes {
   post_id    Int?
   user_id    Int?
   created_at DateTime? @default(now()) @db.Timestamp(6)
+  post       Post?     @relation(fields: [post_id], references: [id], onDelete: Cascade)
+  user       Member?   @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
 model resources {

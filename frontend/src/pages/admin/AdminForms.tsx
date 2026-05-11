@@ -166,11 +166,18 @@ const AdminForms: React.FC = () => {
                                         <td className="px-8 py-5">
                                             <div className="flex flex-col gap-1 items-start">
                                                 <p className="text-sm font-black text-zinc-900 dark:text-white">{form.title}</p>
-                                                {!form.is_active && (
-                                                    <span className="text-[10px] font-black uppercase tracking-widest bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-md border border-amber-100 dark:border-amber-900/50">
-                                                        Archived
-                                                    </span>
-                                                )}
+                                                <div className="flex gap-2">
+                                                    {!form.is_active && (
+                                                        <span className="text-[10px] font-black uppercase tracking-widest bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-md border border-amber-100 dark:border-amber-900/50">
+                                                            Archived
+                                                        </span>
+                                                    )}
+                                                    {form.visibility === 'public' && (
+                                                        <span className="text-[10px] font-black uppercase tracking-widest bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-900/50">
+                                                            Public
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </td>
                                         <td className="px-8 py-5 hidden md:table-cell">
@@ -241,7 +248,20 @@ const AdminForms: React.FC = () => {
                                 <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Form Title <span className="text-red-400">*</span></label>
                                 <input 
                                     type="text" required className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-4 font-medium" placeholder="e.g. Member Onboarding"
-                                    value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})}
+                                    value={formData.title} 
+                                    onChange={e => {
+                                        const val = e.target.value;
+                                        setFormData(prev => {
+                                            const updates: any = { title: val };
+                                            if (modalMode === 'create') {
+                                                const oldAutoCode = prev.title.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+                                                if (prev.code === '' || prev.code === oldAutoCode) {
+                                                    updates.code = val.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+                                                }
+                                            }
+                                            return { ...prev, ...updates };
+                                        });
+                                    }}
                                 />
                             </div>
                             <div>
