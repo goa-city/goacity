@@ -19,6 +19,7 @@ import { getAdminPages, createPage, updatePage, getAdminPageById, deletePage } f
 import { getWhatsAppStatus, sendWhatsAppMessage, getWhatsAppLogs, broadcastWhatsApp, sendMeetingAlert, refreshWhatsApp, restartWhatsApp, getWhatsAppBroadcasts, getWhatsAppBroadcastById, hideWhatsAppBroadcast, retryWhatsAppBroadcast } from '../controllers/whatsapp.controller.js';
 import { getTemplates as getEmailTemplates, createTemplate as createEmailTemplate, updateTemplate as updateEmailTemplate, deleteTemplate as deleteEmailTemplate, getTemplateById as getEmailTemplateById } from '../controllers/email-template.controller.js';
 import { getTemplates as getWhatsAppTemplates, createTemplate as createWhatsAppTemplate, updateTemplate as updateWhatsAppTemplate, deleteTemplate as deleteWhatsAppTemplate, getTemplateById as getWhatsAppTemplateById } from '../controllers/whatsapp-template.controller.js';
+import { getAdminMentorships, toggleMentorApproval, exportMentorshipReport, getAdminMentorshipRequests, getAdminMentors, adminMatchMentorship, getAdminMentorProfiles } from '../controllers/mentorship.controller.js';
 import { validate } from '../middleware/validate.js';
 import { 
     createEmailTemplateSchema, updateEmailTemplateSchema,
@@ -143,5 +144,14 @@ router.get('/whatsapp/broadcasts', getWhatsAppBroadcasts);
 router.delete('/whatsapp/broadcasts/:id', hideWhatsAppBroadcast);
 router.get('/whatsapp/broadcasts/:id', getWhatsAppBroadcastById);
 router.post('/whatsapp/broadcasts/:id/retry', retryWhatsAppBroadcast);
+
+// Mentorship
+router.get('/mentorship', getAdminMentorships);
+router.get('/mentorship/requests', getAdminMentorshipRequests);
+router.get('/mentorship/mentors', getAdminMentors);
+router.get('/mentorship/profiles', getAdminMentorProfiles);
+router.post('/mentorship/match', adminMatchMentorship);
+router.post('/mentorship/:userId/approve', toggleMentorApproval);
+router.get('/mentorship/export', exportMentorshipReport);
 
 export default router;

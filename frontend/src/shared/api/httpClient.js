@@ -22,7 +22,7 @@ httpClient.interceptors.request.use(
         const isAdminRequest = config.url.includes('/admin/');
 
         if (isSuperAdminRequest) {
-            token = localStorage.getItem('superadmin_token');
+            token = localStorage.getItem('superAdminToken') || localStorage.getItem('superadmin_token');
         } else if (isAdminRequest) {
             token = localStorage.getItem('admin_token');
         } else {
@@ -56,10 +56,40 @@ httpClient.interceptors.response.use(
 
         if (status === 401) {
             console.error('[API] Unauthorized. Logging out...');
-            // Optional: Clear tokens and redirect to login
-            // localStorage.removeItem('token');
-            // localStorage.removeItem('admin_token');
-            // window.location.href = '/';
+            
+            // Clear all user session items to prevent redirect loop
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            sessionStorage.removeItem('token');
+            sessionStorage.removeItem('user');
+            
+            // Clear all admin session items
+            localStorage.removeItem('admin_token');
+            localStorage.removeItem('adminUser');
+            localStorage.removeItem('admin_active_city');
+            localStorage.removeItem('admin_active_city_slug');
+            
+            // Clear all superadmin session items
+            localStorage.removeItem('superAdminToken');
+            localStorage.removeItem('superAdminUser');
+            localStorage.removeItem('superadmin_token');
+            
+            // Redirect based on current path
+            if (window.location.pathname.startsWith('/superadmin')) {
+                const cleanPath = window.location.pathname.replace(/\/$/, '');
+                if (cleanPath !== '/superadmin/login') {
+                    window.location.href = '/superadmin/login';
+                }
+            } else if (window.location.pathname.startsWith('/admin')) {
+                const cleanPath = window.location.pathname.replace(/\/$/, '');
+                if (cleanPath !== '/admin/login') {
+                    window.location.href = '/admin/login';
+                }
+            } else {
+                if (window.location.pathname !== '/') {
+                    window.location.href = '/';
+                }
+            }
         } else if (status === 403) {
             console.error('[API] Forbidden. You do not have permission.');
         } else if (status === 500) {

@@ -17,6 +17,11 @@ const UNSCOPED_MODELS = new Set([
     'MeetingResource',
     'attendance',
     'MemberProfile',
+    'MentorProfile',
+    'MentorshipRelation',
+    'MentorshipGoal',
+    'MentorshipSession',
+    'MentorshipTask',
     'MemberService',
     'post_likes',
     'skills',
@@ -24,7 +29,6 @@ const UNSCOPED_MODELS = new Set([
     'offers',
     'businesses',
     'idea_feedback',
-    'MentorshipRelation',
     'CollaborationRequest',
     'StewardshipLog',
     'VerificationOrg',
@@ -36,8 +40,15 @@ const prisma = prismaClient.$extends({
         $allModels: {
             async $allOperations({ model, operation, args, query }: any) {
                 // Case-insensitive check for unscoped models
-                const normalizedModel = model.toLowerCase();
-                const isUnscoped = Array.from(UNSCOPED_MODELS).some(m => m.toLowerCase() === normalizedModel);
+                const normalizedModel = model?.toLowerCase();
+                const isUnscoped = Array.from(UNSCOPED_MODELS).some(m => m.toLowerCase() === normalizedModel) ||
+                                  normalizedModel?.includes('mentorship') || 
+                                  normalizedModel?.includes('mentorprofile');
+
+                // DEBUG LOG: ONLY for models that might be causing issues
+                if (normalizedModel?.includes('mentor') || normalizedModel?.includes('relation')) {
+                    console.log(`[PRISMA SCOPE] Model: ${model}, isUnscoped: ${isUnscoped}`);
+                }
 
                 if (isUnscoped) {
                     return query(args);

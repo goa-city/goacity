@@ -15,7 +15,13 @@ import {
 } from '../controllers/meetings.controller.js';
 import { 
     requestMentorship, getMyMentorships, 
-    getMentorshipById, updateMentorshipGoals 
+    getMentorshipById, addMentorshipGoal, updateMentorshipGoal,
+    logMentorshipSession, addMentorshipTask, updateMentorshipTask,
+    updateMentorshipPhase, updateMentorshipStatus, getMentorProfile,
+    updateMentorProfile, getMenteeRecommendations,
+    updateMentorshipSession, deleteMentorshipSession, deleteMentorshipGoal,
+    addMentorshipMaterial, submitMentorshipMaterialResponse, deleteMentorshipMaterial,
+    submitMentorshipSessionPayment, verifyMentorshipSessionPayment
 } from '../controllers/mentorship.controller.js';
 import { 
     submitIdea, getActiveIdeas, submitFeedback 
@@ -61,10 +67,29 @@ router.get('/directory', getMemberDirectory);
 router.post('/stewardship/log', createStewardshipLog);
 
 // Mentorship
+router.get('/mentorship/profile', getMentorProfile);
+router.post('/mentorship/profile', upload.single('payment_qr_image'), updateMentorProfile);
+router.get('/mentorship/recommendations', getMenteeRecommendations);
 router.post('/mentorship/request', requestMentorship);
 router.get('/mentorship', getMyMentorships);
 router.get('/mentorship/:id', getMentorshipById);
-router.put('/mentorship/:id/goals', updateMentorshipGoals);
+router.post('/mentorship/:id/goals', addMentorshipGoal);
+router.put('/mentorship/goals/:goalId', updateMentorshipGoal);
+router.post('/mentorship/:id/sessions', upload.single('payment_qr_image'), logMentorshipSession);
+router.post('/mentorship/:id/tasks', addMentorshipTask);
+router.put('/mentorship/tasks/:taskId', updateMentorshipTask);
+router.put('/mentorship/:id/phase', updateMentorshipPhase);
+router.put('/mentorship/:id/status', updateMentorshipStatus);
+
+router.put('/mentorship/sessions/:sessionId', upload.single('payment_qr_image'), updateMentorshipSession);
+router.delete('/mentorship/sessions/:sessionId', deleteMentorshipSession);
+router.delete('/mentorship/goals/:goalId', deleteMentorshipGoal);
+router.post('/mentorship/:id/materials', upload.single('file'), addMentorshipMaterial);
+router.post('/mentorship/materials/:materialId/response', upload.single('response_file'), submitMentorshipMaterialResponse);
+router.delete('/mentorship/materials/:materialId', deleteMentorshipMaterial);
+
+router.post('/mentorship/sessions/:sessionId/pay', submitMentorshipSessionPayment);
+router.post('/mentorship/sessions/:sessionId/verify', verifyMentorshipSessionPayment);
 
 // Incubator
 router.post('/incubator', submitIdea);

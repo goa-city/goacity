@@ -64,6 +64,7 @@ const DebugStreams = lazy(() => import('./pages/DebugStreams'));
 const StewardshipDashboard = lazy(() => import('./pages/StewardshipDashboard'));
 const AdminStewardship = lazy(() => import('./pages/admin/AdminStewardship'));
 const AdminMentorship = lazy(() => import('./pages/admin/AdminMentorship'));
+const AdminMentorshipRequestDetail = lazy(() => import('./pages/admin/AdminMentorshipRequestDetail'));
 const AdminIncubator = lazy(() => import('./pages/admin/AdminIncubator'));
 const Mentors = lazy(() => import('./pages/Mentors'));
 const MentorshipWorkspace = lazy(() => import('./pages/MentorshipWorkspace'));
@@ -74,6 +75,8 @@ const PublicProfile = lazy(() => import('./pages/PublicProfile'));
 const AdminCollabs = lazy(() => import('./pages/admin/AdminCollabs'));
 const MeetingView = lazy(() => import('./pages/MeetingView'));
 const MemberMeetings = lazy(() => import('./pages/MemberMeetings'));
+const MentorshipStart = lazy(() => import('./pages/MentorshipStart'));
+const MenteeRecommendations = lazy(() => import('./pages/MenteeRecommendations'));
 
 // ─── Guards ────────────────────────────────────────────────────────────────────
 const AdminProtectedRoute = () => {
@@ -151,6 +154,7 @@ const App: React.FC = () => {
                                                 <Route path="/admin/forms/:id" element={<AdminFormEditor />} />
                                                 <Route path="/admin/stewardship" element={<AdminStewardship />} />
                                                 <Route path="/admin/mentorship" element={<AdminMentorship />} />
+                                                <Route path="/admin/mentorship/requests/:id" element={<AdminMentorshipRequestDetail />} />
                                                 <Route path="/admin/incubator" element={<AdminIncubator />} />
                                                 <Route path="/admin/collabs" element={<AdminCollabs />} />
                                                 <Route path="/admin/jobs" element={<AdminJobs />} />
@@ -187,6 +191,9 @@ const App: React.FC = () => {
                                         <Route path="/jobs/post" element={<JobEditor />} />
                                         <Route path="/stewardship" element={<StewardshipDashboard />} />
                                         <Route path="/mentors" element={<Mentors />} />
+                                        <Route path="/mentorship" element={<MentorshipStart />} />
+                                        <Route path="/mentorship/assessment/:formId" element={<Onboarding />} />
+                                        <Route path="/mentorship/recommendations" element={<MenteeRecommendations />} />
                                         <Route path="/dashboard/mentorship/:id" element={<MentorshipWorkspace />} />
                                         <Route path="/my-people" element={<MyPeople />} />
                                         <Route path="/profile/:slug" element={<PublicProfile />} />

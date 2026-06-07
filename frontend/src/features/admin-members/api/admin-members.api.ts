@@ -10,6 +10,7 @@ export interface AdminMember {
     is_onboarded: number;
     created_at: string;
     streams: Array<{ id: number; name: string; color: string }>;
+    is_mentor?: boolean;
 }
 
 export interface MemberDetail extends AdminMember {

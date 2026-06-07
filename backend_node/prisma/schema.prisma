@@ -43,9 +43,14 @@ model Member {
   meeting_responses   meeting_responses[]
   profiles            MemberProfile[]
   services            MemberService[]
+  willing_to_mentor   Boolean?               @default(false)
+  is_mentor           Boolean?               @default(false)
+  mentorship_focus    String?                @db.VarChar(255)
   city                City?                  @relation(fields: [city_id], references: [id])
   mentorshipsAsMentee MentorshipRelation[]   @relation("MentorshipMentee")
   mentorshipsAsMentor MentorshipRelation[]   @relation("MentorshipMentor")
+  completed_goals     MentorshipGoal[]       @relation("GoalCompleter")
+  mentorProfile       MentorProfile?
   notifications       Notification[]
   posts               Post[]
   resources           resources[]            @relation("SubmittedResources")
@@ -446,20 +451,118 @@ model StewardshipLog {
 }
 
 model MentorshipRelation {
-  id         String    @id @default(uuid())
-  mentor_id  Int
-  mentee_id  Int
-  status     String    @default("Requested") @db.VarChar(50)
-  type       String    @db.VarChar(50)
-  focus_area String?   @db.VarChar(255)
-  goals_json Json?
-  created_at DateTime? @default(now()) @db.Timestamp(6)
-  updated_at DateTime? @default(now()) @db.Timestamp(6)
-  mentee     Member    @relation("MentorshipMentee", fields: [mentee_id], references: [id], onDelete: Cascade)
-  mentor     Member    @relation("MentorshipMentor", fields: [mentor_id], references: [id], onDelete: Cascade)
+  id            String    @id @default(uuid())
+  mentor_id     Int
+  mentee_id     Int
+  status        String    @default("Requested") @db.VarChar(50) // Requested, Active, Completed, Declined
+  current_phase String    @default("Foundations") @db.VarChar(50) // Foundations, Strategy, Impact
+  type          String    @db.VarChar(50)
+  focus_area    String?   @db.VarChar(255)
+  goals_json    Json?     // Legacy compatibility
+  created_at    DateTime? @default(now()) @db.Timestamp(6)
+  updated_at    DateTime? @default(now()) @db.Timestamp(6)
+  started_at    DateTime? @db.Timestamp(6)
+  ended_at      DateTime? @db.Timestamp(6)
+
+  mentee   Member @relation("MentorshipMentee", fields: [mentee_id], references: [id], onDelete: Cascade)
+  mentor   Member @relation("MentorshipMentor", fields: [mentor_id], references: [id], onDelete: Cascade)
+  goals    MentorshipGoal[]
+  sessions MentorshipSession[]
+  tasks    MentorshipTask[]
+  materials MentorshipMaterial[]
 
   @@map("mentorship_relations")
 }
+
+model MentorProfile {
+  id                    String    @id @default(uuid())
+  member_id             Int       @unique
+  bio                   String?
+  capacity              Int       @default(1)
+  formats               Json? // e.g. ["long-term", "micro"]
+  expertise             Json? // e.g. ["Leadership", "Tech"]
+  is_approved           Boolean   @default(false)
+  payment_qr_image      String?
+  default_session_price Decimal?  @db.Decimal(10, 2)
+  created_at            DateTime? @default(now()) @db.Timestamp(6)
+  updated_at            DateTime? @default(now()) @db.Timestamp(6)
+  member                Member    @relation(fields: [member_id], references: [id], onDelete: Cascade)
+
+  @@map("mentor_profiles")
+}
+
+model MentorshipGoal {
+  id              String             @id @default(uuid())
+  relation_id     String
+  title           String             @db.VarChar(255)
+  description     String?
+  status          String             @default("Pending") @db.VarChar(50) // Pending, In_Progress, Achieved
+  target_date     DateTime?          @db.Date
+  created_at      DateTime?          @default(now()) @db.Timestamp(6)
+  updated_at      DateTime?          @default(now()) @db.Timestamp(6)
+  completed_at    DateTime?          @db.Timestamp(6)
+  completed_by_id Int?
+  completed_by    Member?            @relation("GoalCompleter", fields: [completed_by_id], references: [id], onDelete: SetNull)
+  relation        MentorshipRelation @relation(fields: [relation_id], references: [id], onDelete: Cascade)
+  tasks           MentorshipTask[]
+
+  @@map("mentorship_goals")
+}
+
+model MentorshipSession {
+  id               String             @id @default(uuid())
+  relation_id      String
+  session_date     DateTime           @default(now()) @db.Timestamp(6)
+  status           String             @default("Pending") @db.VarChar(50) // Pending, Completed
+  mentor_notes     String? // Private for mentor
+  shared_notes     String? // Viewable by both
+  next_steps       String?
+  is_paid          Boolean            @default(false)
+  price            Decimal?           @db.Decimal(10, 2)
+  payment_status   String             @default("Free") @db.VarChar(50) // Free, Unpaid, Verifying, Paid
+  payment_qr_image String?            @db.VarChar(255)
+  payment_note     String?
+  created_at       DateTime?          @default(now()) @db.Timestamp(6)
+  updated_at       DateTime?          @default(now()) @db.Timestamp(6)
+  relation         MentorshipRelation @relation(fields: [relation_id], references: [id], onDelete: Cascade)
+
+  @@map("mentorship_sessions")
+}
+
+model MentorshipTask {
+  id          String             @id @default(uuid())
+  relation_id String
+  goal_id     String?
+  title       String             @db.VarChar(255)
+  status      String             @default("To_Do") @db.VarChar(50) // To_Do, Done
+  assigned_to String             @db.VarChar(50) // MENTOR, MENTEE
+  due_date    DateTime?          @db.Date
+  created_at  DateTime?          @default(now()) @db.Timestamp(6)
+  updated_at  DateTime?          @default(now()) @db.Timestamp(6)
+  relation    MentorshipRelation @relation(fields: [relation_id], references: [id], onDelete: Cascade)
+  goal        MentorshipGoal?    @relation(fields: [goal_id], references: [id])
+
+  @@map("mentorship_tasks")
+}
+
+model MentorshipMaterial {
+  id            String             @id @default(uuid())
+  relation_id   String
+  title         String             @db.VarChar(255)
+  description   String?
+  file_url      String?            @db.VarChar(500) // File uploaded by mentor
+  link_url      String?            @db.VarChar(500) // Optional link to reading material
+  status        String             @default("Shared") @db.VarChar(50) // Shared, Read, Responded
+  response_text String?            // Mentee's text feedback/response
+  response_file String?            @db.VarChar(500) // Mentee's upload response
+  created_at    DateTime?          @default(now()) @db.Timestamp(6)
+  updated_at    DateTime?          @default(now()) @db.Timestamp(6)
+
+  relation      MentorshipRelation @relation(fields: [relation_id], references: [id], onDelete: Cascade)
+
+  @@map("mentorship_materials")
+}
+
 
 model IncubatorIdea {
   id                String         @id @default(uuid())

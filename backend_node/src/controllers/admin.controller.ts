@@ -332,7 +332,7 @@ export const createUser = async (req: Request, res: Response) => {
 // PUT /api/admin/users - Update a member
 export const updateUser = async (req: Request, res: Response) => {
     try {
-        const { id, user_id, first_name, last_name, email, phone, stream_ids, slug } = req.body;
+        const { id, user_id, first_name, last_name, email, phone, stream_ids, slug, is_mentor } = req.body;
         const memberId = Number(id || user_id);
         
         // Only update direct fields if provided
@@ -342,6 +342,7 @@ export const updateUser = async (req: Request, res: Response) => {
         if (email !== undefined) updateData.email = email;
         if (phone !== undefined) updateData.phone = phone;
         if (slug !== undefined) updateData.slug = slugify(slug);
+        if (is_mentor !== undefined) updateData.is_mentor = is_mentor;
 
         if (Object.keys(updateData).length > 0) {
             await prisma.member.update({ where: { id: memberId }, data: updateData });

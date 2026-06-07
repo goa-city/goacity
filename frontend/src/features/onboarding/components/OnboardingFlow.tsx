@@ -71,8 +71,14 @@ const OnboardingFlow: React.FC = () => {
         } else {
             setIsSubmitting(true);
             try {
-                await submitFinal();
-                const target = form?.redirect_url || '/dashboard';
+                const result: any = await submitFinal();
+                let target = form?.redirect_url || '/dashboard';
+                
+                // If it's a mentorship assessment, append the response ID for matching
+                if (result?.data?.id && target.includes('mentorship/recommendations')) {
+                    target = `${target}${target.includes('?') ? '&' : '?'}response_id=${result.data.id}`;
+                }
+
                 navigate(target);
             } catch (err) {
                 alert("Failed to submit form. Please try again.");

@@ -32,7 +32,7 @@ const MemberDetailView: React.FC = () => {
     const navigate = useNavigate();
     const { member, isLoading, updateMember, isUpdating, deleteMember, isDeleting } = useAdminMembers(Number(id));
 
-    const [editBasic, setEditBasic] = useState({ first_name: '', last_name: '', email: '', phone: '', slug: '' });
+    const [editBasic, setEditBasic] = useState({ first_name: '', last_name: '', email: '', phone: '', slug: '', is_mentor: false });
     const [openResponses, setOpenResponses] = useState<Record<number, boolean>>({});
     const [allStreams, setAllStreams] = useState<any[]>([]);
     const [showStreamPicker, setShowStreamPicker] = useState(false);
@@ -45,7 +45,8 @@ const MemberDetailView: React.FC = () => {
                 last_name: member.last_name || '',
                 email: member.email || '',
                 phone: member.phone || '',
-                slug: member.slug || ''
+                slug: member.slug || '',
+                is_mentor: member.is_mentor || false
             });
         }
     }, [member]);
@@ -214,6 +215,18 @@ const MemberDetailView: React.FC = () => {
                                         Public Profile: https://goa.city/profile/{editBasic.slug}
                                     </p>
                                 )}
+                                <div className="flex items-center gap-3 py-1">
+                                    <input
+                                        type="checkbox"
+                                        id="is_mentor"
+                                        checked={editBasic.is_mentor}
+                                        onChange={(e) => setEditBasic({ ...editBasic, is_mentor: e.target.checked })}
+                                        className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 bg-white dark:bg-zinc-950 cursor-pointer"
+                                    />
+                                    <label htmlFor="is_mentor" className="text-xs font-bold text-gray-700 dark:text-zinc-300 cursor-pointer">
+                                        Set as Mentor
+                                    </label>
+                                </div>
                                 <Button type="submit" isLoading={isUpdating} className="w-full rounded-xl h-12 shadow-lg shadow-indigo-600/10">
                                     Update Details
                                 </Button>

@@ -36,24 +36,25 @@ export const useOnboarding = (formId?: string) => {
     const filteredQuestions = form ? getFilteredQuestions(form.questions, formData) : [];
 
     const saveProgress = useCallback(async (stepToSave: number) => {
-        if (!formId) return;
+        if (!form?.id) return;
         try {
             await submitOnboarding(
                 formData,
                 true,
                 stepToSave,
-                formId
+                form.id
             );
         } catch (err) {
             console.error("[ONBOARDING] Autosave failed", err);
         }
-    }, [formData, formId]);
+    }, [formData, form?.id]);
 
     const submitFinal = async () => {
-        if (!formId) return;
-        await submitOnboarding(formData, false, currentStep, formId);
+        if (!form?.id) return;
+        const result = await submitOnboarding(formData, false, currentStep, form.id);
         // Invalidate and remove cache so next load hits server fresh
         queryClient.removeQueries({ queryKey: ['onboarding-form', formId] });
+        return result;
     };
 
     // Debounced autosave on formData change (only after initial load)

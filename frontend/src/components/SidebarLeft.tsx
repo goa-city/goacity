@@ -46,7 +46,7 @@ const SidebarLeft: React.FC<SidebarLeftProps> = ({ mobileOpen, setMobileOpen }) 
         { name: 'City', href: '/dashboard', icon: HomeIcon },
         { name: 'News', href: '/news', icon: NewspaperIcon },
         { name: 'My People', href: '/my-people', icon: UsersIcon },
-        { name: 'Mentorship', href: '/mentors', icon: HeartIcon },
+        { name: 'Mentorship', href: '/mentorship', icon: HeartIcon },
         { name: 'Meetings', href: '/meetings', icon: CalendarDaysIcon },
         { name: 'Stewardship', href: '/stewardship', icon: SparklesIcon },
         { name: 'Resources', href: '/resources', icon: BookOpenIcon },
@@ -54,7 +54,12 @@ const SidebarLeft: React.FC<SidebarLeftProps> = ({ mobileOpen, setMobileOpen }) 
         { name: 'Idea Lab', href: '/incubator/explore', icon: LightBulbIcon },
     ];
 
-    const isActive = (path: string) => location.pathname === path;
+    const isActive = (path: string) => {
+        if (path === '/mentorship') {
+            return location.pathname === '/mentorship' || location.pathname.startsWith('/dashboard/mentorship') || location.pathname.startsWith('/mentorship');
+        }
+        return location.pathname === path;
+    };
 
     return (
         <>

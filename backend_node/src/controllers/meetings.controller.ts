@@ -4,6 +4,7 @@ import prisma from '../lib/prisma.js';
 import { whatsapp } from '../services/whatsapp.service.js';
 import { SYSTEM_TEMPLATES } from '../config/constants.js';
 import { formatDateDDMMYYYY, formatTime12h, parseTime24h, generateICS, slugify, generateUniqueSlug } from '../lib/utils.js';
+import { processImageToWebp } from '../utils/image.js';
 
 // GET /api/admin/meetings
 export const getMeetings = async (req: Request, res: Response) => {
@@ -286,7 +287,8 @@ import { createGoogleCalendarEvent } from '../utils/google-calendar.js';
 export const createMeeting = async (req: Request, res: Response) => {
     try {
         let { id, title, slug, description, meeting_date, start_time, end_time, location_name, map_link, is_paid, payment_amount, feedback_form_id, stream_id, archived, recap_content, zoom_link } = req.body;
-        const filename = req.file ? req.file.filename : null;
+        const file = req.file;
+        const filename = file ? await processImageToWebp(file) : null;
 
         const meetingData: any = {
             title,

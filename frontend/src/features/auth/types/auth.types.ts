@@ -14,6 +14,7 @@ export interface User {
     slug?: string;
     phone?: string;
     willing_to_mentor?: boolean;
+    is_mentor?: boolean;
 }
 
 export interface AuthResponse {
