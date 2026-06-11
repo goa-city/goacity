@@ -31,6 +31,10 @@ backend_node/uploads/*
 *.pub
 goacity_key
 
+# Tokens & Credentials
+github_*.rtf
+*_token*
+
 # Local Setup & Commands
 *.command
 LOCAL_SETUP.md
