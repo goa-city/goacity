@@ -35,6 +35,9 @@ goacity_key
 github_*.rtf
 *_token*
 
+# Design Assets
+Inspiration - UX UI/
+
 # Local Setup & Commands
 *.command
 LOCAL_SETUP.md
