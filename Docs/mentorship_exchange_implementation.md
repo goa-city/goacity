@@ -80,6 +80,7 @@ The workspace guides users through a **Three-Phase Journey**:
 *   **`getMentorshipRequestById(id)`**: Fetches request detail records, mapping field keys to questionnaire labels.
 *   **`addMaterial(...)` / `submitMaterialResponse(...)`**: Supports material exchanges and HW tracking.
 *   **`adminMatchMentorMentee(...)`**: Matches covenant pairings.
+*   **`getApprovedMentors()`**: Retrieves approved mentors from `mentor_profiles` where `is_approved === true`, and includes members who have `is_mentor === true` in their profile.
 
 ### Route Registrations (`admin.routes.ts`)
 *   `GET /api/admin/mentorship` - Get admin mentorship relations.
@@ -88,6 +89,7 @@ The workspace guides users through a **Three-Phase Journey**:
 *   `GET /api/admin/mentorship/profiles` - Fetch mentor profile entries.
 *   `POST /api/admin/mentorship/match` - Match a pair.
 *   `PUT /api/admin/mentorship/relations/:id/status` - Mark complete or Reopen a relationship.
+*   `POST /api/admin/mentorship/relations/:id/notify` - Send customized WhatsApp/email connection alerts to the mentor and/or mentee using system templates and relation placeholders.
 
 ---
 
@@ -95,6 +97,10 @@ The workspace guides users through a **Three-Phase Journey**:
 
 *   **Mentorship Workspace UI**: Lock banners show the completion dates and block edit operations when status is `Completed`. It includes `formatDate` utilities to prevent rendering crashes.
 *   **Become a Mentor Action**: Launches Form ID 20 (`/mentorship/assessment/20`) in the frontend, preventing the admin redirect.
-*   **Form Answers & Match Modal**: Renders candidate responses in a modal view inside the Admin Mentorship Hub.
+*   **Form Answers & Match Modal**: Renders candidate responses in a modal view inside the Admin Mentorship Hub. Array response values are converted and displayed as clean bullet lists instead of raw JSON brackets.
 *   **Profiles Table View**: Simplified to a clean two-column grid (Member & Form Submitted) with name links hookups.
 *   **Reopen Relationship Action**: Added a Reopen button in the admin workspace detail page that sets relations status back to `Active` and restores workspace interactivity.
+*   **Multi-Submission & Ongoing Checks**:
+    *   Form progress loading logic is restricted to `'draft'` statuses. Once a mentorship request is submitted, it is closed, and any subsequent starts create a fresh request.
+    *   If a mentee has a pending request (`status === 'Requested'`), they are blocked from sending another request with a warning alert.
+    *   If a mentee has an active mentorship (`status === 'Active'`), they are prompted with a confirmation dialog: *"You already have an ongoing mentorship, would you like to make another request?"* before proceeding.
