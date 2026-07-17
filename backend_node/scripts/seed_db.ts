@@ -25,7 +25,7 @@ async function main() {
         }
 
         // 2. Create Default Admin
-        const adminEmail = 'admin@goa.city';
+        const adminEmail = 'superadmin@goa.city';
         let admin = await prisma.admin.findUnique({ where: { email: adminEmail } });
         if (!admin) {
             const hashedPassword = await bcrypt.hash('admin123', 10);
@@ -39,9 +39,9 @@ async function main() {
                     city_id: city.id
                 }
             });
-            console.log('✅ Default admin "admin@goa.city" created (password: admin123).');
+            console.log('✅ Default admin "superadmin@goa.city" created (password: admin123).');
         } else {
-            console.log('ℹ️ Default admin "admin@goa.city" already exists.');
+            console.log('ℹ️ Default admin "superadmin@goa.city" already exists.');
         }
 
         console.log('--- Database Seeding Completed ---');

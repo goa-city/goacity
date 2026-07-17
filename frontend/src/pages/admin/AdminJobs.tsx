@@ -7,22 +7,20 @@ import {
 import { Card } from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
 
-const STATUS_COLORS = {
-    pending:  'bg-amber-100 text-amber-800 border border-amber-200',
-    approved: 'bg-emerald-100 text-emerald-800 border border-emerald-200',
-    rejected: 'bg-red-100 text-red-800 border border-red-200',
-};
-
-const TYPE_COLORS = {
-    'Full Time':  'bg-sky-100 text-sky-700',
-    'Part Time':  'bg-violet-100 text-violet-700',
-    'Freelance':  'bg-emerald-100 text-emerald-700',
-    'Internship': 'bg-amber-100 text-amber-700',
-};
+interface JobListItem {
+    id: number;
+    title: string;
+    company?: string | null;
+    location?: string | null;
+    type?: string | null;
+    status?: string | null;
+    first_name?: string | null;
+    last_name?: string | null;
+}
 
 const AdminJobs: React.FC = () => {
     const navigate = useNavigate();
-    const [jobs, setJobs] = useState<any[]>([]);
+    const [jobs, setJobs] = useState<JobListItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all');
     const [search, setSearch] = useState('');
@@ -41,7 +39,7 @@ const AdminJobs: React.FC = () => {
         } finally { setLoading(false); }
     };
 
-    const showToast = (msg) => {
+    const showToast = (msg: string) => {
         setToast(msg);
         setTimeout(() => setToast(''), 3000);
     };

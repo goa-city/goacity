@@ -10,8 +10,20 @@ import { Card } from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
 import { Dialog } from '@headlessui/react';
 
+interface AdminPageListItem {
+    id: number;
+    title: string;
+    slug: string;
+}
+
+interface AdminPageCreateResponse {
+    page?: {
+        id: number;
+    };
+}
+
 const AdminPages: React.FC = () => {
-    const [pages, setPages] = useState<any[]>([]);
+    const [pages, setPages] = useState<AdminPageListItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [toast, setToast] = useState('');
@@ -37,7 +49,7 @@ const AdminPages: React.FC = () => {
         }
     };
 
-    const showToast = (msg) => {
+    const showToast = (msg: string) => {
         setToast(msg);
         setTimeout(() => setToast(''), 3000);
     };

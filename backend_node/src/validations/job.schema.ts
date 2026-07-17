@@ -14,6 +14,10 @@ export const updateJobSchema = z.object({
         contact_email: z.string().email('Invalid email').optional().nullable().or(z.literal('')),
         status: z.enum(['pending', 'approved', 'rejected']).optional(),
         expires_at: z.string().optional().nullable(),
+        work_arrangement: z.enum(['Onsite', 'Remote', 'Hybrid']).optional(),
+        salary_min: z.union([z.string(), z.number()]).transform(val => val === '' ? null : Number(val)).optional().nullable(),
+        salary_max: z.union([z.string(), z.number()]).transform(val => val === '' ? null : Number(val)).optional().nullable(),
+        salary_currency: z.string().optional().nullable(),
     }),
 });
 
@@ -30,5 +34,10 @@ export const createJobSchema = z.object({
         contact_email: z.string().email('Invalid email').optional().nullable().or(z.literal('')),
         status: z.enum(['pending', 'approved', 'rejected']).optional(),
         expires_at: z.string().optional().nullable(),
+        work_arrangement: z.enum(['Onsite', 'Remote', 'Hybrid']).optional(),
+        salary_min: z.union([z.string(), z.number()]).transform(val => val === '' ? null : Number(val)).optional().nullable(),
+        salary_max: z.union([z.string(), z.number()]).transform(val => val === '' ? null : Number(val)).optional().nullable(),
+        salary_currency: z.string().optional().nullable(),
     }),
 });
+

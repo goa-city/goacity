@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchUpcomingMeetings, fetchPastMeetings, rsvpMeeting, checkInMeeting } from '../api/meetings.api';
+import type { Meeting } from './useSingleMeeting';
 
 export const useMeetings = () => {
     const queryClient = useQueryClient();
@@ -32,8 +33,8 @@ export const useMeetings = () => {
     });
 
     return {
-        upcoming: (upcomingQuery.data as any[]) || [],
-        past: (pastQuery.data as any[]) || [],
+        upcoming: (upcomingQuery.data as Meeting[]) || [],
+        past: (pastQuery.data as Meeting[]) || [],
         isLoading: upcomingQuery.isLoading || pastQuery.isLoading,
         error: upcomingQuery.error || pastQuery.error,
         refetch: async () => {

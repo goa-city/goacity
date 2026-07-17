@@ -10,8 +10,8 @@ export const fetchPastMeetings = async () => {
     return data;
 };
 
-export const rsvpMeeting = async (meetingId: number, status: string) => {
-    const { data } = await api.post(`/member/meeting/${meetingId}/rsvp`, { status });
+export const rsvpMeeting = async (meetingIdOrSlug: number | string, status: string) => {
+    const { data } = await api.post(`/member/meeting/${meetingIdOrSlug}/rsvp`, { status });
     return data;
 };
 
@@ -20,7 +20,7 @@ export const fetchSingleMeeting = async (id: string | number) => {
     return data;
 };
 
-export const checkInMeeting = async (meetingId: number) => {
-    const { data } = await api.post(`/member/meeting/${meetingId}/checkin`);
+export const checkInMeeting = async (meetingIdOrSlug: number | string) => {
+    const { data } = await api.post(`/member/meeting/${meetingIdOrSlug}/checkin`);
     return data;
 };

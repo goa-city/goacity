@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { GlobeAltIcon } from '@heroicons/react/24/outline';
 
 const SuperAdminLogin: React.FC = () => {
-    const { login, superAdminUser } = useSuperAdminAuth();
+    const { login, superAdmin } = useSuperAdminAuth();
     const navigate = useNavigate();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -13,20 +13,20 @@ const SuperAdminLogin: React.FC = () => {
 
     // If already logged in, redirect
     useEffect(() => {
-        if (superAdminUser) {
+        if (superAdmin) {
             navigate('/superadmin/cities', { replace: true });
         }
-    }, [superAdminUser, navigate]);
+    }, [superAdmin, navigate]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         setError('');
-        const res = await login(email, password);
+        const res = await login({ email, password });
         if (res.success) {
             navigate('/superadmin/cities', { replace: true });
         } else {
-            setError(res.message);
+            setError(res.message ?? 'Authentication failed.');
         }
         setLoading(false);
     };

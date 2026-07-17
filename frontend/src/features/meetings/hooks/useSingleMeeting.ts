@@ -5,11 +5,13 @@ export interface MeetingResource {
     id: number;
     title: string;
     url: string;
+    url_display?: string | null;
 }
 
 export interface Meeting {
     id: number;
     title: string;
+    slug?: string | null;
     meeting_date: string;
     location_name: string;
     zoom_link?: string;
@@ -17,10 +19,18 @@ export interface Meeting {
     resources?: MeetingResource[];
     feedback_form_id?: number;
     checked_in?: number;
+    my_checkin?: number;
     start_time_display?: string;
     end_time_display?: string;
     map_link?: string;
     my_rsvp?: 'going' | 'not_sure' | 'cant_go' | null;
+    stream_name?: string | null;
+    stream_color?: string | null;
+    is_paid?: number | boolean;
+    payment_amount?: number | string | null;
+    payment_qr_image?: string | null;
+    payment_qr_image_url?: string | null;
+    my_payment_status?: string | null;
 }
 
 export const useSingleMeeting = (id: string | undefined) => {
@@ -32,7 +42,7 @@ export const useSingleMeeting = (id: string | undefined) => {
     });
 
     const checkInMutation = useMutation({
-        mutationFn: () => checkInMeeting(Number(id)),
+        mutationFn: () => checkInMeeting(id!),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['meeting', id] });
             queryClient.invalidateQueries({ queryKey: ['meetings-upcoming'] });
@@ -41,7 +51,7 @@ export const useSingleMeeting = (id: string | undefined) => {
     });
 
     const rsvpMutation = useMutation({
-        mutationFn: (status: string) => rsvpMeeting(Number(id), status),
+        mutationFn: (status: string) => rsvpMeeting(id!, status),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['meeting', id] });
             queryClient.invalidateQueries({ queryKey: ['meetings-upcoming'] });

@@ -36,11 +36,11 @@ const AdminLayout: React.FC<{ children?: React.ReactNode }> = ({ children }) => 
     const { theme, toggleTheme } = useTheme();
     const navigate = useNavigate();
     const location = useLocation();
-    const [openGroup, setOpenGroup] = useState<any>(null);
+    const [openGroup, setOpenGroup] = useState<string | null>(null);
     const [showCityMenu, setShowCityMenu] = useState(false);
 
     // Determine active tab and parent group based on path
-    const getActiveState = (path) => {
+    const getActiveState = (path: string) => {
         let tab = 'overview';
         let group = null;
 
@@ -71,10 +71,13 @@ const AdminLayout: React.FC<{ children?: React.ReactNode }> = ({ children }) => 
             if (path.includes('/admin/collabs')) tab = 'collabs';
             if (path.includes('/admin/jobs')) tab = 'jobs';
             if (path.includes('/admin/news')) tab = 'news';
-        } else if (path.includes('/admin/resources') || path.includes('/admin/pages')) {
+        } else if (path.includes('/admin/resources')) {
+            group = 'resources-group';
+            if (path.includes('/admin/resources/categories')) tab = 'resource-categories';
+            else tab = 'resources';
+        } else if (path.includes('/admin/pages')) {
             group = 'content';
-            if (path.includes('/admin/resources')) tab = 'resources';
-            if (path.includes('/admin/pages')) tab = 'pages';
+            tab = 'pages';
         } else if (path.includes('/superadmin/cities') || path.includes('/superadmin')) {
             tab = 'super-cities';
         }
@@ -84,8 +87,8 @@ const AdminLayout: React.FC<{ children?: React.ReactNode }> = ({ children }) => 
 
     const { tab: activeTab, group: activeGroup } = getActiveState(location.pathname);
 
-    const toggleGroup = (groupId) => {
-        setOpenGroup(prev => prev === groupId ? null : groupId);
+    const toggleGroup = (groupId: string) => {
+        setOpenGroup((prev: string | null) => prev === groupId ? null : groupId);
     };
 
     // Sync openGroup with activeGroup on route change
@@ -143,11 +146,19 @@ const AdminLayout: React.FC<{ children?: React.ReactNode }> = ({ children }) => 
             ]
         },
          {
+            name: 'Resources',
+            id: 'resources-group',
+            icon: BookOpenIcon,
+            subItems: [
+                { name: 'All Resources', icon: BookOpenIcon, id: 'resources', path: '/admin/resources' },
+                { name: 'Resource Categories', icon: BookOpenIcon, id: 'resource-categories', path: '/admin/resources/categories' },
+            ]
+        },
+        {
             name: 'Content',
             id: 'content',
             icon: WindowIcon,
             subItems: [
-                { name: 'Resources', icon: BookOpenIcon, id: 'resources', path: '/admin/resources' },
                 { name: 'Custom Pages', icon: DocumentTextIcon, id: 'pages', path: '/admin/pages' },
             ]
         } 

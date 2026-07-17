@@ -57,3 +57,18 @@ export const getProfilePhotoUrl = (path?: string | null): string => {
     }
     return `/uploads/${path}`;
 };
+
+export const getUploadAssetUrl = (path?: string | null): string => {
+    if (!path) return '';
+    if (path.startsWith('http') || path.startsWith('data:')) return path;
+
+    let normalizedPath = path;
+    if (!normalizedPath.startsWith('/uploads') && !normalizedPath.startsWith('uploads')) {
+        normalizedPath = `/uploads/${normalizedPath.replace(/^\//, '')}`;
+    } else if (normalizedPath.startsWith('uploads')) {
+        normalizedPath = `/${normalizedPath}`;
+    }
+
+    const apiBaseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '');
+    return `${apiBaseUrl}${normalizedPath}`;
+};

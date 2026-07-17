@@ -7,15 +7,19 @@ import {
 import { Card } from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
 
-const STATUS_COLORS = {
-    pending:  'bg-amber-50 text-amber-600 border-amber-100',
-    approved: 'bg-emerald-50 text-emerald-600 border-emerald-100',
-    rejected: 'bg-rose-50 text-rose-600 border-rose-100',
-};
+interface ResourceListItem {
+    id: number;
+    title: string;
+    author?: string | null;
+    category?: string | null;
+    status?: string | null;
+    first_name?: string | null;
+    last_name?: string | null;
+}
 
 const AdminResources: React.FC = () => {
     const navigate = useNavigate();
-    const [resources, setResources] = useState<any[]>([]);
+    const [resources, setResources] = useState<ResourceListItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all');
     const [search, setSearch] = useState('');
@@ -34,7 +38,7 @@ const AdminResources: React.FC = () => {
         } finally { setLoading(false); }
     };
 
-    const showToast = (msg) => {
+    const showToast = (msg: string) => {
         setToast(msg);
         setTimeout(() => setToast(''), 3000);
     };
@@ -45,12 +49,12 @@ const AdminResources: React.FC = () => {
             await api.delete(`/admin/resources?id=${id}`);
             showToast('Resource deleted successfully.');
             fetchResources();
-        } catch (e) { alert(e.message); }
+        } catch (e: unknown) { alert(e instanceof Error ? e.message : 'Failed to delete resource'); }
     };
 
-    const filtered = resources.filter(r =>
-        r.title?.toLowerCase().includes(search.toLowerCase()) ||
-        r.author?.toLowerCase().includes(search.toLowerCase())
+    const filtered = resources.filter((resource) =>
+        resource.title?.toLowerCase().includes(search.toLowerCase()) ||
+        resource.author?.toLowerCase().includes(search.toLowerCase())
     );
 
     const pendingCount = resources.filter(r => (r.status || 'pending') === 'pending').length;
@@ -75,9 +79,14 @@ const AdminResources: React.FC = () => {
                         )}
                     </p>
                 </div>
-                <Button onClick={() => navigate('/admin/resources/new')} className="px-8 shadow-xl shadow-indigo-600/20">
-                    <PlusIcon className="w-5 h-5 mr-2" /> Add Resource
-                </Button>
+                <div className="flex gap-3">
+                    <Button onClick={() => navigate('/admin/resources/categories')} className="px-8 bg-zinc-600 hover:bg-zinc-700 shadow-xl shadow-zinc-600/20 border-none">
+                        Manage Categories
+                    </Button>
+                    <Button onClick={() => navigate('/admin/resources/new')} className="px-8 shadow-xl shadow-indigo-600/20">
+                        <PlusIcon className="w-5 h-5 mr-2" /> Add Resource
+                    </Button>
+                </div>
             </div>
 
             {/* Filters + Search */}

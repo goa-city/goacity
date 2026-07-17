@@ -3,18 +3,27 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline'; // Assuming you have heroicons
 
+interface AdminMemberCreateForm {
+    first_name: string;
+    last_name: string;
+    email?: string;
+    phone?: string;
+    role: string;
+    profile_photo: string;
+}
+
 const AdminMemberCreate: React.FC = () => {
     const navigate = useNavigate();
-    const [formData, setFormData] = useState<any>({
+    const [formData, setFormData] = useState<AdminMemberCreateForm>({
         first_name: '',
         last_name: '',
         role: 'member',
         profile_photo: ''
     });
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<any>(null);
+    const [error, setError] = useState<string | null>(null);
 
-    const handleChange = (e) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({
             ...formData,
             [e.target.name]: e.target.value
@@ -35,9 +44,9 @@ const AdminMemberCreate: React.FC = () => {
         try {
             await api.post('/admin/users', formData);
             navigate('/admin/members');
-        } catch (err) {
+        } catch (err: unknown) {
             console.error("Failed to create member", err);
-            setError(err.response?.data?.message || "Failed to create member.");
+            setError(err instanceof Error ? err.message : "Failed to create member.");
         } finally {
             setLoading(false);
         }

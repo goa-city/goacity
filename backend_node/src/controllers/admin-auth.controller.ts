@@ -27,3 +27,23 @@ export const getMe = async (req: Request, res: Response, next: NextFunction) => 
         next(error);
     }
 };
+
+export const superAdminLogin = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { email, password } = req.body;
+        const admin = await AdminAuthService.login(email, password);
+        
+        if (!admin.is_super_admin) {
+            return res.status(403).json({ message: 'Access denied. Not a super admin.' });
+        }
+
+        const token = generateToken(
+            { id: admin.id, role: admin.role, type: 'superadmin', isSuperAdmin: true },
+            '24h'
+        );
+
+        res.json({ token, user: admin });
+    } catch (error) {
+        next(error);
+    }
+};

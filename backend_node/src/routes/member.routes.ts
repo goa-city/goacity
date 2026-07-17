@@ -3,7 +3,8 @@ import {
     getDashboard, getProfile, updateProfile, 
     createPost, createJob, createResource,
     getNewsFeed, likePost, deletePost, updatePost,
-    getJobs, getJob, applyJob, getResources
+    getJobs, getJob, applyJob, getResources,
+    getMyPostings, getPostingApplications, updatePostingApplicationStatus
 } from '../controllers/member.controller.js';
 import { 
     getStewardshipSummary, getMemberLogs, 
@@ -34,6 +35,7 @@ import { submitOnboarding, submitForm, getFormProgress } from '../controllers/fo
 import { globalSearch } from '../controllers/search.controller.js';
 import { authMiddleware } from '../middleware/auth.js';
 import prisma from '../lib/prisma.js';
+import { getResourceCategories } from '../controllers/resource-category.controller.js';
 import multer from 'multer';
 
 const router = Router();
@@ -107,6 +109,11 @@ router.get('/jobs', getJobs);
 router.get('/jobs/:id', getJob);
 router.post('/jobs/:id/apply', upload.single('cv'), applyJob);
 router.get('/resources', getResources);
+router.get('/resources/categories', getResourceCategories);
+
+router.get('/my-postings', getMyPostings);
+router.get('/my-postings/:jobId/applications', getPostingApplications);
+router.patch('/my-postings/applications/:applicationId/status', updatePostingApplicationStatus);
 
 // Forms are now in public routes with optional auth
 // router.get('/form-progress', getFormProgress);

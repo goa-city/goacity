@@ -7,6 +7,7 @@ export class WhatsAppService {
     private static instance: WhatsAppService;
     private client: any;
     private cityId: number = 1; // Default to 1 for now
+    private heartbeatInterval: any = null;
 
     private constructor() {
         this.client = new Client({
@@ -19,6 +20,7 @@ export class WhatsAppService {
             takeoverOnConflict: true,
             takeoverTimeoutMs: 10000,
             puppeteer: {
+                executablePath: '/usr/bin/chromium-browser',
                 args: [
                     '--no-sandbox', 
                     '--disable-setuid-sandbox',
@@ -127,7 +129,10 @@ export class WhatsAppService {
 
         // Start heartbeat to monitor connection health
         let failureCount = 0;
-        setInterval(async () => {
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+        }
+        this.heartbeatInterval = setInterval(async () => {
             try {
                 if (this.client.pupPage) {
                     // Check if page is still alive
@@ -135,13 +140,14 @@ export class WhatsAppService {
                     if (isHealthy) {
                         failureCount = 0;
                         console.log(`[Heartbeat] Connection Healthy`);
+                    } else {
+                        failureCount++;
+                        console.error(`[Heartbeat] Page not healthy (${failureCount}/5)`);
                     }
-                } else {
-                    failureCount++;
                 }
             } catch (err) {
                 failureCount++;
-                console.error(`[Heartbeat] Failure detected (${failureCount}/5)`);
+                console.error(`[Heartbeat] Failure detected (${failureCount}/5)`, err);
             }
 
             if (failureCount >= 5) {
@@ -567,6 +573,10 @@ export class WhatsAppService {
 
     public async logout() {
         try {
+            if (this.heartbeatInterval) {
+                clearInterval(this.heartbeatInterval);
+                this.heartbeatInterval = null;
+            }
             await this.client.logout();
             await this.client.destroy();
         } catch (error) {

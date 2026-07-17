@@ -4,16 +4,24 @@ import { sendEmail } from '../utils/email.js';
 import bcrypt from 'bcryptjs';
 import { AppError } from '../utils/errors.js';
 import { SYSTEM_TEMPLATES } from '../config/constants.js';
+import { whatsapp } from './whatsapp.service.js';
 
 export class AuthService {
     static async sendOtp(identifier: string) {
         console.log(`[AUTH] Sending OTP to: ${identifier}`);
         // 1. Check if member exists
+        const isEmail = identifier.includes('@');
+        const digits = identifier.replace(/\D/g, '');
         const member = await prisma.member.findFirst({
             where: {
                 OR: [
                     { email: identifier },
-                    { phone: identifier }
+                    { phone: identifier },
+                    ...(isEmail ? [] : [
+                        { phone: digits },
+                        { phone: `+${digits}` },
+                        ...(digits.length >= 10 ? [{ phone: { contains: digits.slice(-10) } }] : [])
+                    ])
                 ]
             }
         });
@@ -50,10 +58,12 @@ export class AuthService {
             }
         });
 
-        // 4. Send Email (only if identifier is email)
-        const isEmail = identifier.includes('@');
+        // 4. Send OTP
         if (!isEmail) {
-            throw new AppError('OTP can only be sent to email at this time.', 400);
+            const firstName = member.first_name || 'Member';
+            const whatsappMessage = `Hello ${firstName}, your Goa.City login code is: *${otpCode}*. This code will expire in 10 minutes.`;
+            await whatsapp.sendMessage(member.phone || identifier, whatsappMessage, member.id);
+            return { success: true };
         }
 
         let emailSubject = 'Your Goa.City Login Code';
@@ -110,20 +120,26 @@ export class AuthService {
         }
 
         // 2. Find or Create User
+        const isEmail = identifier.includes('@');
+        const digits = identifier.replace(/\D/g, '');
         let user = await prisma.member.findFirst({
             where: {
                 OR: [
                     { email: identifier },
-                    { phone: identifier }
+                    { phone: identifier },
+                    ...(isEmail ? [] : [
+                        { phone: digits },
+                        { phone: `+${digits}` },
+                        ...(digits.length >= 10 ? [{ phone: { contains: digits.slice(-10) } }] : [])
+                    ])
                 ]
             }
         });
 
         if (!user) {
-            const isEmail = identifier.includes('@');
             user = await prisma.member.create({
                 data: {
-                    first_name: identifier.split('@')[0],
+                    first_name: isEmail ? identifier.split('@')[0] : 'Member',
                     last_name: '',
                     email: isEmail ? identifier : null,
                     phone: isEmail ? null : identifier,

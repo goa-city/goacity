@@ -2,6 +2,9 @@ import type { Request, Response, NextFunction } from 'express';
 import { MentorshipService } from '../services/mentorship.service.js';
 import { AssessmentService } from '../services/assessment.service.js';
 import { processImageToWebp } from '../utils/image.js';
+import prisma from '../lib/prisma.js';
+import { whatsapp } from '../services/whatsapp.service.js';
+import { sendEmail } from '../utils/email.js';
 
 // --- MENTOR PROFILE ---
 export const getMentorProfile = async (req: Request, res: Response, next: NextFunction) => {
@@ -196,6 +199,16 @@ export const getAdminMentorshipRequests = async (req: Request, res: Response, ne
     }
 };
 
+export const getAdminMentorshipRequestById = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        const result = await MentorshipService.getMentorshipRequestById(Number(id));
+        res.json({ success: true, data: result });
+    } catch (error) {
+        next(error);
+    }
+};
+
 export const getAdminMentors = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const result = await MentorshipService.getApprovedMentors();
@@ -310,6 +323,110 @@ export const verifyMentorshipSessionPayment = async (req: Request, res: Response
         const userId = (req as any).userId;
         const result = await MentorshipService.verifySessionPayment(sessionId as string, userId);
         res.json({ success: true, data: result });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const notifyMentorshipRelation = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        const { type, templateId, recipients } = req.body;
+
+        const relation: any = await prisma.mentorshipRelation.findUnique({
+            where: { id: id as string },
+            include: {
+                mentor: true,
+                mentee: true
+            }
+        });
+
+        if (!relation) return res.status(404).json({ message: 'Mentorship relation not found' });
+
+        const getReplacements = (recipient: any, mentor: any, mentee: any) => ({
+            '{first_name}': recipient.first_name || 'Member',
+            '{firstname}': recipient.first_name || 'Member',
+            '{last_name}': recipient.last_name || '',
+            '{lastname}': recipient.last_name || '',
+            '{mentor_name}': `${mentor.first_name} ${mentor.last_name}`,
+            '{mentor_first_name}': mentor.first_name || '',
+            '{mentor_last_name}': mentor.last_name || '',
+            '{mentee_name}': `${mentee.first_name} ${mentee.last_name}`,
+            '{mentee_first_name}': mentee.first_name || '',
+            '{mentee_last_name}': mentee.last_name || '',
+            '{focus_area}': relation.focus_area || '',
+            '{covenant_type}': relation.type || '',
+            '{{first_name}}': recipient.first_name || 'Member',
+            '{{last_name}}': recipient.last_name || '',
+            '{{mentor_name}}': `${mentor.first_name} ${mentor.last_name}`,
+            '{{mentee_name}}': `${mentee.first_name} ${mentee.last_name}`,
+            '{{focus_area}}': relation.focus_area || '',
+            '{{covenant_type}}': relation.type || ''
+        });
+
+        const applyReplacements = (text: string, replacements: any) => {
+            let result = text;
+            for (const key in replacements) {
+                const regex = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+                result = result.replace(regex, replacements[key]);
+            }
+            return result;
+        };
+
+        if (type === 'email') {
+            const template = await prisma.emailTemplate.findUnique({ where: { id: Number(templateId) } });
+            if (!template) return res.status(404).json({ message: 'Email template not found' });
+
+            const emailRecipients: any[] = [];
+            if (recipients.includes('mentor') && relation.mentor?.email) {
+                emailRecipients.push({ role: 'mentor', member: relation.mentor });
+            }
+            if (recipients.includes('mentee') && relation.mentee?.email) {
+                emailRecipients.push({ role: 'mentee', member: relation.mentee });
+            }
+
+            Promise.all(emailRecipients.map(item => {
+                const replacements = getReplacements(item.member, relation.mentor, relation.mentee);
+                const personalizedHtml = applyReplacements(template.message, replacements);
+                const personalizedSubject = applyReplacements(template.subject, replacements);
+
+                return sendEmail(
+                    item.member.email,
+                    personalizedSubject,
+                    personalizedHtml
+                ).catch(err => console.error(`Email failed for ${item.member.email}:`, err));
+            }));
+
+            return res.json({ success: true, message: `Email notifications queued for ${emailRecipients.length} recipients` });
+        } else if (type === 'whatsapp') {
+            const template = await prisma.whatsAppTemplate.findUnique({ where: { id: Number(templateId) } });
+            if (!template) return res.status(404).json({ message: 'WhatsApp template not found' });
+
+            const whatsappRecipients: any[] = [];
+            if (recipients.includes('mentor') && relation.mentor?.phone) {
+                whatsappRecipients.push({ role: 'mentor', member: relation.mentor });
+            }
+            if (recipients.includes('mentee') && relation.mentee?.phone) {
+                whatsappRecipients.push({ role: 'mentee', member: relation.mentee });
+            }
+
+            const bulkMessages = whatsappRecipients.map(item => {
+                const replacements = getReplacements(item.member, relation.mentor, relation.mentee);
+                const personalizedContent = applyReplacements(template.content, replacements);
+
+                return {
+                    to: item.member.phone,
+                    content: personalizedContent,
+                    memberId: item.member.id
+                };
+            });
+
+            whatsapp.sendBulk(bulkMessages, `Mentorship Notify: ${relation.id}`).catch((err: any) => console.error('WhatsApp bulk notify failed:', err));
+
+            return res.json({ success: true, message: `WhatsApp notifications queued for ${whatsappRecipients.length} recipients` });
+        }
+
+        return res.status(400).json({ message: 'Invalid notification type' });
     } catch (error) {
         next(error);
     }

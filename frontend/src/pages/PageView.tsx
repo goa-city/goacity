@@ -37,7 +37,7 @@ const PageView: React.FC = () => {
             </DashboardLayout>
         );
     }
-    
+
     if (!page) {
         return (
             <DashboardLayout>
@@ -49,21 +49,17 @@ const PageView: React.FC = () => {
             </DashboardLayout>
         );
     }
-
     return (
         <DashboardLayout>
             <div className="max-w-3xl mx-auto py-12 px-6">
                 <header className="mb-12">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-[9px] font-black uppercase tracking-widest mb-4">
-                        Internal Resource
-                    </div>
-                    <h1 className="text-4xl md:text-5xl font-black text-zinc-900 dark:text-white tracking-tight uppercase italic leading-tight">
+                    <h1 className="text-5xl font-black text-zinc-900 dark:text-white tracking-tighter">
                         {page.title}
                     </h1>
                     <div className="h-1 w-20 bg-indigo-600 mt-6"></div>
                 </header>
 
-                <article 
+                <article
                     className="prose prose-zinc dark:prose-invert prose-lg max-w-none text-zinc-600 dark:text-zinc-400 font-medium leading-relaxed prose-headings:font-black prose-headings:uppercase prose-headings:italic prose-a:text-indigo-600 dark:prose-a:text-indigo-400 prose-img:rounded-3xl prose-img:shadow-2xl"
                     dangerouslySetInnerHTML={{ __html: page.content }}
                 />

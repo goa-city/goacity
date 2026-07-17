@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeftIcon, CheckCircleIcon, PaperClipIcon } from '@heroicons/react/24/outline';
 import QuillEditor from '../components/QuillEditor';
@@ -20,6 +20,7 @@ const ResourceEditor: React.FC = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitSuccess, setSubmitSuccess] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const imageInputRef = useRef<HTMLInputElement>(null);
 
     const [form, setForm] = useState<ResourceForm>({
         title: '',
@@ -29,11 +30,31 @@ const ResourceEditor: React.FC = () => {
         description: '',
     });
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [selectedImage, setSelectedImage] = useState<File | null>(null);
 
-    const formCategories = ["Community", "Awards", "Event", "Design", "Interviews"];
+    const [formCategories, setFormCategories] = useState<string[]>([]);
+
+    useEffect(() => {
+        api.get('/member/resources/categories')
+            .then(res => {
+                setFormCategories(res.data.map((c: any) => c.name));
+            })
+            .catch(err => console.error('Failed to load categories:', err));
+    }, []);
 
     const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         setForm({ ...form, [e.target.name]: e.target.value });
+    };
+
+    const handleCategoryToggle = (catName: string) => {
+        const currentSelected = form.category ? form.category.split(',').map(s => s.trim()).filter(Boolean) : [];
+        let newSelected: string[];
+        if (currentSelected.includes(catName)) {
+            newSelected = currentSelected.filter(c => c !== catName);
+        } else {
+            newSelected = [...currentSelected, catName];
+        }
+        setForm(f => ({ ...f, category: newSelected.join(', ') }));
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -57,6 +78,20 @@ const ResourceEditor: React.FC = () => {
         setSelectedFile(file);
     };
 
+    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+            alert('Only image files are allowed.');
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            alert('Image too large. Maximum size is 5MB.');
+            return;
+        }
+        setSelectedImage(file);
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!form.title || !form.category || !form.author) {
@@ -69,6 +104,7 @@ const ResourceEditor: React.FC = () => {
             Object.entries(form).forEach(([k, v]) => formData.append(k, v));
             formData.append('submitted_by', String(user?.id || ''));
             if (selectedFile) formData.append('file', selectedFile);
+            if (selectedImage) formData.append('image', selectedImage);
             
             await api.post('/resources', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
@@ -122,17 +158,30 @@ const ResourceEditor: React.FC = () => {
                                         className="w-full px-6 py-4 bg-zinc-50 dark:bg-zinc-800/50 border-0 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
                                     />
                                 </div>
-                                <div>
-                                    <label className="block text-[10px] uppercase font-black tracking-widest text-zinc-400 mb-3 ml-2">Category <span className="text-rose-500">*</span></label>
-                                    <select
-                                        name="category" value={form.category} onChange={handleFormChange} required
-                                        className="w-full px-6 py-4 bg-zinc-50 dark:bg-zinc-800/50 border-0 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none appearance-none"
-                                    >
-                                        <option value="">Select Category</option>
-                                        {formCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                                    </select>
+                                <div className="md:col-span-2">
+                                    <label className="block text-[10px] uppercase font-black tracking-widest text-zinc-400 mb-3 ml-2">Categories <span className="text-rose-500">*</span></label>
+                                    <div className="flex flex-wrap gap-2.5 p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl">
+                                        {formCategories.map(cat => {
+                                            const isSelected = form.category.split(',').map(s => s.trim()).includes(cat);
+                                            return (
+                                                <button
+                                                    key={cat}
+                                                    type="button"
+                                                    onClick={() => handleCategoryToggle(cat)}
+                                                    className={`px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-xl transition-all border ${
+                                                        isSelected 
+                                                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-600/20 scale-[1.02]' 
+                                                            : 'bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600'
+                                                    }`}
+                                                >
+                                                    {cat}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    <input type="hidden" name="category" value={form.category} required />
                                 </div>
-                                <div>
+                                <div className="md:col-span-2">
                                     <label className="block text-[10px] uppercase font-black tracking-widest text-zinc-400 mb-3 ml-2">Author <span className="text-rose-500">*</span></label>
                                     <input
                                         type="text" name="author" value={form.author} onChange={handleFormChange}
@@ -149,6 +198,32 @@ const ResourceEditor: React.FC = () => {
                                     placeholder="https://..."
                                     className="w-full px-6 py-4 bg-zinc-50 dark:bg-zinc-800/50 border-0 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
                                 />
+                            </div>
+
+                            <div>
+                                <label className="block text-[10px] uppercase font-black tracking-widest text-zinc-400 mb-3 ml-2">Cover Image</label>
+                                <div
+                                    onClick={() => imageInputRef.current?.click()}
+                                    className="group relative w-full px-8 py-14 border-2 border-dashed border-zinc-100 dark:border-zinc-800 rounded-3xl text-center cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/30 hover:border-indigo-500/50 transition-all overflow-hidden"
+                                >
+                                    <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                    {selectedImage ? (
+                                        <div className="flex flex-col items-center relative z-10">
+                                            <img src={URL.createObjectURL(selectedImage)} alt="Preview" className="w-40 h-28 object-cover rounded-xl mb-4 border border-zinc-100 dark:border-zinc-800 shadow-md" />
+                                            <span className="text-[11px] font-black uppercase tracking-widest text-zinc-900 dark:text-white truncate max-w-xs">{selectedImage.name}</span>
+                                            <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedImage(null); if(imageInputRef.current) imageInputRef.current.value = ''; }} className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-500 mt-3 hover:underline">
+                                                Remove Image
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="relative z-10">
+                                            <PaperClipIcon className="w-10 h-10 text-zinc-300 dark:text-zinc-700 mx-auto mb-4 group-hover:text-indigo-500 group-hover:scale-110 transition-all duration-500" />
+                                            <span className="block text-[11px] font-black uppercase tracking-widest text-zinc-900 dark:text-white">Click to Upload Cover Image</span>
+                                            <span className="block text-[10px] font-medium text-zinc-400 mt-2">PNG, JPG, JPEG, or WEBP (Max 5MB)</span>
+                                        </div>
+                                    )}
+                                </div>
+                                <input ref={imageInputRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
                             </div>
 
                             <div>

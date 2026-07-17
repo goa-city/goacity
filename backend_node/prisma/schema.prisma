@@ -272,26 +272,30 @@ model forms {
 }
 
 model jobs {
-  id              Int              @id @default(autoincrement())
-  title           String           @db.VarChar(255)
-  company         String           @db.VarChar(255)
-  location        String           @db.VarChar(255)
-  category        String?          @db.VarChar(100)
-  type            String?          @default("Full Time") @db.VarChar(50)
-  description     String?
-  url             String?          @db.VarChar(500)
-  contact_email   String?          @db.VarChar(255)
-  posted_by       Int?
-  status          String?          @default("pending") @db.VarChar(50)
-  created_at      DateTime?        @default(now()) @db.Timestamp(6)
-  updated_at      DateTime?        @default(now()) @db.Timestamp(6)
-  city_id         Int?             @default(1)
-  company_profile String?
-  expires_at      DateTime?        @db.Timestamp(6)
-  slug            String?          @db.VarChar(255)
-  applications    JobApplication[]
-  city            City?            @relation(fields: [city_id], references: [id])
-  poster          Member?          @relation("JobPostings", fields: [posted_by], references: [id])
+  id               Int              @id @default(autoincrement())
+  title            String           @db.VarChar(255)
+  company          String           @db.VarChar(255)
+  location         String           @db.VarChar(255)
+  category         String?          @db.VarChar(100)
+  type             String?          @default("Full Time") @db.VarChar(50)
+  description      String?
+  url              String?          @db.VarChar(500)
+  contact_email    String?          @db.VarChar(255)
+  posted_by        Int?
+  status           String?          @default("pending") @db.VarChar(50)
+  created_at       DateTime?        @default(now()) @db.Timestamp(6)
+  updated_at       DateTime?        @default(now()) @db.Timestamp(6)
+  city_id          Int?             @default(1)
+  company_profile  String?
+  expires_at       DateTime?        @db.Timestamp(6)
+  slug             String?          @db.VarChar(255)
+  work_arrangement String?          @default("Onsite") @db.VarChar(50)
+  salary_min       Int?
+  salary_max       Int?
+  salary_currency  String?          @default("INR") @db.VarChar(10)
+  applications     JobApplication[]
+  city             City?            @relation(fields: [city_id], references: [id])
+  poster           Member?          @relation("JobPostings", fields: [posted_by], references: [id])
 
   @@unique([city_id, slug])
 }
@@ -305,6 +309,8 @@ model JobApplication {
   phone      String?   @db.VarChar(50)
   message    String?
   cv_url     String    @db.VarChar(500)
+  status     String?   @default("submitted") @db.VarChar(50)
+  notes      String?
   created_at DateTime? @default(now()) @db.Timestamp(6)
   job        jobs      @relation(fields: [job_id], references: [id], onDelete: Cascade)
   applicant  Member    @relation("JobApplications", fields: [user_id], references: [id], onDelete: Cascade)
@@ -398,7 +404,7 @@ model post_likes {
 model resources {
   id           Int       @id @default(autoincrement())
   title        String    @db.VarChar(255)
-  category     String    @db.VarChar(100)
+  category     String    @db.VarChar(500)
   author       String    @db.VarChar(255)
   url          String?   @db.VarChar(500)
   image_url    String?   @db.VarChar(500)
@@ -712,4 +718,13 @@ model WhatsAppSession {
   city        City?     @relation(fields: [city_id], references: [id])
 
   @@map("whatsapp_sessions")
+}
+
+model ResourceCategory {
+  id         Int       @id @default(autoincrement())
+  name       String    @unique @db.VarChar(100)
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  updated_at DateTime? @default(now()) @db.Timestamp(6)
+
+  @@map("resource_categories")
 }

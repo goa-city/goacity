@@ -35,7 +35,7 @@ export class FormService {
         
         if (userId) {
             response = await prisma.formResponse.findFirst({
-                where: { user_id: userId, form_id: form.id },
+                where: { user_id: userId, form_id: form.id, status: 'draft' },
                 include: { answers: true }
             });
 
@@ -68,9 +68,22 @@ export class FormService {
         return await prisma.$transaction(async (tx) => {
             let response = null;
             if (userId) {
-                response = await tx.formResponse.findFirst({
-                    where: { user_id: userId, form_id: formId }
+                // Find standard form responses for this user and form
+                const responses = await tx.formResponse.findMany({
+                    where: { user_id: userId, form_id: formId },
+                    orderBy: { submitted_at: 'desc' }
                 });
+
+                if (responses && responses.length > 0) {
+                    const mostRecent = responses[0];
+                    
+                    // If the latest response is completed, we treat a new submission attempt as a brand new response
+                    if (mostRecent && mostRecent.status === 'completed') {
+                        response = null; // Forces creation of a new response record below
+                    } else {
+                        response = mostRecent;
+                    }
+                }
             }
 
             if (response) {
@@ -199,6 +212,50 @@ export class FormService {
                                 `
                             );
                         }
+                    }
+                }
+            }
+
+            // If submitting the Mentor Reflection Form (form 20 or code 'mentor-reflection-form') and NOT partial/draft,
+            // we create/upsert a MentorProfile candidate for this user so it appears in Admin Mentorship Hub.
+            if (!isPartial && userId) {
+                const isReflectionForm = await tx.forms.findFirst({
+                    where: {
+                        id: formId,
+                        OR: [
+                            { id: 20 },
+                            { code: 'mentor-reflection-form' }
+                        ]
+                    }
+                });
+
+                if (isReflectionForm) {
+                    const existingProfile = await tx.mentorProfile.findUnique({
+                        where: { member_id: userId }
+                    });
+
+                    // Parse bio and expertise from submitted answers if present
+                    const bioVal = answers['mentor_bio'] || answers['bio'] || null;
+                    let expertiseVal: any = [];
+                    const expAnswer = answers['mentor_expertise'] || answers['expertise'];
+                    if (expAnswer) {
+                        try {
+                            expertiseVal = typeof expAnswer === 'string' ? JSON.parse(expAnswer) : expAnswer;
+                        } catch (e) {
+                            expertiseVal = String(expAnswer).split(',').map(s => s.trim()).filter(Boolean);
+                        }
+                    }
+
+                    if (!existingProfile) {
+                        await tx.mentorProfile.create({
+                            data: {
+                                member_id: userId,
+                                bio: bioVal,
+                                expertise: expertiseVal,
+                                is_approved: false
+                            }
+                        });
+                        console.log(`[FORM SERVICE] Created MentorProfile for user ${userId} on Form 20 submission.`);
                     }
                 }
             }

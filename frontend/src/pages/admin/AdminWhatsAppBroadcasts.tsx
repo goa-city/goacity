@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { fetchAdminMembers } from '../../features/admin-members/api/admin-members.api';
+import { fetchAdminMembers, type AdminMember } from '../../features/admin-members/api/admin-members.api';
 import { broadcastWhatsApp } from '../../features/admin-whatsapp/api/whatsapp.api';
 import { 
     PaperAirplaneIcon, 
@@ -14,47 +14,56 @@ import { Link } from 'react-router-dom';
 import { Card } from '../../shared/components/ui/Card';
 import axios from '../../api/axios';
 
+interface AdminStream {
+    id: number;
+    name: string;
+}
+
 const AdminWhatsAppBroadcasts: React.FC = () => {
     const [selectedStreams, setSelectedStreams] = useState<number[]>([]);
     const [message, setMessage] = useState('');
     const [toast, setToast] = useState<string | null>(null);
     const [isAllMembers, setIsAllMembers] = useState(false);
 
-    const { data: streams } = useQuery({ 
+    const { data: streams } = useQuery<AdminStream[]>({ 
         queryKey: ['streams'], 
         queryFn: async () => {
-            const res = await axios.get('/admin/streams');
+            const res = await axios.get<AdminStream[]>('/admin/streams');
             return res.data;
         } 
     });
-    const { data: members } = useQuery({ 
+    const { data: members } = useQuery<AdminMember[]>({ 
         queryKey: ['admin-members'], 
-        queryFn: fetchAdminMembers 
+        queryFn: () => fetchAdminMembers()
     });
 
     const broadcastMutation = useMutation({
         mutationFn: async () => {
             if (!message) throw new Error('Message is required');
             
-            let targetMembers = [];
+            let targetMembers: AdminMember[] = [];
             if (isAllMembers) {
                 targetMembers = members || [];
             } else {
                 if (selectedStreams.length === 0) throw new Error('Select at least one stream');
-                targetMembers = (members || []).filter((m: any) => 
-                    m.streams?.some((s: any) => selectedStreams.includes(s.id))
+                targetMembers = (members || []).filter((member) =>
+                    member.streams?.some((stream) => selectedStreams.includes(stream.id))
                 );
             }
 
             if (targetMembers.length === 0) throw new Error('No members found in selected criteria');
 
-            const bulkMessages = targetMembers.map((m: any) => ({
-                to: m.phone,
+            const bulkMessages = targetMembers
+                .filter((member) => Boolean(member.phone))
+                .map((member) => ({
+                to: member.phone,
                 content: message,
-                memberId: m.id
+                memberId: member.id
             }));
 
-            const streamNames = isAllMembers ? ['All Members'] : streams?.filter((s: any) => selectedStreams.includes(s.id)).map((s: any) => s.name);
+            const streamNames = isAllMembers
+                ? ['All Members']
+                : streams?.filter((stream) => selectedStreams.includes(stream.id)).map((stream) => stream.name);
 
             return broadcastWhatsApp(bulkMessages, streamNames);
         },
@@ -126,7 +135,7 @@ const AdminWhatsAppBroadcasts: React.FC = () => {
                             <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-4">Or Select Streams</p>
                                 <div className="space-y-2">
-                                    {streams?.map((stream: any) => (
+                                    {streams?.map((stream) => (
                                         <button
                                             key={stream.id}
                                             onClick={() => toggleStream(stream.id)}

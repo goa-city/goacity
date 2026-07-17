@@ -1,11 +1,11 @@
 import React from 'react';
 import { Outlet, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useSuperAdminAuth } from '../context/SuperAdminAuthContext';
-import { PowerIcon, BuildingOffice2Icon, MoonIcon, SunIcon } from '@heroicons/react/24/outline';
+import { PowerIcon, BuildingOffice2Icon, MoonIcon, SunIcon, Squares2X2Icon } from '@heroicons/react/24/outline';
 import { useTheme } from '../context/ThemeContext';
 
 const SuperAdminLayout: React.FC = () => {
-    const { superAdminUser, logout, loading } = useSuperAdminAuth();
+    const { superAdmin, logout, loading } = useSuperAdminAuth();
     const { theme, toggleTheme } = useTheme();
     const navigate = useNavigate();
     const location = useLocation();
@@ -20,11 +20,12 @@ const SuperAdminLayout: React.FC = () => {
         );
     }
 
-    if (!superAdminUser) {
+    if (!superAdmin) {
         return <Navigate to="/superadmin/login" replace />;
     }
 
     const navItems = [
+        { path: '/superadmin/dashboard', label: 'Dashboard', icon: Squares2X2Icon },
         { path: '/superadmin/cities', label: 'Cities Management', icon: BuildingOffice2Icon },
     ];
 
@@ -75,11 +76,11 @@ const SuperAdminLayout: React.FC = () => {
                 <div className="p-6 border-t border-white/5">
                     <div className="flex items-center gap-3 px-2 mb-5">
                         <div className="w-9 h-9 rounded-xl bg-violet-900/40 border border-violet-700/30 flex items-center justify-center text-violet-400 font-bold text-sm">
-                            {(superAdminUser?.full_name || 'S')[0].toUpperCase()}
+                            {(superAdmin.full_name || superAdmin.email || 'S')[0].toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
                             <p className="text-[10px] font-black uppercase tracking-widest text-violet-600">Super Admin</p>
-                            <p className="text-sm font-bold text-slate-300 truncate">{superAdminUser?.full_name || superAdminUser?.email}</p>
+                            <p className="text-sm font-bold text-slate-300 truncate">{superAdmin.full_name || superAdmin.email}</p>
                         </div>
                     </div>
                     <button

@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import prisma from '../lib/prisma.js';
 import bcrypt from 'bcryptjs';
 import { formatDateDDMMYYYY, formatAnswerValue, slugify, generateUniqueSlug } from '../lib/utils.js';
+import { sendEmail } from '../utils/email.js';
 
 // ---- ADMIN USERS ----
 
@@ -556,10 +557,17 @@ export const getAdminResources = async (req: Request, res: Response) => {
 export const createResource = async (req: Request, res: Response) => {
     try {
         const { title, category, author, url, description, status } = req.body;
+        const files = (req as any).files as Express.Multer.File[] || [];
+        const attachmentFile = files.find(f => f.fieldname === 'file');
+        const imageFile = files.find(f => f.fieldname === 'image');
+
         const resource = await prisma.resources.create({
             data: {
                 title, category, author, url, description,
-                status: status || 'pending'
+                file_path: attachmentFile ? `uploads/${attachmentFile.filename}` : undefined,
+                file_name: attachmentFile ? attachmentFile.originalname : undefined,
+                image_url: imageFile ? `/uploads/${imageFile.filename}` : undefined,
+                status: status || 'approved'
             }
         });
         return res.json({ message: 'Resource created', id: resource.id });
@@ -574,6 +582,9 @@ export const updateResource = async (req: Request, res: Response) => {
     try {
         const { id, title, category, author, url, description, status } = req.body;
         if (!id) return res.status(400).json({ message: 'id required' });
+        const files = (req as any).files as Express.Multer.File[] || [];
+        const attachmentFile = files.find(f => f.fieldname === 'file');
+        const imageFile = files.find(f => f.fieldname === 'image');
         
         await prisma.resources.update({
             where: { id: Number(id) },
@@ -583,7 +594,10 @@ export const updateResource = async (req: Request, res: Response) => {
                 author: author !== undefined ? author : undefined,
                 url: url !== undefined ? url : undefined,
                 description: description !== undefined ? description : undefined,
-                status: status !== undefined ? status : undefined
+                status: status !== undefined ? status : undefined,
+                file_path: attachmentFile ? `uploads/${attachmentFile.filename}` : undefined,
+                file_name: attachmentFile ? attachmentFile.originalname : undefined,
+                image_url: imageFile ? `/uploads/${imageFile.filename}` : undefined
             }
         });
         return res.json({ message: 'Resource updated' });
@@ -635,6 +649,73 @@ export const deletePost = async (req: Request, res: Response) => {
         return res.json({ message: 'Post deleted' });
     } catch (error: any) {
         console.error('deletePost Error:', error);
+        return res.status(500).json({ message: error.message });
+    }
+};
+
+export const getAdminJobApplications = async (req: Request, res: Response) => {
+    try {
+        const jobId = req.query.jobId;
+        const applications = await prisma.jobApplication.findMany({
+            where: jobId ? { job_id: Number(jobId) } : {},
+            include: {
+                job: {
+                    select: { title: true, company: true }
+                },
+                applicant: {
+                    select: { first_name: true, last_name: true, email: true }
+                }
+            },
+            orderBy: { created_at: 'desc' }
+        });
+        return res.json(applications);
+    } catch (error: any) {
+        console.error('getAdminJobApplications Error:', error);
+        return res.status(500).json({ message: error.message });
+    }
+};
+
+export const updateAdminJobApplicationStatus = async (req: Request, res: Response) => {
+    try {
+        const id = Number(req.params.id);
+        const { status, notes } = req.body;
+        if (!id) return res.status(400).json({ message: 'Application ID is required' });
+
+        const application = await prisma.jobApplication.findUnique({
+            where: { id },
+            include: { job: true }
+        });
+        if (!application) return res.status(404).json({ message: 'Application not found' });
+
+        const updated = await prisma.jobApplication.update({
+            where: { id },
+            data: { status, notes }
+        });
+
+        // Send status update email notification to the applicant
+        try {
+            const emailSubject = `Application Status Update: ${application.job.title} at ${application.job.company}`;
+            const emailHtml = `
+                <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                     <h2 style="color: #4f46e5;">Application Status Update</h2>
+                     <p>Dear ${application.full_name},</p>
+                     <p>Your application status for the position of <strong>${application.job.title}</strong> at <strong>${application.job.company}</strong> has been updated by the Admin to:</p>
+                     <p style="background: #f3f4f6; display: inline-block; padding: 10px 20px; border-radius: 8px; font-weight: bold; color: #111827; text-transform: uppercase;">
+                         ${status}
+                     </p>
+                     ${notes ? `<p><strong>Admin Notes:</strong></p><p style="background: #f9fafb; padding: 15px; border-radius: 8px; font-style: italic;">${notes}</p>` : ''}
+                     <p>Best regards,</p>
+                     <p>The GOA.CITY Administration Team</p>
+                </div>
+            `;
+            await sendEmail(application.email, emailSubject, emailHtml);
+        } catch (err) {
+            console.error('Failed to send status update email:', err);
+        }
+
+        return res.json({ success: true, data: updated });
+    } catch (error: any) {
+        console.error('updateAdminJobApplicationStatus Error:', error);
         return res.status(500).json({ message: error.message });
     }
 };

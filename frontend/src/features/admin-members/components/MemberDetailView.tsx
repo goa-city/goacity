@@ -70,7 +70,7 @@ const MemberDetailView: React.FC = () => {
             return;
         }
 
-        if (!member.stream_ids || member.stream_ids.length === 0) {
+        if (!member?.stream_ids?.length) {
             alert('At least one stream must be assigned to the member.');
             return;
         }
@@ -82,7 +82,7 @@ const MemberDetailView: React.FC = () => {
         const currentIds = member?.stream_ids || [];
         let newIds: number[];
         if (currentIds.includes(streamId)) {
-            newIds = currentIds.filter(id => id !== streamId);
+            newIds = currentIds.filter((currentId) => currentId !== streamId);
         } else {
             newIds = [...currentIds, streamId];
         }

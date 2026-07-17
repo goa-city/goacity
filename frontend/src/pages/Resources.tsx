@@ -39,7 +39,9 @@ const CATEGORY_IMAGES: Record<string, string[]> = {
 
 // Assign a deterministic image to each resource based on its index in its category
 const assignImage = (resource: any, idxInCategory: number) => {
-    const pool = CATEGORY_IMAGES[resource.category] || CATEGORY_IMAGES._default;
+    if (!resource.category) return CATEGORY_IMAGES._default[idxInCategory % CATEGORY_IMAGES._default.length];
+    const firstCat = resource.category.split(',').map((c: string) => c.trim()).find((c: string) => CATEGORY_IMAGES[c]);
+    const pool = CATEGORY_IMAGES[firstCat] || CATEGORY_IMAGES._default;
     return pool[idxInCategory % pool.length];
 };
 
@@ -58,12 +60,12 @@ const Resources: React.FC = () => {
                 // Assign images: prioritize image_url from DB, then deterministic Unsplash
                 const catCounters: Record<string, number> = {};
                 const withImages = res.data.map((r: any) => {
-                    const cat = r.category || '_default';
-                    if (!catCounters[cat]) catCounters[cat] = 0;
-                    
+                    const firstCat = r.category ? r.category.split(',')[0].trim() : '_default';
+                    if (!catCounters[firstCat]) catCounters[firstCat] = 0;
+
                     // Priority: 1. image_url from DB, 2. Unsplash deterministic pool
-                    const img = r.image_url || assignImage(r, catCounters[cat]++);
-                    
+                    const img = r.image_url || assignImage(r, catCounters[firstCat]++);
+
                     return {
                         ...r,
                         image: img,
@@ -72,8 +74,12 @@ const Resources: React.FC = () => {
                 });
                 setResources(withImages);
 
-                // Extract unique categories from DB
-                const dbCategories = [...new Set(res.data.map((r: any) => r.category).filter(Boolean) as string[])].sort();
+                // Extract unique categories from resources (so only categories with articles appear)
+                const dbCategories = [...new Set(
+                    res.data.flatMap((r: any) =>
+                        r.category ? r.category.split(',').map((c: string) => c.trim()) : []
+                    )
+                )].sort() as string[];
                 setCategories(['All Categories', ...dbCategories]);
             })
             .catch(err => console.error('Failed to load resources:', err))
@@ -84,12 +90,14 @@ const Resources: React.FC = () => {
 
     const filteredResources = isAllCategories
         ? resources
-        : resources.filter(r => r.category === activeCategory);
+        : resources.filter(r => {
+            if (!r.category) return false;
+            const cats = r.category.split(',').map((c: string) => c.trim());
+            return cats.includes(activeCategory);
+        });
 
-    // Featured = first 3 (used only in "All Categories" hero)
-    const featured = resources.slice(0, 3);
-    // Standard = everything after featured (or all when filtering)
-    const standardItems = isAllCategories ? resources.slice(3) : filteredResources;
+    // Standard = all filtered resources (we use the standard look and feel as the default)
+    const standardItems = filteredResources;
 
     // ResourceCard
     const ResourceCard = ({ item }: { item: any }) => (
@@ -105,15 +113,22 @@ const Resources: React.FC = () => {
                     onError={(e: any) => { e.target.onerror = null; e.target.src = CATEGORY_IMAGES._default[0]; }}
                 />
             </div>
-            <div className="flex items-center gap-3 mb-4">
-                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400 border border-zinc-100 dark:border-zinc-800 px-3 py-1 rounded-lg">
-                    {item.category}
-                </span>
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+                {item.category && item.category.split(',').map((cat: string) => (
+                    <span key={cat} className="text-[10px] font-black uppercase tracking-widest text-zinc-400 border border-zinc-100 dark:border-zinc-800 px-3 py-1 rounded-lg">
+                        {cat.trim()}
+                    </span>
+                ))}
                 <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400 border border-zinc-100 dark:border-zinc-800 px-3 py-1 rounded-lg">
                     {item.date}
                 </span>
+                {item.url && (
+                    <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 px-3 py-1 rounded-lg">
+                        External Link
+                    </span>
+                )}
             </div>
-            <h3 className="text-xl font-black text-zinc-900 dark:text-white leading-tight group-hover:text-indigo-600 transition-colors mb-2 italic uppercase">
+            <h3 className="text-xl font-black text-zinc-900 dark:text-white leading-tight group-hover:text-indigo-600 transition-colors mb-2 ">
                 {item.title}
             </h3>
             {item.author && (
@@ -152,11 +167,10 @@ const Resources: React.FC = () => {
                         <button
                             key={cat}
                             onClick={() => setActiveCategory(cat)}
-                            className={`whitespace-nowrap px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
-                                activeCategory === cat
-                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-600/20'
-                                    : 'bg-white dark:bg-zinc-900/30 text-zinc-500 border-none shadow-sm hover:shadow-md transition-all'
-                            }`}
+                            className={`whitespace-nowrap px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${activeCategory === cat
+                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-600/20'
+                                : 'bg-white dark:bg-zinc-900/30 text-zinc-500 border-none shadow-sm hover:shadow-md transition-all'
+                                }`}
                         >
                             {cat}
                         </button>
@@ -179,80 +193,6 @@ const Resources: React.FC = () => {
                     </div>
                 ) : (
                     <>
-                        {/* Featured Hero Grid */}
-                        {isAllCategories && featured.length >= 1 && (
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-20">
-                                {/* Main featured */}
-                                <div
-                                    className="lg:col-span-1 aspect-[4/5] lg:aspect-auto lg:h-full relative group rounded-2xl overflow-hidden cursor-pointer shadow-2xl shadow-zinc-200/50 dark:shadow-none"
-                                    onClick={() => featured[0].url && window.open(featured[0].url, '_blank')}
-                                >
-                                    <img
-                                        src={featured[0].image}
-                                        alt={featured[0].title}
-                                        className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
-                                        onError={(e: any) => { e.target.onerror = null; e.target.src = CATEGORY_IMAGES._default[0]; }}
-                                    />
-                                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent p-8 flex flex-col justify-end">
-                                        <div className="flex items-center gap-3 mb-4">
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-white border border-white/20 px-3 py-1 rounded-lg backdrop-blur-md bg-white/5">
-                                                {featured[0].category}
-                                            </span>
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-white/80 border border-white/20 px-3 py-1 rounded-lg backdrop-blur-md bg-white/5">
-                                                {featured[0].date}
-                                            </span>
-                                        </div>
-                                        <h2 className="text-3xl font-black text-white leading-tight mb-2 italic uppercase">
-                                            {featured[0].title}
-                                        </h2>
-                                        {featured[0].author && (
-                                            <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">
-                                                By {featured[0].author}
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Right side featured */}
-                                {featured.length > 1 && (
-                                    <div className="lg:col-span-2 flex flex-col gap-8">
-                                        {featured.slice(1).map((item) => (
-                                            <div
-                                                key={item.id}
-                                                className="aspect-[16/7] relative group rounded-2xl overflow-hidden cursor-pointer shadow-2xl shadow-zinc-200/50 dark:shadow-none"
-                                                onClick={() => item.url && window.open(item.url, '_blank')}
-                                            >
-                                                <img
-                                                    src={item.image}
-                                                    alt={item.title}
-                                                    className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
-                                                    onError={(e: any) => { e.target.onerror = null; e.target.src = CATEGORY_IMAGES._default[0]; }}
-                                                />
-                                                <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent p-8 flex flex-col justify-end">
-                                                    <div className="flex items-center gap-3 mb-4">
-                                                        <span className="text-[10px] font-black uppercase tracking-widest text-white border border-white/20 px-3 py-1 rounded-lg backdrop-blur-md bg-white/5">
-                                                            {item.category}
-                                                        </span>
-                                                        <span className="text-[10px] font-black uppercase tracking-widest text-white/80 border border-white/20 px-3 py-1 rounded-lg backdrop-blur-md bg-white/5">
-                                                            {item.date}
-                                                        </span>
-                                                    </div>
-                                                    <h2 className="text-2xl font-black text-white leading-tight max-w-lg mb-2 italic uppercase">
-                                                        {item.title}
-                                                    </h2>
-                                                    {item.author && (
-                                                        <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">
-                                                            By {item.author}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
                         {/* Standard Grid */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-20">
                             {standardItems.length > 0 ? (

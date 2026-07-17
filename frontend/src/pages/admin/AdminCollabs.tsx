@@ -4,9 +4,21 @@ import { useAdminAuth } from '../../context/AdminAuthContext';
 import { HandThumbUpIcon, HandThumbDownIcon, ShieldCheckIcon } from '@heroicons/react/24/solid';
 import { Card } from '../../shared/components/ui/Card';
 
+interface CollabPerson {
+    first_name?: string;
+    last_name?: string;
+}
+
+interface CollabRequest {
+    id: number;
+    type: string;
+    status: string;
+    requester?: CollabPerson | null;
+    provider?: CollabPerson | null;
+}
+
 const AdminCollabs: React.FC = () => {
-    const { adminUser } = useAdminAuth();
-    const [collabs, setCollabs] = useState<any[]>([]);
+    const [collabs, setCollabs] = useState<CollabRequest[]>([]);
     const [loading, setLoading] = useState(true);
     const [toast, setToast] = useState('');
 
@@ -30,7 +42,7 @@ const AdminCollabs: React.FC = () => {
         setTimeout(() => setToast(''), 3000);
     };
 
-    const updateStatus = async (id, status) => {
+    const updateStatus = async (id: number, status: string) => {
         if (!window.confirm(`Are you sure you want to mark this request as ${status}?`)) return;
         try {
             await api.put(`/admin/collabs/${id}/status`, { status });

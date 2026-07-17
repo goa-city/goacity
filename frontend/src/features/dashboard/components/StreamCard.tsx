@@ -3,7 +3,23 @@ import { useNavigate } from 'react-router-dom';
 import { Card } from '../../../shared/components/ui/Card';
 import Button from '../../../shared/components/ui/Button';
 
-const StreamCard = ({ stream }) => {
+interface DashboardStream {
+    id: number;
+    name: string;
+    color: string;
+    member_count?: number;
+    has_form?: boolean;
+    form_completed?: boolean;
+    form_details?: {
+        id?: number;
+    } | null;
+}
+
+interface StreamCardProps {
+    stream: DashboardStream;
+}
+
+const StreamCard: React.FC<StreamCardProps> = ({ stream }) => {
     const navigate = useNavigate();
 
     const handleClick = () => {

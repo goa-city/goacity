@@ -22,6 +22,8 @@ const getLocalYYYYMMDD = (dateInput: any) => {
     return (new Date(d.getTime() - offset)).toISOString().slice(0, 10);
 };
 
+type NotifyType = 'email' | 'whatsapp';
+
 const AdminMeetingEditor: React.FC = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -47,7 +49,7 @@ const AdminMeetingEditor: React.FC = () => {
     const [showNotifyMenu, setShowNotifyMenu] = useState(false);
     const [showNotifyModal, setShowNotifyModal] = useState(false);
     const [notifyType, setNotifyType] = useState<'email' | 'whatsapp'>('email');
-    const [selectedTemplateId, setSelectedTemplateId] = useState<any>(null);
+    const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
     const meetingDate = watch('meeting_date');
     const title = watch('title');
     const slug = watch('slug');
@@ -108,23 +110,25 @@ const AdminMeetingEditor: React.FC = () => {
         }
     }, [id, reset]);
 
-    const showToast = (msg) => {
+    const showToast = (msg: string) => {
         setToast(msg);
         setTimeout(() => setToast(''), 3000);
     };
 
-    const onSubmit = async (data) => {
+    const onSubmit = async (data: Record<string, unknown>) => {
         setSaving(true);
         try {
             const formData = new FormData();
-            if (isEdit) formData.append('id', id);
+            if (isEdit && id) formData.append('id', String(id));
 
             Object.keys(data).forEach(key => {
                 if (key === 'id' || key === 'payment_qr_image_url' || key === 'resources' || key === 'description' || key === 'recap_content' || key === 'payment_qr_image') return;
 
+                const value = data[key];
+
                 if (key === 'meeting_date') {
-                    if (data[key]) {
-                        const date = new Date(data[key]);
+                    if (value) {
+                        const date = new Date(value as string | number | Date);
                         const offset = date.getTimezoneOffset();
                         const adjustedDate = new Date(date.getTime() - (offset * 60 * 1000));
                         formData.append(key, adjustedDate.toISOString().split('T')[0]);
@@ -132,9 +136,9 @@ const AdminMeetingEditor: React.FC = () => {
                         formData.append(key, '');
                     }
                 } else if (key === 'is_paid' || key === 'archived') {
-                    formData.append(key, data[key] ? 1 : 0);
+                    formData.append(key, value ? '1' : '0');
                 } else {
-                    formData.append(key, data[key] === null || data[key] === undefined ? '' : data[key]);
+                    formData.append(key, value === null || value === undefined ? '' : String(value));
                 }
             });
 
@@ -160,8 +164,8 @@ const AdminMeetingEditor: React.FC = () => {
         }
     };
 
-    const handleResourceUpload = async (e) => {
-        const file = e.target.files[0];
+    const handleResourceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
         if (!file) return;
 
         setUploadingResource(true);
@@ -185,7 +189,7 @@ const AdminMeetingEditor: React.FC = () => {
         }
     };
 
-    const handleNotify = (type) => {
+    const handleNotify = (type: NotifyType) => {
         setNotifyType(type);
         setSelectedTemplateId(type === 'email' ? '2' : '1');
         setShowNotifyModal(true);
@@ -206,7 +210,7 @@ const AdminMeetingEditor: React.FC = () => {
         }
     };
 
-    const handleResourceDelete = async (resId) => {
+    const handleResourceDelete = async (resId: number) => {
         if (!window.confirm("Delete this resource?")) return;
         try {
             await api.delete(`/admin/meetings/resources/${resId}`);
@@ -314,7 +318,7 @@ const AdminMeetingEditor: React.FC = () => {
                                     render={({ field }) => (
                                         <DatePicker
                                             selected={field.value ? new Date(field.value) : null}
-                                            onChange={(date) => field.onChange(date)}
+                                        onChange={(date: Date | null) => field.onChange(date)}
                                             dateFormat="dd/MM/yyyy"
                                             className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-4 font-medium"
                                             placeholderText="dd/mm/yyyy"
@@ -712,7 +716,7 @@ const AdminMeetingEditor: React.FC = () => {
                                 <div className="relative">
                                     <ChevronDownIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400 pointer-events-none" />
                                     <select 
-                                        value={selectedTemplateId}
+                                        value={selectedTemplateId || ''}
                                         onChange={(e) => setSelectedTemplateId(e.target.value)}
                                         className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 px-6 h-14 font-medium appearance-none"
                                     >

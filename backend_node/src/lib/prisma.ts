@@ -32,6 +32,7 @@ const UNSCOPED_MODELS = new Set([
     'CollaborationRequest',
     'StewardshipLog',
     'VerificationOrg',
+    'ResourceCategory',
 ]);
 
 // Extension logic

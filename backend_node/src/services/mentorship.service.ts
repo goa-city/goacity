@@ -260,13 +260,82 @@ export class MentorshipService {
     }
 
     static async getAdminMentorProfiles() {
-        return prisma.mentorProfile.findMany({
+        // Fetch all profiles
+        const profiles = await prisma.mentorProfile.findMany({
             include: {
                 member: {
-                    select: { id: true, first_name: true, last_name: true, profile_photo: true, email: true }
+                    select: { id: true, first_name: true, last_name: true, profile_photo: true, email: true, is_mentor: true }
                 }
             },
             orderBy: { created_at: 'desc' }
+        });
+
+        // Also find members that have is_mentor = true but no mentor profile created yet
+        const mentorMembers = await prisma.member.findMany({
+            where: {
+                is_mentor: true,
+                id: { notIn: profiles.map(p => p.member_id) }
+            },
+            select: { id: true, first_name: true, last_name: true, profile_photo: true, email: true, is_mentor: true }
+        });
+
+        // Map members into dummy profile containers
+        const dummyProfiles = mentorMembers.map(m => ({
+            id: `member-${m.id}`,
+            member_id: m.id,
+            bio: "Profile details not set yet (Set as Mentor by Admin).",
+            capacity: 1,
+            expertise: [] as any,
+            is_approved: false,
+            created_at: new Date(),
+            updated_at: new Date(),
+            member: m
+        }));
+
+        const combinedProfiles = [...profiles, ...dummyProfiles];
+
+        // Find the mentor reflection form details (form code or ID)
+        const reflectionForm = await prisma.forms.findFirst({
+            where: {
+                OR: [
+                    { id: 20 },
+                    { code: 'mentor-reflection-form' }
+                ]
+            },
+            include: { fields: true }
+        });
+
+        if (!reflectionForm) {
+            return combinedProfiles.map(p => ({ ...p, reflectionResponse: null }));
+        }
+
+        const memberIds = combinedProfiles.map(p => p.member_id);
+        const responses = await prisma.formResponse.findMany({
+            where: {
+                user_id: { in: memberIds },
+                form_id: reflectionForm.id,
+                status: 'completed'
+            },
+            include: { answers: true }
+        });
+
+        const fieldMap = new Map(reflectionForm.fields.map(f => [f.field_key, f.label]));
+
+        return combinedProfiles.map(p => {
+            const resp = responses.find(r => r.user_id === p.member_id);
+            const reflectionResponse = resp ? {
+                ...resp,
+                form_title: reflectionForm.title,
+                answers: resp.answers.map(a => ({
+                    ...a,
+                    field_label: fieldMap.get(a.field_key) || a.field_key
+                }))
+            } : null;
+
+            return {
+                ...p,
+                reflectionResponse
+            };
         });
     }
 
@@ -292,7 +361,7 @@ export class MentorshipService {
         const responses = await prisma.formResponse.findMany({
             where: { 
                 form_id: form.id,
-                status: { in: ['completed', 'draft'] }
+                status: 'completed'
             },
             include: {
                 user: {
@@ -316,13 +385,37 @@ export class MentorshipService {
 
         console.log(`[MENTORSHIP] Found ${responses.length} responses for form ${form.id}`);
 
-        // Filter out those that already have an active mentorship relation
-        const activeMenteeIds = (await prisma.mentorshipRelation.findMany({
-            where: { status: { in: ['Requested', 'Active'] } },
-            select: { mentee_id: true }
-        })).map(r => r.mentee_id);
+        // Filter out those responses that have already been matched to a relation.
+        // A response is considered matched if there is any relationship created AFTER the response was submitted,
+        // or if there is an active relationship currently.
+        const relations = await prisma.mentorshipRelation.findMany({
+            select: { mentee_id: true, created_at: true, status: true }
+        });
 
-        const filtered = responses.filter(r => r.user_id && !activeMenteeIds.includes(r.user_id));
+        const filtered = responses.filter(r => {
+            if (!r.user_id) return false;
+
+            // If user has an active/requested relationship, filter them out entirely
+            const hasActiveRelation = relations.some(rel => 
+                rel.mentee_id === r.user_id && ['Requested', 'Active'].includes(rel.status)
+            );
+            if (hasActiveRelation) return false;
+
+            // For completed/archived relations, only filter out this response if it was submitted 
+            // BEFORE the latest completed relation was created (meaning it was already used for that match)
+            const userRelations = relations.filter(rel => rel.mentee_id === r.user_id);
+            if (userRelations.length > 0) {
+                const latestRelationDate = new Date(Math.max(...userRelations.map(rel => new Date(rel.created_at || 0).getTime())));
+                const responseSubmittedDate = new Date(r.submitted_at || 0);
+                
+                // If this response was submitted before the latest relationship started, it is "used"
+                if (responseSubmittedDate < latestRelationDate) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
         
         // Final mapping to include form fields for each request
         const finalResults = filtered.map(r => ({
@@ -341,12 +434,55 @@ export class MentorshipService {
         return finalResults;
     }
 
+    static async getMentorshipRequestById(responseId: number) {
+        const response = await prisma.formResponse.findUnique({
+            where: { id: responseId },
+            include: {
+                user: {
+                    select: { id: true, first_name: true, last_name: true, profile_photo: true, email: true }
+                },
+                answers: true
+            }
+        });
+
+        if (!response) {
+            throw new AppError('Mentorship request response not found', 404);
+        }
+
+        if (!response.form_id) {
+            throw new AppError('Form ID is missing from response', 400);
+        }
+
+        const form = await prisma.forms.findUnique({
+            where: { id: response.form_id },
+            include: { fields: true }
+        });
+
+        const fieldMap = new Map((form?.fields || []).map((f: any) => [f.field_key, f.label]));
+
+        return {
+            ...response,
+            form_fields: form?.fields || [],
+            answers: response.answers.map(a => ({
+                ...a,
+                field_label: fieldMap.get(a.field_key) || a.field_key
+            }))
+        };
+    }
+
     static async getApprovedMentors() {
         return prisma.member.findMany({
             where: {
-                mentorProfile: {
-                    is_approved: true
-                }
+                OR: [
+                    {
+                        mentorProfile: {
+                            is_approved: true
+                        }
+                    },
+                    {
+                        is_mentor: true
+                    }
+                ]
             },
             include: {
                 mentorProfile: true

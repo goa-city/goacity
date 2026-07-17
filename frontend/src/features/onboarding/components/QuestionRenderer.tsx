@@ -10,7 +10,7 @@ interface QuestionRendererProps {
     value: any;
     onChange: (field: string, value: any) => void;
     onNext: (value?: any) => void;
-    inputRef: React.RefObject<any>;
+    inputRef?: React.Ref<any>;
 }
 
 const QuestionRenderer: React.FC<QuestionRendererProps> = ({ question, value, onChange, onNext, inputRef }) => {
@@ -54,7 +54,7 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({ question, value, on
                 <div className="relative">
                     <DatePicker
                         selected={value ? parse(value, 'yyyy-MM-dd', new Date()) : null}
-                        onChange={(date) => onChange(question.field, date && isValid(date) ? format(date, 'yyyy-MM-dd') : '')}
+                        onChange={(date: Date | null) => onChange(question.field, date && isValid(date) ? format(date, 'yyyy-MM-dd') : '')}
                         dateFormat="dd/MM/yyyy"
                         placeholderText="DD/MM/YYYY"
                         className="w-full bg-transparent border-b-3 border-zinc-100 dark:border-zinc-900 focus:border-primary dark:focus:border-primary text-xl sm:text-2xl py-4 outline-none text-zinc-900 dark:text-white placeholder:text-zinc-200 dark:placeholder:text-zinc-800 font-bold transition-colors"

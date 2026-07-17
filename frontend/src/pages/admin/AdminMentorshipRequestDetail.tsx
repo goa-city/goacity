@@ -15,22 +15,72 @@ import {
 import { Card } from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
 
+interface AssessmentAnswer {
+    field_key: string;
+    answer_value: unknown;
+}
+
+interface AssessmentField {
+    id: number | string;
+    field_key: string;
+    field_type: string;
+    label: string;
+}
+
+interface MentorshipUser {
+    id: number;
+    first_name: string;
+    last_name: string;
+    email?: string | null;
+    profile_photo?: string | null;
+}
+
+interface MentorOption extends MentorshipUser {
+    mentorProfile?: {
+        is_approved?: boolean;
+        expertise?: string[];
+    } | null;
+}
+
+interface MatchedRelation {
+    id: string;
+    mentor?: MentorOption | null;
+}
+
+interface MentorshipRequestDetail {
+    id: number | string;
+    user_id: number;
+    user: MentorshipUser;
+    answers: AssessmentAnswer[];
+    form_fields: AssessmentField[];
+    active_relation?: MatchedRelation | null;
+}
+
+interface NotificationTemplate {
+    id: number | string;
+    title: string;
+    subject?: string | null;
+    content?: string | null;
+    message?: string | null;
+    body?: string | null;
+}
+
 const AdminMentorshipRequestDetail: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const [request, setRequest] = useState<any>(null);
-    const [mentors, setMentors] = useState<any[]>([]);
+    const [request, setRequest] = useState<MentorshipRequestDetail | null>(null);
+    const [mentors, setMentors] = useState<MentorOption[]>([]);
     const [mentorSearch, setMentorSearch] = useState('');
     const [loading, setLoading] = useState(true);
     const [matchingInProgress, setMatchingInProgress] = useState(false);
     const [toast, setToast] = useState('');
 
-    const [matchedRelation, setMatchedRelation] = useState<any>(null);
+    const [matchedRelation, setMatchedRelation] = useState<MatchedRelation | null>(null);
     const [showNotifyModal, setShowNotifyModal] = useState(false);
     const [notifyType, setNotifyType] = useState<'email' | 'whatsapp'>('email');
-    const [selectedTemplateId, setSelectedTemplateId] = useState<any>('');
-    const [emailTemplates, setEmailTemplates] = useState<any[]>([]);
-    const [whatsappTemplates, setWhatsappTemplates] = useState<any[]>([]);
+    const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+    const [emailTemplates, setEmailTemplates] = useState<NotificationTemplate[]>([]);
+    const [whatsappTemplates, setWhatsappTemplates] = useState<NotificationTemplate[]>([]);
     const [notifying, setNotifying] = useState(false);
     const [sendToMentor, setSendToMentor] = useState(false);
     const [sendToMentee, setSendToMentee] = useState(false);
@@ -91,16 +141,16 @@ const AdminMentorshipRequestDetail: React.FC = () => {
         setTimeout(() => setToast(''), 3000);
     };
 
-    const finalizeMatch = async (mentor: any) => {
+    const finalizeMatch = async (mentor: MentorOption) => {
         const confirmed = window.confirm('Are you sure you want to choose this mentor?');
         if (!confirmed) return;
 
         setMatchingInProgress(true);
         try {
-            const focusArea = request.answers.find((a: any) => a.field_key === 'growth_area')?.answer_value || 'Professional Growth';
+            const focusArea = String(request?.answers.find((a) => a.field_key === 'growth_area')?.answer_value || 'Professional Growth');
             
             const res = await api.post('/admin/mentorship/match', {
-                mentee_id: request.user_id,
+                mentee_id: request?.user_id,
                 mentor_id: mentor.id,
                 focus_area: focusArea,
                 type: 'Long-term'
@@ -126,6 +176,7 @@ const AdminMentorshipRequestDetail: React.FC = () => {
 
     const removeMentor = async () => {
         if (!window.confirm('Are you sure you want to remove this mentor assignment? This will permanently delete the covenant pairing.')) return;
+        if (!matchedRelation) return;
         
         setMatchingInProgress(true);
         try {
@@ -145,7 +196,7 @@ const AdminMentorshipRequestDetail: React.FC = () => {
         setNotifyType(type);
         setSendToMentor(false);
         setSendToMentee(false);
-        const templates = type === 'email' ? emailTemplates : whatsappTemplates;
+        const templates: NotificationTemplate[] = type === 'email' ? emailTemplates : whatsappTemplates;
         if (templates.length > 0) {
             setSelectedTemplateId(String(templates[0].id));
         } else {
@@ -157,6 +208,10 @@ const AdminMentorshipRequestDetail: React.FC = () => {
     const executeNotify = async () => {
         if (!selectedTemplateId) {
             showToast("Please select a template first.");
+            return;
+        }
+        if (!matchedRelation) {
+            showToast("No matched relation found.");
             return;
         }
 
@@ -189,7 +244,7 @@ const AdminMentorshipRequestDetail: React.FC = () => {
         }
     };
 
-    const filteredMentors = mentorSearch.trim() === '' ? [] : mentors.filter(m => {
+    const filteredMentors = mentorSearch.trim() === '' ? [] : mentors.filter((m) => {
         if (m.id === request?.user_id) return false;
         
         const fullName = `${m.first_name || ''} ${m.last_name || ''}`.toLowerCase();
@@ -243,8 +298,8 @@ const AdminMentorshipRequestDetail: React.FC = () => {
                     </div>
 
                     <div className="grid grid-cols-1 gap-6">
-                        {request?.form_fields?.map((field: any) => {
-                            const answer = request.answers.find((a: any) => a.field_key === field.field_key);
+                        {request?.form_fields?.map((field) => {
+                            const answer = request.answers.find((a) => a.field_key === field.field_key);
                             
                             // If it's a section/header with no answer needed, we can still show it or skip
                             if (field.field_type === 'header' || field.field_type === 'section') return null;
@@ -255,13 +310,39 @@ const AdminMentorshipRequestDetail: React.FC = () => {
                                         <ClipboardDocumentCheckIcon className="w-4 h-4" />
                                         {field.label}
                                     </p>
-                                    <p className="text-lg font-medium text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">
-                                        {answer ? (
-                                            typeof answer.answer_value === 'string' ? answer.answer_value : JSON.stringify(answer.answer_value)
-                                        ) : (
-                                            <span className="text-zinc-400 italic">No response provided</span>
-                                        )}
-                                    </p>
+                                    <div className="text-lg font-medium text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">
+                                        {(() => {
+                                            if (!answer) return <span className="text-zinc-400 italic">No response provided</span>;
+                                            const value = answer.answer_value;
+                                            if (value === undefined || value === null || value === '') {
+                                                return <span className="text-zinc-400 italic">No response provided</span>;
+                                            }
+                                            
+                                            let parsed = value;
+                                            if (typeof value === 'string') {
+                                                const trimmed = value.trim();
+                                                if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+                                                    try {
+                                                        parsed = JSON.parse(trimmed);
+                                                    } catch (e) {
+                                                        // ignore
+                                                    }
+                                                }
+                                            }
+                                            
+                                            if (Array.isArray(parsed)) {
+                                                return (
+                                                    <ul className="list-disc pl-5 space-y-1">
+                                                        {parsed.map((item: any, idx: number) => (
+                                                            <li key={idx}>{String(item)}</li>
+                                                        ))}
+                                                    </ul>
+                                                );
+                                            }
+                                            
+                                            return String(value);
+                                        })()}
+                                    </div>
                                 </Card>
                             );
                         })}

@@ -5,7 +5,8 @@ import {
     getAdmins, createAdmin, updateAdmin, 
     getAdminJobs, createJob, updateJob, deleteJob, 
     getAdminResources, createResource, updateResource, deleteResource, 
-    getAdminPosts, deletePost 
+    getAdminPosts, deletePost,
+    getAdminJobApplications, updateAdminJobApplicationStatus
 } from '../controllers/admin.controller.js';
 import { getStreams, createStream, updateStream, deleteStream } from '../controllers/streams.controller.js';
 import { getForms, createForm, updateForm, archiveForm, deleteForm } from '../controllers/forms.controller.js';
@@ -19,20 +20,26 @@ import { getAdminPages, createPage, updatePage, getAdminPageById, deletePage } f
 import { getWhatsAppStatus, sendWhatsAppMessage, getWhatsAppLogs, broadcastWhatsApp, sendMeetingAlert, refreshWhatsApp, restartWhatsApp, getWhatsAppBroadcasts, getWhatsAppBroadcastById, hideWhatsAppBroadcast, retryWhatsAppBroadcast } from '../controllers/whatsapp.controller.js';
 import { getTemplates as getEmailTemplates, createTemplate as createEmailTemplate, updateTemplate as updateEmailTemplate, deleteTemplate as deleteEmailTemplate, getTemplateById as getEmailTemplateById } from '../controllers/email-template.controller.js';
 import { getTemplates as getWhatsAppTemplates, createTemplate as createWhatsAppTemplate, updateTemplate as updateWhatsAppTemplate, deleteTemplate as deleteWhatsAppTemplate, getTemplateById as getWhatsAppTemplateById } from '../controllers/whatsapp-template.controller.js';
-import { getAdminMentorships, toggleMentorApproval, exportMentorshipReport, getAdminMentorshipRequests, getAdminMentors, adminMatchMentorship, getAdminMentorProfiles } from '../controllers/mentorship.controller.js';
+import { getAdminMentorships, toggleMentorApproval, exportMentorshipReport, getAdminMentorshipRequests, getAdminMentorshipRequestById, getAdminMentors, adminMatchMentorship, getAdminMentorProfiles, getMentorshipById, updateMentorshipStatus, notifyMentorshipRelation } from '../controllers/mentorship.controller.js';
 import { validate } from '../middleware/validate.js';
 import { 
     createEmailTemplateSchema, updateEmailTemplateSchema,
     createWhatsAppTemplateSchema, updateWhatsAppTemplateSchema 
 } from '../validations/template.schema.js';
 import { createMemberSchema, updateMemberSchema } from '../validations/member.schema.js';
+import { createAdminSchema, updateAdminSchema } from '../validations/admin.schema.js';
 import { createMeetingSchema, updateMeetingSchema } from '../validations/meeting.schema.js';
 import { createStreamSchema, updateStreamSchema } from '../validations/stream.schema.js';
 import { createPageSchema, updatePageSchema } from '../validations/page.schema.js';
 import { createJobSchema, updateJobSchema } from '../validations/job.schema.js';
 import { createResourceSchema, updateResourceSchema } from '../validations/resource.schema.js';
 import { createFormSchema, updateFormSchema } from '../validations/form.schema.js';
-import { authMiddleware } from '../middleware/auth.js';
+import { authMiddleware, superAdminMiddleware } from '../middleware/auth.js';
+import { getCities, createCity, updateCity } from '../controllers/city.controller.js';
+import { 
+    getAdminResourceCategories, createAdminResourceCategory, 
+    updateAdminResourceCategory, deleteAdminResourceCategory 
+} from '../controllers/resource-category.controller.js';
 import multer from 'multer';
 
 const router = Router();
@@ -50,7 +57,6 @@ const upload = multer({ storage });
 
 // Public Admin Routes
 router.post('/login', login);
-
 // Protected Admin Routes
 router.use(authMiddleware);
 
@@ -65,20 +71,26 @@ router.delete('/users', deleteUser);
 
 // Admins
 router.get('/admins', getAdmins);
-router.post('/admins', validate(createMemberSchema), createAdmin);
-router.put('/admins', validate(updateMemberSchema), updateAdmin);
+router.post('/admins', validate(createAdminSchema), createAdmin);
+router.put('/admins', validate(updateAdminSchema), updateAdmin);
 
 // Jobs
 router.get('/jobs', getAdminJobs);
 router.post('/jobs', validate(createJobSchema), createJob);
 router.put('/jobs', validate(updateJobSchema), updateJob);
 router.delete('/jobs', deleteJob);
+router.get('/jobs/applications', getAdminJobApplications);
+router.patch('/jobs/applications/:id/status', updateAdminJobApplicationStatus);
 
 // Resources
 router.get('/resources', getAdminResources);
-router.post('/resources', validate(createResourceSchema), createResource);
-router.put('/resources', validate(updateResourceSchema), updateResource);
+router.post('/resources', upload.any(), validate(createResourceSchema), createResource);
+router.put('/resources', upload.any(), validate(updateResourceSchema), updateResource);
 router.delete('/resources', deleteResource);
+router.get('/resources/categories', getAdminResourceCategories);
+router.post('/resources/categories', createAdminResourceCategory);
+router.put('/resources/categories/:id', updateAdminResourceCategory);
+router.delete('/resources/categories/:id', deleteAdminResourceCategory);
 
 // Posts
 router.get('/posts', getAdminPosts);
@@ -148,10 +160,19 @@ router.post('/whatsapp/broadcasts/:id/retry', retryWhatsAppBroadcast);
 // Mentorship
 router.get('/mentorship', getAdminMentorships);
 router.get('/mentorship/requests', getAdminMentorshipRequests);
+router.get('/mentorship/requests/:id', getAdminMentorshipRequestById);
 router.get('/mentorship/mentors', getAdminMentors);
 router.get('/mentorship/profiles', getAdminMentorProfiles);
 router.post('/mentorship/match', adminMatchMentorship);
 router.post('/mentorship/:userId/approve', toggleMentorApproval);
 router.get('/mentorship/export', exportMentorshipReport);
+router.get('/mentorship/relations/:id', getMentorshipById);
+router.put('/mentorship/relations/:id/status', updateMentorshipStatus);
+router.post('/mentorship/relations/:id/notify', notifyMentorshipRelation);
+
+// City Management (Super Admin)
+router.get('/cities', superAdminMiddleware, getCities);
+router.post('/cities', superAdminMiddleware, createCity);
+router.put('/cities', superAdminMiddleware, updateCity);
 
 export default router;

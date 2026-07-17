@@ -11,7 +11,7 @@ interface MentorCardProps {
         business_name?: string;
         bio?: string;
     };
-    onRequest: (mentor: any) => void;
+    onRequest: (mentor: MentorCardProps['mentor']) => void;
 }
 
 const MentorCard: React.FC<MentorCardProps> = ({ mentor, onRequest }) => {

@@ -16,11 +16,11 @@ export default defineConfig(({ mode }) => {
         //   VITE_API_PROXY=http://localhost:5001
         // then run the backend locally: ./dev-backend.sh
         '/api': {
-          target: env.VITE_API_PROXY || 'http://140.238.245.13',
+          target: env.VITE_API_PROXY || 'http://80.225.200.51',
           changeOrigin: true,
         },
         '/uploads': {
-          target: env.VITE_API_PROXY || 'http://140.238.245.13',
+          target: env.VITE_API_PROXY || 'http://80.225.200.51',
           changeOrigin: true,
         },
       },

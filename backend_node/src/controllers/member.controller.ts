@@ -70,7 +70,17 @@ export const createJob = async (req: Request, res: Response, next: NextFunction)
 export const createResource = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const userId = (req as any).userId;
-        const result = await ResourceService.createResource(userId, req.body);
+        const files = (req as any).files as Express.Multer.File[] || [];
+        const attachmentFile = files.find(f => f.fieldname === 'file');
+        const imageFile = files.find(f => f.fieldname === 'image');
+        
+        const resourceData = {
+            ...req.body,
+            file_path: attachmentFile ? `uploads/${attachmentFile.filename}` : undefined,
+            file_name: attachmentFile ? attachmentFile.originalname : undefined,
+            image_url: imageFile ? `/uploads/${imageFile.filename}` : undefined,
+        };
+        const result = await ResourceService.createResource(userId, resourceData);
         res.json({ success: true, data: result });
     } catch (error) {
         next(error);
@@ -217,6 +227,39 @@ export const registerPublicMember = async (req: Request, res: Response, next: Ne
             message: 'Registration successful! Your application is being reviewed.',
             data: result 
         });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getMyPostings = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const userId = (req as any).userId;
+        const result = await ResourceService.getMyJobPostings(userId);
+        res.json(result);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getPostingApplications = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const userId = (req as any).userId;
+        const { jobId } = req.params;
+        const result = await ResourceService.getJobApplications(userId, Number(jobId));
+        res.json(result);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const updatePostingApplicationStatus = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const userId = (req as any).userId;
+        const { applicationId } = req.params;
+        const { status, notes } = req.body;
+        const result = await ResourceService.updateApplicationStatus(userId, Number(applicationId), status, notes);
+        res.json({ success: true, data: result });
     } catch (error) {
         next(error);
     }

@@ -7,9 +7,10 @@ interface QuillEditorProps {
     onChange: (value: string) => void;
     placeholder?: string;
     style?: React.CSSProperties;
+    className?: string;
 }
 
-const QuillEditor: React.FC<QuillEditorProps> = ({ value, onChange, placeholder, style }) => {
+const QuillEditor: React.FC<QuillEditorProps> = ({ value, onChange, placeholder, style, className }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const quillRef = useRef<Quill | null>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -54,21 +55,23 @@ const QuillEditor: React.FC<QuillEditorProps> = ({ value, onChange, placeholder,
 
         quillRef.current = quill;
 
-        // Sync initial value
-        if (value) {
-            quill.root.innerHTML = value;
-        }
-
-        quill.on('text-change', (delta, oldDelta, source) => {
+        const handleTextChange = (_delta: unknown, _oldDelta: unknown, source: string) => {
             if (source === 'user' && onChangeRef.current) {
                 const html = quill.root.innerHTML;
                 lastValueRef.current = html;
                 onChangeRef.current(html);
             }
-        });
+        };
+
+        // Sync initial value
+        if (value) {
+            quill.root.innerHTML = value;
+        }
+
+        quill.on('text-change', handleTextChange);
 
         return () => {
-            quill.off('text-change');
+            quill.off('text-change', handleTextChange);
             quillRef.current = null;
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -99,7 +102,7 @@ const QuillEditor: React.FC<QuillEditorProps> = ({ value, onChange, placeholder,
     }, [isSourceMode]);
 
     return (
-        <div className="quill-editor-wrapper relative border border-zinc-100 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm bg-white dark:bg-zinc-950">
+        <div className={`quill-editor-wrapper relative border border-zinc-100 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm bg-white dark:bg-zinc-950 ${className || ''}`}>
             <div 
                 ref={containerRef} 
                 style={{ ...style, display: isSourceMode ? 'none' : 'block' }} 

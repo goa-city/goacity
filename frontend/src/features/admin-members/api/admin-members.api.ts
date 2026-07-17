@@ -11,6 +11,8 @@ export interface AdminMember {
     created_at: string;
     streams: Array<{ id: number; name: string; color: string }>;
     is_mentor?: boolean;
+    slug?: string | null;
+    profile_photo?: string | null;
 }
 
 export interface MemberDetail extends AdminMember {
@@ -25,6 +27,7 @@ export interface MemberDetail extends AdminMember {
     }>;
     stream_ids: number[];
     meeting_count: number;
+    has_completed_onboarding: boolean;
 }
 
 export const fetchAdminMembers = async (status?: string): Promise<AdminMember[]> => {

@@ -5,12 +5,13 @@ import MeetingCard from './MeetingCard';
 import CheckInModal from './CheckInModal';
 import DashboardLayout from '../../../layouts/DashboardLayout';
 import { CalendarIcon } from '@heroicons/react/24/solid';
+import type { Meeting } from '../hooks/useSingleMeeting';
 
 const MeetingsView = () => {
     const navigate = useNavigate();
     const { upcoming, past, isLoading, error, refetch, rsvp, checkIn } = useMeetings();
     const [isRefreshing, setIsRefreshing] = useState(false);
-    const [checkInMeeting, setCheckInMeeting] = useState<any>(null);
+    const [checkInMeeting, setCheckInMeeting] = useState<Meeting | null>(null);
 
     const handleRefresh = async () => {
         setIsRefreshing(true);
@@ -59,12 +60,12 @@ const MeetingsView = () => {
                 {/* Upcoming */}
                 <section className="mb-16">
                     <div className="space-y-6">
-                        {upcoming.map(meeting => (
+                        {upcoming.map((meeting: Meeting) => (
                             <MeetingCard
                                 key={meeting.id}
                                 meeting={meeting}
                                 onRSVP={rsvp}
-                                onCheckIn={(m) => setCheckInMeeting(m)}
+                                onCheckIn={(meetingToCheckIn: Meeting) => setCheckInMeeting(meetingToCheckIn)}
                                 onOpenRecap={() => navigate(`/meetings/${meeting.slug || meeting.id}`)}
                             />
                         ))}
@@ -84,7 +85,7 @@ const MeetingsView = () => {
                             Past Meetings & Recaps
                         </h2>
                         <div className="space-y-6">
-                            {past.map(meeting => (
+                            {past.map((meeting: Meeting) => (
                                 <MeetingCard
                                     key={meeting.id}
                                     meeting={meeting}

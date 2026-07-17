@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../layouts/DashboardLayout';
-import { 
-    RocketLaunchIcon, 
-    SparklesIcon, 
-    UserGroupIcon, 
+import {
+    RocketLaunchIcon,
+    SparklesIcon,
+    UserGroupIcon,
     AcademicCapIcon,
     UserIcon,
     CheckIcon,
@@ -16,16 +16,16 @@ import {
 import { useAuth } from '../features/auth/context/AuthContext';
 import { useMentorship } from '../features/mentorship/hooks/useMentorship';
 import { getProfilePhotoUrl } from '../utils/image';
+import { updateMentorshipStatus as updateMentorshipRelationStatus } from '../features/mentorship/api/mentorship.api';
 
 const MentorshipStart: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
-    const { 
-        myMentorships, 
-        mentorProfile, 
-        updateProfile, 
-        updateStatus,
-        isLoading 
+    const {
+        myMentorships,
+        mentorProfile,
+        updateProfile,
+        isLoading
     } = useMentorship();
 
     const [showSettings, setShowSettings] = useState(false);
@@ -94,49 +94,67 @@ const MentorshipStart: React.FC = () => {
     const relations = myMentorships || [];
     const asMentee = relations.filter((r: any) => r.mentee_id === user?.id);
     const asMentor = relations.filter((r: any) => r.mentor_id === user?.id);
-    
+
     // Filter pending/incoming requests (where user is mentor)
     const pendingRequests = asMentor.filter((r: any) => r.status === 'Requested');
-    const activeMentees = asMentor.filter((r: any) => r.status === 'Active');
-    const activeMentors = asMentee.filter((r: any) => r.status === 'Active' || r.status === 'Requested');
+    const activeMentees = asMentor.filter((r: any) => r.status === 'Active' || r.status === 'Completed');
+    const activeMentors = asMentee.filter((r: any) => r.status === 'Active' || r.status === 'Requested' || r.status === 'Completed');
 
     const hasRelationships = relations.length > 0;
 
+    const handleFindMentorClick = () => {
+        const hasPending = asMentee.some((r: any) => r.status === 'Requested');
+        if (hasPending) {
+            alert("Your request for finding a mentor is pending.");
+            return;
+        }
+
+        const hasOngoing = asMentee.some((r: any) => r.status === 'Active');
+        if (hasOngoing) {
+            const proceed = window.confirm("You already have an ongoing mentorship, would you like to make another request?");
+            if (!proceed) return;
+        }
+        navigate('/mentorship/assessment/mentorship-mentee-assessment');
+    };
+
     return (
         <DashboardLayout>
-            <div className="max-w-6xl mx-auto py-10 px-6">
-                
-                {/* ── Header Section ── */}
-                <div className="flex flex-col md:flex-row justify-between items-start mb-8 gap-4">
-                    <div>
-                        <h1 className="text-3xl font-extrabold text-[#2D2D46] tracking-tight uppercase italic flex items-center gap-3">
-                            The Wisdom <span className="text-indigo-600">Exchange</span>
-                        </h1>
-                        <p className="text-gray-500 mt-2 text-sm max-w-2xl">
-                            A Kingdom-centered ecosystem designed for intentional growth, wisdom transfer, and leadership multiplication.
-                        </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        {hasRelationships && (
-                            <button
-                                onClick={() => navigate('/mentorship/assessment/mentorship-mentee-assessment')}
-                                className="px-5 py-2.5 bg-sky-600 text-white rounded-xl hover:bg-sky-700 transition-colors text-xs font-bold shadow-md inline-flex items-center gap-2"
-                            >
-                                <RocketLaunchIcon className="w-4 h-4" />
-                                Find a Mentor
-                            </button>
-                        )}
-                        {mentorProfile?.is_mentor && (
-                            <button
-                                onClick={() => setShowSettings(!showSettings)}
-                                className="px-5 py-2.5 bg-[#2D2D46] hover:bg-gray-800 text-white rounded-xl transition-colors text-xs font-bold shadow-md inline-flex items-center gap-2"
-                            >
-                                <Cog6ToothIcon className="w-4 h-4" />
-                                {mentorProfile.noProfile ? 'Become a Mentor' : 'Mentor Settings'}
-                            </button>
-                        )}
-                    </div>
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+                <div>
+                    <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight">
+                        Mentorship <span className="text-indigo-605">Exchange</span>
+                    </h1>
+                    <p className="text-zinc-500 dark:text-zinc-400 mt-2 font-medium">
+                        An ecosystem designed for intentional growth, wisdom transfer, and leadership multiplication.
+                    </p>
                 </div>
+                <div className="flex items-center gap-3">
+                    {hasRelationships && (
+                        <button
+                            onClick={handleFindMentorClick}
+                            className="px-5 py-2.5 bg-sky-600 text-white rounded-xl hover:bg-sky-700 transition-colors text-xs font-bold shadow-md inline-flex items-center gap-2"
+                        >
+                            <RocketLaunchIcon className="w-4 h-4" />
+                            Find a Mentor
+                        </button>
+                    )}
+                    {mentorProfile?.is_mentor && (
+                        <button
+                            onClick={() => {
+                                if (mentorProfile.noProfile) {
+                                    navigate('/mentorship/assessment/20');
+                                } else {
+                                    setShowSettings(!showSettings);
+                                }
+                            }}
+                            className="px-5 py-2.5 bg-[#2D2D46] hover:bg-gray-800 text-white rounded-xl transition-colors text-xs font-bold shadow-md inline-flex items-center gap-2"
+                        >
+                            <Cog6ToothIcon className="w-4 h-4" />
+                            {mentorProfile.noProfile ? 'Become a Mentor' : 'Mentor Settings'}
+                        </button>
+                    )}
+                </div>
+            </div>
 
                 {/* ── Settings Panel (Slide down / Conditional inline card) ── */}
                 {showSettings && (
@@ -154,8 +172,8 @@ const MentorshipStart: React.FC = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-1">Expertise / Focus Areas</label>
-                                    <input 
-                                        type="text" 
+                                    <input
+                                        type="text"
                                         placeholder="Leadership, Tech, Faith-Work Integration (comma separated)"
                                         value={expertise}
                                         onChange={(e) => setExpertise(e.target.value)}
@@ -165,8 +183,8 @@ const MentorshipStart: React.FC = () => {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-bold text-gray-700 mb-1">Active Capacity</label>
-                                        <input 
-                                            type="number" 
+                                        <input
+                                            type="number"
                                             min="1"
                                             value={capacity}
                                             onChange={(e) => setCapacity(Number(e.target.value))}
@@ -175,8 +193,8 @@ const MentorshipStart: React.FC = () => {
                                     </div>
                                     <div>
                                         <label className="block text-sm font-bold text-gray-700 mb-1">Session Price (₹)</label>
-                                        <input 
-                                            type="number" 
+                                        <input
+                                            type="number"
                                             placeholder="Leave blank if free"
                                             value={price}
                                             onChange={(e) => setPrice(e.target.value)}
@@ -185,10 +203,10 @@ const MentorshipStart: React.FC = () => {
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-1">Bio / Mentoring Philosophy</label>
-                                <textarea 
+                                <textarea
                                     rows={3}
                                     placeholder="Tell potential mentees about your career path and Kingdom focus..."
                                     value={bio}
@@ -203,8 +221,8 @@ const MentorshipStart: React.FC = () => {
                                     Payment QR Code (Required for paid sessions)
                                 </label>
                                 <div className="flex flex-col md:flex-row items-center gap-6">
-                                    <input 
-                                        type="file" 
+                                    <input
+                                        type="file"
                                         accept="image/*"
                                         onChange={handleQrChange}
                                         className="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
@@ -218,15 +236,15 @@ const MentorshipStart: React.FC = () => {
                             </div>
 
                             <div className="flex justify-end gap-3 pt-4">
-                                <button 
-                                    type="button" 
+                                <button
+                                    type="button"
                                     onClick={() => setShowSettings(false)}
                                     className="px-6 py-2.5 border border-gray-200 text-gray-600 font-bold rounded-xl hover:bg-gray-50 transition-colors text-sm"
                                 >
                                     Cancel
                                 </button>
-                                <button 
-                                    type="submit" 
+                                <button
+                                    type="submit"
                                     disabled={saving}
                                     className="px-6 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl transition-colors text-sm shadow-md disabled:opacity-50"
                                 >
@@ -273,12 +291,12 @@ const MentorshipStart: React.FC = () => {
                         </div>
 
                         <div className="flex flex-col items-center bg-zinc-50 border border-zinc-100 rounded-[2.5rem] p-12 text-center shadow-inner">
-                            <h2 className="text-2xl font-black text-[#2D2D46] uppercase italic mb-4">Start Your Mentorship Journey</h2>
+                            <h2 className="text-2xl font-black text-[#2D2D46] uppercase mb-4">Start Your Mentorship Journey</h2>
                             <p className="text-gray-500 max-w-xl text-sm mb-8 leading-relaxed">
                                 Complete our quick reflection form to clarify your professional goals and match with recommended Kingdom leaders.
                             </p>
-                            <button 
-                                onClick={() => navigate('/mentorship/assessment/mentorship-mentee-assessment')}
+                            <button
+                                onClick={handleFindMentorClick}
                                 className="px-10 py-5 bg-[#2D2D46] hover:bg-gray-800 text-white rounded-2xl transition-all shadow-xl font-black uppercase tracking-wider text-xs flex items-center gap-3 active:scale-95"
                             >
                                 Get Matched with a Mentor
@@ -291,7 +309,7 @@ const MentorshipStart: React.FC = () => {
                 {/* ── Active Dashboard State ── */}
                 {hasRelationships && (
                     <div className="space-y-8 animate-fadeIn">
-                        
+
                         {/* Pending incoming requests (For Mentors) */}
                         {pendingRequests.length > 0 && (
                             <div className="bg-amber-50/50 border border-amber-200/50 rounded-3xl p-6 shadow-sm">
@@ -320,15 +338,15 @@ const MentorshipStart: React.FC = () => {
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-2 shrink-0">
-                                                <button 
-                                                    onClick={() => updateStatus({ id: req.id, status: 'Active' })}
+                                                <button
+                                                    onClick={() => updateMentorshipRelationStatus(req.id, 'Active')}
                                                     className="p-2 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-xl hover:bg-emerald-100 transition-colors"
                                                     title="Accept Request"
                                                 >
                                                     <CheckIcon className="w-5 h-5" />
                                                 </button>
-                                                <button 
-                                                    onClick={() => updateStatus({ id: req.id, status: 'Declined' })}
+                                                <button
+                                                    onClick={() => updateMentorshipRelationStatus(req.id, 'Declined')}
                                                     className="p-2 bg-rose-50 text-rose-700 border border-rose-100 rounded-xl hover:bg-rose-100 transition-colors"
                                                     title="Decline Request"
                                                 >
@@ -341,19 +359,15 @@ const MentorshipStart: React.FC = () => {
                             </div>
                         )}
 
-                        {/* Mentors I am learning from */}
-                        <div className="bg-white border border-gray-100 rounded-3xl p-6 shadow-sm">
-                            <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2 uppercase tracking-wide italic">
-                                Mentors I am Learning From
-                            </h2>
-                            {activeMentors.length === 0 ? (
-                                <div className="py-10 text-center bg-zinc-50/50 rounded-2xl border border-dashed border-zinc-200">
-                                    <p className="text-zinc-500 text-sm">You are not currently learning from any mentors.</p>
-                                </div>
-                            ) : (
+                        {/* Mentors I am learning from (Only visible if there is an active / completed / requested relationship) */}
+                        {activeMentors.length > 0 && (
+                            <div className="bg-white border border-gray-100 rounded-3xl p-6 shadow-sm">
+                                <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2 uppercase tracking-wide">
+                                    Mentors I am Learning From
+                                </h2>
                                 <div className="space-y-4">
                                     {activeMentors.map((rel: any) => (
-                                        <div key={rel.id} className="border border-gray-100 rounded-2xl p-5 hover:bg-zinc-50/30 transition-colors flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                                        <div key={rel.id} className={`border rounded-2xl p-5 transition-colors flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 ${rel.status === 'Completed' ? 'border-zinc-100 bg-zinc-50/50 opacity-80' : 'border-gray-100 hover:bg-zinc-50/30'}`}>
                                             <div className="flex items-center gap-4">
                                                 <div className="w-14 h-14 rounded-2xl overflow-hidden bg-zinc-50 border border-zinc-100 shrink-0">
                                                     {rel.mentor.profile_photo ? (
@@ -365,10 +379,13 @@ const MentorshipStart: React.FC = () => {
                                                     )}
                                                 </div>
                                                 <div>
-                                                    <div className="flex items-center gap-2">
+                                                    <div className="flex items-center gap-2 flex-wrap">
                                                         <h3 className="font-extrabold text-[#2D2D46] text-base">{rel.mentor.first_name} {rel.mentor.last_name}</h3>
                                                         {rel.status === 'Requested' && (
                                                             <span className="text-[8px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 uppercase tracking-widest border border-amber-100">Requested</span>
+                                                        )}
+                                                        {rel.status === 'Completed' && (
+                                                            <span className="text-[8px] font-bold px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-500 uppercase tracking-widest border border-zinc-200">Completed</span>
                                                         )}
                                                     </div>
                                                     <p className="text-zinc-500 text-xs mt-1">Focus Area: <span className="font-bold text-zinc-700">{rel.focus_area || 'General'}</span></p>
@@ -377,26 +394,29 @@ const MentorshipStart: React.FC = () => {
                                             </div>
                                             <button
                                                 onClick={() => navigate(`/dashboard/mentorship/${rel.id}`)}
-                                                className="w-full sm:w-auto px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl transition-colors text-xs font-bold shadow-sm flex items-center justify-center gap-2 shrink-0"
+                                                className={`w-full sm:w-auto px-5 py-2.5 rounded-xl transition-colors text-xs font-bold shadow-sm flex items-center justify-center gap-2 shrink-0 ${rel.status === 'Completed'
+                                                    ? 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600 border border-zinc-200'
+                                                    : 'bg-sky-600 hover:bg-sky-700 text-white'
+                                                    }`}
                                             >
-                                                Open Workspace
+                                                {rel.status === 'Completed' ? 'View Record' : 'Open Workspace'}
                                                 <ArrowTopRightOnSquareIcon className="w-4 h-4" />
                                             </button>
                                         </div>
                                     ))}
                                 </div>
-                            )}
-                        </div>
+                            </div>
+                        )}
 
                         {/* Mentees I am guiding */}
                         {activeMentees.length > 0 && (
                             <div className="bg-white border border-gray-100 rounded-3xl p-6 shadow-sm">
-                                <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2 uppercase tracking-wide italic">
+                                <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2 uppercase tracking-wide">
                                     Mentees I am Guiding
                                 </h2>
                                 <div className="space-y-4">
                                     {activeMentees.map((rel: any) => (
-                                        <div key={rel.id} className="border border-gray-100 rounded-2xl p-5 hover:bg-zinc-50/30 transition-colors flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                                        <div key={rel.id} className={`border rounded-2xl p-5 transition-colors flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 ${rel.status === 'Completed' ? 'border-zinc-100 bg-zinc-50/50 opacity-80' : 'border-gray-100 hover:bg-zinc-50/30'}`}>
                                             <div className="flex items-center gap-4">
                                                 <div className="w-14 h-14 rounded-2xl overflow-hidden bg-zinc-50 border border-zinc-100 shrink-0">
                                                     {rel.mentee.profile_photo ? (
@@ -408,16 +428,24 @@ const MentorshipStart: React.FC = () => {
                                                     )}
                                                 </div>
                                                 <div>
-                                                    <h3 className="font-extrabold text-[#2D2D46] text-base">{rel.mentee.first_name} {rel.mentee.last_name}</h3>
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <h3 className="font-extrabold text-[#2D2D46] text-base">{rel.mentee.first_name} {rel.mentee.last_name}</h3>
+                                                        {rel.status === 'Completed' && (
+                                                            <span className="text-[8px] font-bold px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-500 uppercase tracking-widest border border-zinc-200">Completed</span>
+                                                        )}
+                                                    </div>
                                                     <p className="text-zinc-500 text-xs mt-1">Focus Area: <span className="font-bold text-zinc-700">{rel.focus_area || 'General'}</span></p>
                                                     <p className="text-zinc-400 text-[10px] mt-0.5">Commitment: <span className="font-bold uppercase">{rel.type}</span></p>
                                                 </div>
                                             </div>
                                             <button
                                                 onClick={() => navigate(`/dashboard/mentorship/${rel.id}`)}
-                                                className="w-full sm:w-auto px-5 py-2.5 bg-[#2D2D46] hover:bg-gray-800 text-white rounded-xl transition-colors text-xs font-bold shadow-sm flex items-center justify-center gap-2 shrink-0"
+                                                className={`w-full sm:w-auto px-5 py-2.5 rounded-xl transition-colors text-xs font-bold shadow-sm flex items-center justify-center gap-2 shrink-0 ${rel.status === 'Completed'
+                                                    ? 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600 border border-zinc-200'
+                                                    : 'bg-[#2D2D46] hover:bg-gray-800 text-white'
+                                                    }`}
                                             >
-                                                Open Workspace
+                                                {rel.status === 'Completed' ? 'View Record' : 'Open Workspace'}
                                                 <ArrowTopRightOnSquareIcon className="w-4 h-4" />
                                             </button>
                                         </div>
@@ -427,8 +455,6 @@ const MentorshipStart: React.FC = () => {
                         )}
                     </div>
                 )}
-
-            </div>
         </DashboardLayout>
     );
 };

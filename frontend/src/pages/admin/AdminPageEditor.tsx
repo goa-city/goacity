@@ -7,6 +7,12 @@ import Button from '../../shared/components/ui/Button';
 import QuillEditor from '../../components/QuillEditor';
 import api from '../../api/axios';
 
+interface AdminPageForm {
+    title: string;
+    slug: string;
+    content: string;
+}
+
 const AdminPageEditor: React.FC = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -14,7 +20,7 @@ const AdminPageEditor: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [toast, setToast] = useState('');
-    const [form, setForm] = useState({ title: '', slug: '', content: '' });
+    const [form, setForm] = useState<AdminPageForm>({ title: '', slug: '', content: '' });
 
     useEffect(() => {
         api.get(`/admin/pages/${id}`)
@@ -29,7 +35,7 @@ const AdminPageEditor: React.FC = () => {
             .finally(() => setLoading(false));
     }, [id, navigate]);
 
-    const showToast = (msg) => {
+    const showToast = (msg: string) => {
         setToast(msg);
         setTimeout(() => setToast(''), 3000);
     };

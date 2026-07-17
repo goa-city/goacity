@@ -53,3 +53,26 @@ export const updateCity = async (req: Request, res: Response) => {
         return res.status(500).json({ message: error.message });
     }
 };
+
+export const getSuperAdminStats = async (req: Request, res: Response) => {
+    try {
+        const citiesCount = await prisma.city.count();
+        const adminsCount = await prisma.admin.count();
+        const membersCount = await prisma.member.count();
+        
+        const recentCities = await prisma.city.findMany({
+            orderBy: { id: 'desc' },
+            take: 5
+        });
+
+        return res.json({
+            citiesCount,
+            adminsCount,
+            membersCount,
+            recentCities
+        });
+    } catch (error: any) {
+        console.error('getSuperAdminStats Error:', error);
+        return res.status(500).json({ message: 'Internal server error' });
+    }
+};

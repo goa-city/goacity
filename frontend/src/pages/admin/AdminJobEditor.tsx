@@ -11,11 +11,35 @@ import QuillEditor from '../../components/QuillEditor';
 import api from '../../api/axios';
 import { formatDate } from '../../utils/date';
 
-const STATUS_STYLES = {
+type JobStatus = 'pending' | 'approved' | 'rejected';
+
+const STATUS_STYLES: Record<JobStatus, { bg: string; text: string; border: string; label: string }> = {
     pending:  { bg: 'bg-amber-50',   text: 'text-amber-700',   border: 'border-amber-200',   label: 'Pending Review' },
     approved: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', label: 'Approved' },
     rejected: { bg: 'bg-red-50',     text: 'text-red-700',     border: 'border-red-200',     label: 'Rejected' },
 };
+
+interface JobForm {
+    id?: number;
+    title: string;
+    company: string;
+    location: string;
+    type: string;
+    category: string;
+    url: string;
+    contact_email: string;
+    description: string;
+    company_profile: string;
+    expires_at: string;
+    status: JobStatus;
+    slug: string;
+    submitter?: string | null;
+    created_at?: string;
+    work_arrangement: string;
+    salary_min: string | number;
+    salary_max: string | number;
+    salary_currency: string;
+}
 
 const AdminJobEditor: React.FC = () => {
     const { id } = useParams();
@@ -25,10 +49,10 @@ const AdminJobEditor: React.FC = () => {
     const [loading, setLoading] = useState(!isNew);
     const [saving, setSaving] = useState(false);
     const [toast, setToast] = useState('');
-    const [form, setForm] = useState({
+    const [form, setForm] = useState<JobForm>({
         title: '', company: '', location: '', type: 'Full Time',
         category: '', url: '', contact_email: '', description: '', company_profile: '', expires_at: '', status: 'pending',
-        slug: ''
+        slug: '', work_arrangement: 'Onsite', salary_min: '', salary_max: '', salary_currency: 'INR'
     });
 
     useEffect(() => {
@@ -52,6 +76,10 @@ const AdminJobEditor: React.FC = () => {
                         slug: j.slug || '',
                         submitter: j.first_name ? `${j.first_name} ${j.last_name} (${j.member_email})` : null,
                         created_at: j.created_at,
+                        work_arrangement: j.work_arrangement || 'Onsite',
+                        salary_min: j.salary_min !== null && j.salary_min !== undefined ? j.salary_min : '',
+                        salary_max: j.salary_max !== null && j.salary_max !== undefined ? j.salary_max : '',
+                        salary_currency: j.salary_currency || 'INR',
                     });
                 })
                 .catch(() => navigate('/admin/jobs'))
@@ -59,17 +87,17 @@ const AdminJobEditor: React.FC = () => {
         }
     }, [id]);
 
-    const showToast = (msg) => {
+    const showToast = (msg: string) => {
         setToast(msg);
         setTimeout(() => setToast(''), 3000);
     };
 
-    const handleChange = (e) => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
 
-    const handleSave = async (overrideStatus) => {
+    const handleSave = async (overrideStatus?: JobStatus) => {
         setSaving(true);
         try {
-            const payload = { ...form };
+            const payload: JobForm = { ...form };
             if (overrideStatus) payload.status = overrideStatus;
             if (isNew) {
                 await api.post('/admin/jobs', payload);
@@ -80,8 +108,8 @@ const AdminJobEditor: React.FC = () => {
                 setForm(f => ({ ...f, status: payload.status }));
                 showToast(overrideStatus === 'approved' ? '✓ Job approved and live!' : overrideStatus === 'rejected' ? 'Job rejected.' : 'Job updated!');
             }
-        } catch (e: any) {
-            showToast('Error: ' + (e.response?.data?.message || e.message));
+        } catch (e: unknown) {
+            showToast('Error: ' + (e instanceof Error ? e.message : 'Unknown error'));
         } finally {
             setSaving(false);
         }
@@ -181,8 +209,9 @@ const AdminJobEditor: React.FC = () => {
                                 name="slug" 
                                 value={form.slug} 
                                 onChange={handleChange}
-                                onInput={(e: any) => {
-                                    e.target.value = e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+                                onInput={(e: React.FormEvent<HTMLInputElement>) => {
+                                    const target = e.currentTarget;
+                                    target.value = target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
                                 }}
                                 placeholder="auto-generated-if-empty"
                                 className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-4 font-medium" 
@@ -219,10 +248,39 @@ const AdminJobEditor: React.FC = () => {
                             </select>
                         </div>
                         <div>
+                            <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Work Arrangement</label>
+                            <select name="work_arrangement" value={form.work_arrangement} onChange={handleChange}
+                                className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 px-4 h-14 font-medium appearance-none">
+                                <option>Onsite</option><option>Remote</option><option>Hybrid</option>
+                            </select>
+                        </div>
+                        <div>
                             <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Category</label>
                             <input name="category" value={form.category} onChange={handleChange}
                                 placeholder="e.g. Technology, Education"
                                 className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-4 font-medium" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Salary Min</label>
+                            <input name="salary_min" type="number" value={form.salary_min} onChange={handleChange}
+                                placeholder="e.g. 50000"
+                                className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-4 font-medium" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Salary Max</label>
+                            <input name="salary_max" type="number" value={form.salary_max} onChange={handleChange}
+                                placeholder="e.g. 120000"
+                                className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-4 font-medium" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Salary Currency</label>
+                            <select name="salary_currency" value={form.salary_currency} onChange={handleChange}
+                                className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 px-4 h-14 font-medium appearance-none">
+                                <option value="INR">INR (₹)</option>
+                                <option value="USD">USD ($)</option>
+                                <option value="EUR">EUR (€)</option>
+                                <option value="GBP">GBP (£)</option>
+                            </select>
                         </div>
                         <div>
                             <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Application URL</label>

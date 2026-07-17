@@ -10,16 +10,39 @@ import {
 import { Card } from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
 
+interface IncubatorFounder {
+    first_name?: string;
+    last_name?: string;
+}
+
+interface IncubatorIdea {
+    id: number;
+    title: string;
+    vision_purpose?: string;
+    needs_json?: string[];
+    status: string;
+    founder?: IncubatorFounder | null;
+    _count?: {
+        feedbacks?: number;
+    };
+}
+
+interface IncubatorMatch {
+    id: number;
+    first_name: string;
+    last_name: string;
+    role: string;
+}
+
 const AdminIncubator: React.FC = () => {
-    const { adminUser } = useAdminAuth();
-    const [ideas, setIdeas] = useState<any[]>([]);
+    const [ideas, setIdeas] = useState<IncubatorIdea[]>([]);
     const [loading, setLoading] = useState(true);
     const [toast, setToast] = useState('');
     
     // Smart Match Panel
     const [matchPanelOpen, setMatchPanelOpen] = useState(false);
-    const [activeIdeaForMatch, setActiveIdeaForMatch] = useState<any>(null);
-    const [matches, setMatches] = useState<any[]>([]);
+    const [activeIdeaForMatch, setActiveIdeaForMatch] = useState<IncubatorIdea | null>(null);
+    const [matches, setMatches] = useState<IncubatorMatch[]>([]);
     const [matchingLoading, setMatchingLoading] = useState(false);
 
     useEffect(() => {
@@ -42,7 +65,7 @@ const AdminIncubator: React.FC = () => {
         setTimeout(() => setToast(''), 3000);
     };
 
-    const updateStatus = async (id, status) => {
+    const updateStatus = async (id: number, status: string) => {
         try {
             await api.put(`/admin/incubator/${id}/status`, { status });
             showToast(`Idea marked as ${status}`);
@@ -53,7 +76,7 @@ const AdminIncubator: React.FC = () => {
         }
     };
 
-    const openSmartMatch = async (idea) => {
+    const openSmartMatch = async (idea: IncubatorIdea) => {
         setActiveIdeaForMatch(idea);
         setMatchPanelOpen(true);
         setMatchingLoading(true);
@@ -120,7 +143,7 @@ const AdminIncubator: React.FC = () => {
                                             <td className="px-8 py-5 align-top">
                                                 <p className="text-xs font-medium text-zinc-500 mb-3 line-clamp-2 leading-relaxed max-w-sm">{idea.vision_purpose}</p>
                                                 <div className="flex flex-wrap gap-2">
-                                                    {(idea.needs_json || []).map((need, idx) => (
+                                                    {(idea.needs_json || []).map((need: string, idx: number) => (
                                                         <span key={idx} className="bg-amber-50 text-amber-600 border border-amber-100 dark:bg-amber-950/30 dark:border-amber-900/50 px-2 py-0.5 font-black text-[10px] rounded-md uppercase tracking-widest">
                                                             {need}
                                                         </span>
@@ -204,7 +227,7 @@ const AdminIncubator: React.FC = () => {
                         <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2">Target Idea</p>
                         <h3 className="font-black text-zinc-900 dark:text-white leading-tight">{activeIdeaForMatch?.title}</h3>
                         <div className="flex gap-2 mt-4 flex-wrap">
-                            {(activeIdeaForMatch?.needs_json || []).map(n => (
+                            {(activeIdeaForMatch?.needs_json || []).map((n: string) => (
                                 <span key={n} className="bg-sky-50 dark:bg-sky-950/30 text-sky-600 dark:text-sky-400 text-[10px] uppercase font-black tracking-widest px-2 py-1 rounded-md border border-sky-100 dark:border-sky-900/50">{n}</span>
                             ))}
                         </div>
@@ -216,7 +239,7 @@ const AdminIncubator: React.FC = () => {
                         {matchingLoading ? (
                             <div className="flex justify-center py-10"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div></div>
                         ) : matches.length > 0 ? (
-                            matches.map(match => (
+                            matches.map((match) => (
                                 <div key={match.id} className="border border-zinc-100 dark:border-zinc-800 p-4 rounded-xl flex items-center justify-between group hover:border-indigo-200 dark:hover:border-indigo-800 hover:shadow-md transition-all cursor-pointer bg-white dark:bg-zinc-950">
                                     <div className="flex items-center gap-3">
                                         <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center font-black text-sm uppercase">

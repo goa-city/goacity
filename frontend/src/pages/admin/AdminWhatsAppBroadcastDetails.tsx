@@ -1,7 +1,6 @@
 import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { getWhatsAppBroadcastById } from '../../features/admin-whatsapp/api/whatsapp.api';
 import { 
     ChevronLeftIcon,
     UserCircleIcon,
@@ -10,16 +9,38 @@ import {
     MegaphoneIcon,
     ArrowPathIcon
 } from '@heroicons/react/24/outline';
-import { formatDate, formatDateTime } from '../../utils/date';
+import { formatDateTime } from '../../utils/date';
 import { Card } from '../../shared/components/ui/Card';
 import { getWhatsAppBroadcastById, retryWhatsAppBroadcast } from '../../features/admin-whatsapp/api/whatsapp.api';
+
+interface BroadcastLogMember {
+    first_name: string;
+    last_name: string;
+    phone?: string | null;
+}
+
+interface BroadcastLog {
+    id: number;
+    status: string;
+    timestamp: string;
+    member?: BroadcastLogMember | null;
+}
+
+interface WhatsAppBroadcastDetail {
+    name?: string;
+    status: string;
+    total_count: number;
+    sent_count: number;
+    content: string;
+    logs?: BroadcastLog[];
+}
 
 const AdminWhatsAppBroadcastDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const [retrying, setRetrying] = React.useState(false);
     const [toast, setToast] = React.useState('');
     
-    const { data: broadcast, isLoading, refetch } = useQuery({
+    const { data: broadcast, isLoading, refetch } = useQuery<WhatsAppBroadcastDetail>({
         queryKey: ['whatsapp-broadcast', id],
         queryFn: () => getWhatsAppBroadcastById(Number(id)),
         refetchInterval: (query) => query.state.data?.status === 'ONGOING' ? 3000 : false
@@ -46,6 +67,14 @@ const AdminWhatsAppBroadcastDetails: React.FC = () => {
 
     if (isLoading && !broadcast) {
         return <div className="flex items-center justify-center py-20"><div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>;
+    }
+
+    if (!broadcast) {
+        return (
+            <div className="max-w-7xl mx-auto py-10 px-6">
+                <p className="text-zinc-500 dark:text-zinc-400 font-bold">Broadcast not found.</p>
+            </div>
+        );
     }
 
     return (
@@ -92,7 +121,7 @@ const AdminWhatsAppBroadcastDetails: React.FC = () => {
                             </div>
                         </div>
 
-                        {broadcast.status !== 'ONGOING' && broadcast.logs?.some((l: any) => l.status.startsWith('failed')) && (
+                        {broadcast.status !== 'ONGOING' && broadcast.logs?.some((log) => log.status.startsWith('failed')) && (
                             <button
                                 onClick={handleRetry}
                                 disabled={retrying}
@@ -106,7 +135,7 @@ const AdminWhatsAppBroadcastDetails: React.FC = () => {
                                 ) : (
                                     <>
                                         <ArrowPathIcon className="w-4 h-4" />
-                                        Retry Failed ({broadcast.logs.filter((l: any) => l.status.startsWith('failed')).length})
+                                        Retry Failed ({broadcast.logs.filter((log) => log.status.startsWith('failed')).length})
                                     </>
                                 )}
                             </button>
@@ -127,7 +156,7 @@ const AdminWhatsAppBroadcastDetails: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800">
-                                    {broadcast.logs?.map((log: any) => (
+                                    {broadcast.logs?.map((log) => (
                                         <tr key={log.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30 transition-colors">
                                             <td className="px-8 py-4">
                                                 <div className="flex items-center gap-3">

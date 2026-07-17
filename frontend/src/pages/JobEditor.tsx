@@ -17,6 +17,10 @@ interface JobForm {
     description: string;
     company_profile: string;
     expires_at: string;
+    work_arrangement: string;
+    salary_min: string;
+    salary_max: string;
+    salary_currency: string;
 }
 
 const JobEditor: React.FC = () => {
@@ -35,7 +39,11 @@ const JobEditor: React.FC = () => {
         contact_email: '',
         description: '',
         company_profile: '',
-        expires_at: ''
+        expires_at: '',
+        work_arrangement: 'Onsite',
+        salary_min: '',
+        salary_max: '',
+        salary_currency: 'INR'
     });
 
     const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -65,30 +73,38 @@ const JobEditor: React.FC = () => {
 
     return (
         <DashboardLayout>
-            <div className="max-w-3xl mx-auto py-12 px-4">
+            <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12">
                 <button
                     onClick={() => navigate('/jobs')}
-                    className="flex items-center text-zinc-400 hover:text-zinc-950 dark:hover:text-white transition-all mb-10 group text-[10px] font-black uppercase tracking-[0.2em]"
+                    className="inline-flex items-center gap-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors mb-12 group"
                 >
-                    <ArrowLeftIcon className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform stroke-[3px]" />
-                    Back to Job Postings
+                    <div className="w-8 h-8 rounded-full bg-white dark:bg-zinc-900 shadow-md flex items-center justify-center group-hover:-translate-x-1 transition-transform">
+                        <ArrowLeftIcon className="w-4 h-4" />
+                    </div>
+                    <span className="text-xs font-black uppercase tracking-widest">Back to Jobs</span>
                 </button>
 
-                <div className="bg-white dark:bg-zinc-900 rounded-[2.5rem] shadow-2xl border border-zinc-100 dark:border-zinc-800 overflow-hidden relative">
-                    <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-sky-500 via-indigo-500 to-sky-500"></div>
-                    
-                    <div className="p-10 md:p-12 border-b border-zinc-50 dark:border-zinc-800 bg-sky-500/[0.02]">
-                        <div className="flex items-center gap-4 mb-3">
-                            <div className="w-12 h-12 bg-sky-500 rounded-2xl flex items-center justify-center shadow-lg">
-                                <BriefcaseIcon className="w-7 h-7 text-white" />
-                            </div>
-                            <div>
-                                <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight uppercase italic">Post Opportunity</h1>
-                                <p className="text-zinc-500 dark:text-zinc-400 mt-0.5 font-medium italic">Hire talent from the GOA.CITY network.</p>
-                            </div>
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8 mb-16">
+                    <div className="flex flex-col md:flex-row items-start md:items-center gap-8">
+                        <div className="w-24 h-24 rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white flex items-center justify-center shrink-0 overflow-hidden shadow-xl">
+                            <BriefcaseIcon className="w-12 h-12 text-zinc-400 dark:text-zinc-500" />
+                        </div>
+                        <div>
+                            <h1 className="text-4xl md:text-5xl font-black text-zinc-900 dark:text-white tracking-tighter">
+                                Post Opportunity
+                            </h1>
+                            <p className="text-zinc-500 dark:text-zinc-400 mt-2 font-medium">
+                                Hire talent from the GOA.CITY network.
+                            </p>
                         </div>
                     </div>
+                </div>
 
+                <div className="mb-6 px-2">
+                    <h2 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Opportunity Details</h2>
+                </div>
+
+                <div className="bg-white dark:bg-zinc-900 rounded-2xl border-none shadow-2xl shadow-zinc-200/40 dark:shadow-none overflow-hidden mb-20">
                     {submitSuccess ? (
                         <div className="p-20 text-center">
                             <div className="w-24 h-24 bg-sky-500/10 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-inner">
@@ -98,7 +114,7 @@ const JobEditor: React.FC = () => {
                             <p className="text-zinc-500 dark:text-zinc-400 font-medium italic">Your job posting has been submitted for review.</p>
                         </div>
                     ) : (
-                        <form onSubmit={handleSubmit} className="p-10 md:p-12 space-y-10">
+                        <form onSubmit={handleSubmit} className="p-10 md:p-14 space-y-10">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                 <div className="md:col-span-2">
                                     <label className="block text-[10px] uppercase font-black tracking-widest text-zinc-400 mb-3 ml-2">Job Title <span className="text-rose-500">*</span></label>
@@ -140,12 +156,54 @@ const JobEditor: React.FC = () => {
                                     </select>
                                 </div>
                                 <div>
+                                    <label className="block text-[10px] uppercase font-black tracking-widest text-zinc-400 mb-3 ml-2">Work Arrangement</label>
+                                    <select
+                                        name="work_arrangement" value={form.work_arrangement} onChange={handleFormChange}
+                                        className="w-full px-6 py-4 bg-zinc-50 dark:bg-zinc-800/50 border-0 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-sky-500 transition-all outline-none appearance-none"
+                                    >
+                                        <option value="Onsite">Onsite</option>
+                                        <option value="Remote">Remote</option>
+                                        <option value="Hybrid">Hybrid</option>
+                                    </select>
+                                </div>
+                                <div>
                                     <label className="block text-[10px] uppercase font-black tracking-widest text-zinc-400 mb-3 ml-2">Industry Category</label>
                                     <input
                                         type="text" name="category" value={form.category} onChange={handleFormChange}
                                         placeholder="e.g. Technology"
                                         className="w-full px-6 py-4 bg-zinc-50 dark:bg-zinc-800/50 border-0 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-sky-500 transition-all outline-none"
                                     />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                <div>
+                                    <label className="block text-[10px] uppercase font-black tracking-widest text-zinc-400 mb-3 ml-2">Salary Min</label>
+                                    <input
+                                        type="number" name="salary_min" value={form.salary_min} onChange={handleFormChange}
+                                        placeholder="e.g. 50000"
+                                        className="w-full px-6 py-4 bg-zinc-50 dark:bg-zinc-800/50 border-0 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-sky-500 transition-all outline-none"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] uppercase font-black tracking-widest text-zinc-400 mb-3 ml-2">Salary Max</label>
+                                    <input
+                                        type="number" name="salary_max" value={form.salary_max} onChange={handleFormChange}
+                                        placeholder="e.g. 100000"
+                                        className="w-full px-6 py-4 bg-zinc-50 dark:bg-zinc-800/50 border-0 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-sky-500 transition-all outline-none"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] uppercase font-black tracking-widest text-zinc-400 mb-3 ml-2">Currency</label>
+                                    <select
+                                        name="salary_currency" value={form.salary_currency} onChange={handleFormChange}
+                                        className="w-full px-6 py-4 bg-zinc-50 dark:bg-zinc-800/50 border-0 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-sky-500 transition-all outline-none appearance-none"
+                                    >
+                                        <option value="INR">INR (₹)</option>
+                                        <option value="USD">USD ($)</option>
+                                        <option value="EUR">EUR (€)</option>
+                                        <option value="GBP">GBP (£)</option>
+                                    </select>
                                 </div>
                             </div>
 
@@ -189,6 +247,7 @@ const JobEditor: React.FC = () => {
                                         value={form.company_profile}
                                         onChange={(val) => setForm(f => ({ ...f, company_profile: val }))}
                                         placeholder="Describe your organization's mission..."
+                                        style={{ minHeight: '300px' }}
                                     />
                                 </div>
                             </div>
@@ -200,6 +259,7 @@ const JobEditor: React.FC = () => {
                                         value={form.description}
                                         onChange={(val) => setForm(f => ({ ...f, description: val }))}
                                         placeholder="Define the role, requirements, and benefits..."
+                                        style={{ minHeight: '500px' }}
                                     />
                                 </div>
                             </div>

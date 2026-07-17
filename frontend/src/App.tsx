@@ -36,6 +36,7 @@ const AdminJobs = lazy(() => import('./pages/admin/AdminJobs'));
 const AdminJobEditor = lazy(() => import('./pages/admin/AdminJobEditor'));
 const AdminResources = lazy(() => import('./pages/admin/AdminResources'));
 const AdminResourceEditor = lazy(() => import('./pages/admin/AdminResourceEditor'));
+const AdminResourceCategories = lazy(() => import('./pages/admin/AdminResourceCategories'));
 const AdminAdmins = lazy(() => import('./pages/admin/AdminAdmins'));
 const AdminNews = lazy(() => import('./pages/admin/AdminNews'));
 const AdminPages = lazy(() => import('./pages/admin/AdminPages'));
@@ -43,6 +44,7 @@ const AdminPageEditor = lazy(() => import('./pages/admin/AdminPageEditor'));
 const AdminEmailTemplates = lazy(() => import('./pages/admin/AdminEmailTemplates'));
 const AdminEmailTemplateEditor = lazy(() => import('./pages/admin/AdminEmailTemplateEditor'));
 const AdminCities = lazy(() => import('./pages/admin/AdminCities'));
+const SuperAdminDashboard = lazy(() => import('./pages/superadmin/SuperAdminDashboard'));
 const AdminWhatsAppStatus = lazy(() => import('./pages/admin/AdminWhatsAppStatus'));
 const AdminWhatsAppBroadcasts = lazy(() => import('./pages/admin/AdminWhatsAppBroadcasts'));
 const AdminWhatsAppTemplates = lazy(() => import('./pages/admin/AdminWhatsAppTemplates'));
@@ -60,11 +62,15 @@ const ResourceEditor = lazy(() => import('./pages/ResourceEditor'));
 const Jobs = lazy(() => import('./pages/Jobs'));
 const JobView = lazy(() => import('./pages/JobView'));
 const JobEditor = lazy(() => import('./pages/JobEditor'));
+const MyPostings = lazy(() => import('./pages/MyPostings'));
+const JobApplicationsView = lazy(() => import('./pages/JobApplicationsView'));
+const AdminApplications = lazy(() => import('./pages/admin/AdminApplications'));
 const DebugStreams = lazy(() => import('./pages/DebugStreams'));
 const StewardshipDashboard = lazy(() => import('./pages/StewardshipDashboard'));
 const AdminStewardship = lazy(() => import('./pages/admin/AdminStewardship'));
 const AdminMentorship = lazy(() => import('./pages/admin/AdminMentorship'));
 const AdminMentorshipRequestDetail = lazy(() => import('./pages/admin/AdminMentorshipRequestDetail'));
+const AdminMentorshipDetail = lazy(() => import('./pages/admin/AdminMentorshipDetail'));
 const AdminIncubator = lazy(() => import('./pages/admin/AdminIncubator'));
 const Mentors = lazy(() => import('./pages/Mentors'));
 const MentorshipWorkspace = lazy(() => import('./pages/MentorshipWorkspace'));
@@ -131,7 +137,8 @@ const App: React.FC = () => {
                                         <>
                                             <Route path="/superadmin/login" element={<SuperAdminLogin />} />
                                             <Route path="/superadmin" element={<SuperAdminLayout />}>
-                                                <Route index element={<Navigate to="/superadmin/cities" replace />} />
+                                                <Route index element={<Navigate to="/superadmin/dashboard" replace />} />
+                                                <Route path="dashboard" element={<SuperAdminDashboard />} />
                                                 <Route path="cities" element={<AdminCities />} />
                                             </Route>
                                         </>
@@ -155,11 +162,14 @@ const App: React.FC = () => {
                                                 <Route path="/admin/stewardship" element={<AdminStewardship />} />
                                                 <Route path="/admin/mentorship" element={<AdminMentorship />} />
                                                 <Route path="/admin/mentorship/requests/:id" element={<AdminMentorshipRequestDetail />} />
+                                                <Route path="/admin/mentorship/relations/:id" element={<AdminMentorshipDetail />} />
                                                 <Route path="/admin/incubator" element={<AdminIncubator />} />
                                                 <Route path="/admin/collabs" element={<AdminCollabs />} />
                                                 <Route path="/admin/jobs" element={<AdminJobs />} />
                                                 <Route path="/admin/jobs/:id" element={<AdminJobEditor />} />
+                                                <Route path="/admin/jobs/applications" element={<AdminApplications />} />
                                                 <Route path="/admin/resources" element={<AdminResources />} />
+                                                <Route path="/admin/resources/categories" element={<AdminResourceCategories />} />
                                                 <Route path="/admin/resources/:id" element={<AdminResourceEditor />} />
                                                 <Route path="/admin/news" element={<AdminNews />} />
                                                 <Route path="/admin/pages" element={<AdminPages />} />
@@ -189,6 +199,8 @@ const App: React.FC = () => {
                                         <Route path="/jobs" element={<Jobs />} />
                                         <Route path="/jobs/:slug" element={<JobView />} />
                                         <Route path="/jobs/post" element={<JobEditor />} />
+                                        <Route path="/jobs/my-postings" element={<MyPostings />} />
+                                        <Route path="/jobs/my-postings/:jobId/applications" element={<JobApplicationsView />} />
                                         <Route path="/stewardship" element={<StewardshipDashboard />} />
                                         <Route path="/mentors" element={<Mentors />} />
                                         <Route path="/mentorship" element={<MentorshipStart />} />

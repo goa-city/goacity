@@ -2,6 +2,7 @@ import React from 'react';
 import { formatDate } from '../../../utils/date';
 import { Card, CardContent, CardTitle } from '../../../shared/components/ui/Card';
 import Button from '../../../shared/components/ui/Button';
+import type { Meeting, MeetingResource } from '../hooks/useSingleMeeting';
 import {
     CalendarIcon,
     MapPinIcon,
@@ -15,8 +16,17 @@ import {
     LinkIcon
 } from '@heroicons/react/24/solid';
 
-const MeetingCard = ({ meeting, onRSVP, onCheckIn, onOpenRecap }) => {
-    const isPast = new Date(meeting.meeting_date) < new Date().setHours(0, 0, 0, 0);
+interface MeetingCardProps {
+    meeting: Meeting;
+    onRSVP: (meetingId: number, status: string) => Promise<unknown>;
+    onCheckIn?: (meeting: Meeting) => void;
+    onOpenRecap: () => void | Promise<void>;
+}
+
+const MeetingCard: React.FC<MeetingCardProps> = ({ meeting, onRSVP, onCheckIn, onOpenRecap }) => {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const isPast = new Date(meeting.meeting_date).getTime() < todayStart.getTime();
     const isToday = new Date(meeting.meeting_date).toDateString() === new Date().toDateString();
 
 
@@ -73,7 +83,7 @@ const MeetingCard = ({ meeting, onRSVP, onCheckIn, onOpenRecap }) => {
                                 <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
                                     <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Attached Resources:</p>
                                     <div className="flex flex-wrap gap-2">
-                                        {meeting.resources.map((res, i) => (
+                                        {meeting.resources.map((res: MeetingResource, i: number) => (
                                             <a
                                                 key={i}
                                                 href={res.url_display || `${(import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '')}/uploads/${res.url}`}
@@ -109,9 +119,10 @@ const MeetingCard = ({ meeting, onRSVP, onCheckIn, onOpenRecap }) => {
                                         </span>
                                     ) : (
                                         <Button
-                                            onClick={() => onCheckIn(meeting)}
+                                            onClick={() => onCheckIn?.(meeting)}
                                             size="sm"
                                             className="rounded-xl px-8"
+                                            disabled={!onCheckIn}
                                         >
                                             Check In
                                         </Button>

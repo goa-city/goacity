@@ -10,7 +10,20 @@ import {
 import { Card } from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
 
-const getLocalYYYYMMDD = (dateInput: any) => {
+interface AdminMeetingListItem {
+    id: number;
+    title: string;
+    location_name?: string | null;
+    stream_name?: string | null;
+    stream_color?: string | null;
+    meeting_date?: string | null;
+    meeting_date_display?: string | null;
+    start_time_display?: string | null;
+    end_time_display?: string | null;
+    archived?: number;
+}
+
+const getLocalYYYYMMDD = (dateInput: string | Date) => {
     const d = new Date(dateInput);
     if (isNaN(d.getTime())) return '';
     const offset = d.getTimezoneOffset() * 60000;
@@ -19,7 +32,7 @@ const getLocalYYYYMMDD = (dateInput: any) => {
 
 const AdminMeetings: React.FC = () => {
     const navigate = useNavigate();
-    const [meetings, setMeetings] = useState<any[]>([]);
+    const [meetings, setMeetings] = useState<AdminMeetingListItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('active'); // active, archived
     const [search, setSearch] = useState('');
@@ -41,12 +54,12 @@ const AdminMeetings: React.FC = () => {
         }
     };
 
-    const showToast = (msg) => {
+    const showToast = (msg: string) => {
         setToast(msg);
         setTimeout(() => setToast(''), 3000);
     };
 
-    const handleArchive = async (id, currentStatus) => {
+    const handleArchive = async (id: number, currentStatus: number | boolean) => {
         const action = currentStatus ? 'unarchive' : 'archive';
         if (!window.confirm(`Are you sure you want to ${action} this meeting?`)) return;
         try {
@@ -74,7 +87,7 @@ const AdminMeetings: React.FC = () => {
         }
     };
 
-    const handleWhatsAppAlert = async (id, title) => {
+    const handleWhatsAppAlert = async (id: number, title: string) => {
         if (!window.confirm(`Send WhatsApp alerts for "${title}" to all enrolled members?`)) return;
         try {
             await api.post('/admin/whatsapp/meeting-alert', { meetingId: id });
@@ -168,7 +181,7 @@ const AdminMeetings: React.FC = () => {
                                         </td>
                                         <td className="px-8 py-5 hidden md:table-cell">
                                             {meeting.stream_name ? (
-                                                <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border" style={{ backgroundColor: `${meeting.stream_color}20`, color: meeting.stream_color, borderColor: `${meeting.stream_color}40` }}>
+                                                <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border" style={{ backgroundColor: `${meeting.stream_color || '#6366f1'}20`, color: meeting.stream_color || '#6366f1', borderColor: `${meeting.stream_color || '#6366f1'}40` }}>
                                                     {meeting.stream_name}
                                                 </span>
                                             ) : (

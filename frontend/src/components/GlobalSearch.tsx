@@ -26,7 +26,7 @@ const GlobalSearch: React.FC = () => {
     
     const navigate = useNavigate();
     const dropdownRef = useRef<HTMLDivElement>(null);
-    const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
+    const debounceTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Close dropdown when clicking outside
     useEffect(() => {

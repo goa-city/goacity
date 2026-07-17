@@ -5,6 +5,15 @@ import Input from '../../../shared/components/ui/Input';
 import DashboardLayout from '../../../layouts/DashboardLayout';
 import { MagnifyingGlassIcon, UserGroupIcon } from '@heroicons/react/24/solid';
 
+interface MentorListItem {
+    id: number;
+    first_name: string;
+    last_name: string;
+    profile_photo?: string;
+    business_name?: string;
+    bio?: string;
+}
+
 const MentorsListView: React.FC = () => {
     const [search, setSearch] = useState('');
     const [area, setArea] = useState('');
@@ -54,11 +63,11 @@ const MentorsListView: React.FC = () => {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {mentors.map(mentor => (
+                    {mentors.map((mentor: MentorListItem) => (
                         <MentorCard 
                             key={mentor.id} 
                             mentor={mentor} 
-                            onRequest={(m) => console.log('Requesting mentor:', m.id)} 
+                            onRequest={(m: MentorListItem) => console.log('Requesting mentor:', m.id)} 
                         />
                     ))}
                     

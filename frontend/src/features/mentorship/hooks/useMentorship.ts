@@ -1,13 +1,21 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as api from '../api/mentorship.api';
 
-export const useMentorship = (id?: string) => {
+interface UseMentorshipOptions {
+    id?: string;
+    search?: string;
+    area?: string;
+}
+
+export const useMentorship = (options?: string | UseMentorshipOptions) => {
     const queryClient = useQueryClient();
+    const config = typeof options === 'string' ? { id: options } : (options || {});
+    const { id, search = '', area = '' } = config;
 
     // Queries
     const mentorsQuery = useQuery({
-        queryKey: ['mentors'],
-        queryFn: () => api.fetchMentors()
+        queryKey: ['mentors', search, area],
+        queryFn: () => api.fetchMentors(search, area)
     });
 
     const myMentorshipsQuery = useQuery({
@@ -147,4 +155,3 @@ export const useMentorship = (id?: string) => {
                     addMaterialMutation.isPending || submitMaterialResponseMutation.isPending
     };
 };
-

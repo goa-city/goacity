@@ -5,14 +5,16 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
     variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
     size?: 'sm' | 'md' | 'lg';
     isLoading?: boolean;
+    loading?: boolean;
 }
 
 import { useLocation } from 'react-router-dom';
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-    ({ className, variant = 'primary', size = 'md', isLoading, children, ...props }, ref) => {
+    ({ className, variant = 'primary', size = 'md', isLoading, loading, children, ...props }, ref) => {
         const location = useLocation();
         const isAdmin = location.pathname.startsWith('/admin') || location.pathname.startsWith('/superadmin');
+        const isBusy = isLoading || loading;
 
         const variants = {
             primary: isAdmin 
@@ -40,10 +42,10 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
                     sizes[size],
                     className
                 )}
-                disabled={isLoading || props.disabled}
+                disabled={isBusy || props.disabled}
                 {...props}
             >
-                {isLoading ? (
+                {isBusy ? (
                     <div className="flex items-center gap-2">
                         <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                         <span>Please wait...</span>

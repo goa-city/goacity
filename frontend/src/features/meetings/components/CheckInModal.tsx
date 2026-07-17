@@ -2,15 +2,7 @@ import React, { useState } from 'react';
 import { XMarkIcon, CheckCircleIcon, BanknotesIcon, CreditCardIcon } from '@heroicons/react/24/solid';
 import Button from '../../../shared/components/ui/Button';
 import api from '../../../api/axios';
-
-interface Meeting {
-    id: number;
-    title: string;
-    is_paid: number | boolean;
-    payment_amount: string | number;
-    payment_qr_image?: string;
-    payment_qr_image_url?: string;
-}
+import type { Meeting } from '../hooks/useSingleMeeting';
 
 interface CheckInModalProps {
     meeting: Meeting;
@@ -21,17 +13,13 @@ interface CheckInModalProps {
 const CheckInModal: React.FC<CheckInModalProps> = ({ meeting, onClose, onSuccess }) => {
     const [loading, setLoading] = useState(false);
 
-    React.useEffect(() => {
-        console.log("[CHECKIN_DEBUG] Meeting Object:", meeting);
-    }, [meeting]);
-
     const performCheckIn = async (paymentMethod?: string) => {
         setLoading(true);
         try {
             if (paymentMethod) {
                 await api.post(`/member/meeting/${meeting.id}/pay`, {
                     method: paymentMethod,
-                    amount: meeting.payment_amount
+                    amount: meeting.payment_amount ?? 0
                 });
             }
 

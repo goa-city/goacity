@@ -15,7 +15,7 @@ import Button from '../shared/components/ui/Button';
 import { formatDate } from '../utils/date';
 
 const JobView: React.FC = () => {
-    const { id } = useParams<{ id: string }>();
+    const { slug } = useParams<{ slug: string }>();
     const navigate = useNavigate();
 
     const [job, setJob] = useState<any>(null);
@@ -33,14 +33,14 @@ const JobView: React.FC = () => {
     const [cvFile, setCvFile] = useState<File | null>(null);
 
     useEffect(() => {
-        api.get(`/member/jobs/${id}`)
+        api.get(`/member/jobs/${slug}`)
             .then(res => setJob(res.data))
             .catch(err => {
                 console.error('Failed to load job:', err);
                 setError('Job not found');
             })
             .finally(() => setLoading(false));
-    }, [id]);
+    }, [slug]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -74,7 +74,7 @@ const JobView: React.FC = () => {
         data.append('cv', cvFile);
 
         try {
-            await api.post(`/member/jobs/${id}/apply`, data, {
+            await api.post(`/member/jobs/${slug}/apply`, data, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
             setSubmitted(true);

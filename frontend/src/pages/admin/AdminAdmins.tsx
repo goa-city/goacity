@@ -9,19 +9,32 @@ import {
 import { Card } from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
 
+interface AdminUser {
+    id: number;
+    full_name: string;
+    email: string;
+    created_at: string;
+}
+
+interface AdminFormData {
+    full_name: string;
+    email: string;
+    password: string;
+}
+
 const AdminAdmins: React.FC = () => {
-    const [admins, setAdmins] = useState<any[]>([]);
+    const [admins, setAdmins] = useState<AdminUser[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [showModal, setShowModal] = useState(false);
-    const [editingAdmin, setEditingAdmin] = useState<any>(null);
-    const [formData, setFormData] = useState({
+    const [editingAdmin, setEditingAdmin] = useState<AdminUser | null>(null);
+    const [formData, setFormData] = useState<AdminFormData>({
         full_name: '',
         email: '',
         password: ''
     });
     const [saving, setSaving] = useState(false);
-    const [error, setError] = useState<any>(null);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         fetchAdmins();
@@ -39,7 +52,7 @@ const AdminAdmins: React.FC = () => {
         }
     };
 
-    const handleOpenModal = (admin = null) => {
+    const handleOpenModal = (admin: AdminUser | null = null) => {
         if (admin) {
             setEditingAdmin(admin);
             setFormData({
@@ -78,15 +91,16 @@ const AdminAdmins: React.FC = () => {
             }
             setShowModal(false);
             fetchAdmins();
-        } catch (err) {
-            setError(err.response?.data?.message || err.message || "Failed to save admin");
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Failed to save admin';
+            setError(message);
         } finally {
             setSaving(false);
         }
     };
 
-    const filtered = admins.filter(a => {
-        const full = `${a.full_name || ''} ${a.email || ''}`.toLowerCase();
+    const filtered = admins.filter((admin) => {
+        const full = `${admin.full_name || ''} ${admin.email || ''}`.toLowerCase();
         return full.includes(search.toLowerCase());
     });
 

@@ -8,22 +8,44 @@ import {
 import { Card } from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
 
+interface City {
+    id: number;
+    name: string;
+    slug: string;
+    domain: string;
+    timezone: string;
+    email_from_name: string;
+    email_from_addr: string;
+    active_color?: string;
+}
+
+interface CityFormData {
+    name: string;
+    slug: string;
+    domain: string;
+    timezone: string;
+    email_from_name: string;
+    email_from_addr: string;
+    active_color: string;
+}
+
 const AdminCities: React.FC = () => {
-    const [cities, setCities] = useState<any[]>([]);
+    const [cities, setCities] = useState<City[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [showModal, setShowModal] = useState(false);
-    const [editingCity, setEditingCity] = useState<any>(null);
-    const [formData, setFormData] = useState({
+    const [editingCity, setEditingCity] = useState<City | null>(null);
+    const [formData, setFormData] = useState<CityFormData>({
         name: '',
         slug: '',
         domain: '',
         timezone: 'Asia/Kolkata',
         email_from_name: 'Goa.City',
-        email_from_addr: 'hello@goa.city'
+        email_from_addr: 'hello@goa.city',
+        active_color: '#0ea5e9'
     });
     const [saving, setSaving] = useState(false);
-    const [error, setError] = useState<any>(null);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         fetchCities();
@@ -41,7 +63,7 @@ const AdminCities: React.FC = () => {
         }
     };
 
-    const handleOpenModal = (city = null) => {
+    const handleOpenModal = (city: City | null = null) => {
         if (city) {
             setEditingCity(city);
             setFormData({
@@ -50,7 +72,8 @@ const AdminCities: React.FC = () => {
                 domain: city.domain || '',
                 timezone: city.timezone || 'Asia/Kolkata',
                 email_from_name: city.email_from_name || 'Goa.City',
-                email_from_addr: city.email_from_addr || 'hello@goa.city'
+                email_from_addr: city.email_from_addr || 'hello@goa.city',
+                active_color: city.active_color || '#0ea5e9'
             });
         } else {
             setEditingCity(null);
@@ -60,7 +83,8 @@ const AdminCities: React.FC = () => {
                 domain: '',
                 timezone: 'Asia/Kolkata',
                 email_from_name: 'Goa.City',
-                email_from_addr: 'hello@goa.city'
+                email_from_addr: 'hello@goa.city',
+                active_color: '#0ea5e9'
             });
         }
         setError(null);
@@ -83,15 +107,16 @@ const AdminCities: React.FC = () => {
             }
             setShowModal(false);
             fetchCities();
-        } catch (err) {
-            setError(err.response?.data?.message || err.message || "Failed to save city");
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Failed to save city';
+            setError(message);
         } finally {
             setSaving(false);
         }
     };
 
-    const filtered = cities.filter(c => {
-        const full = `${c.name || ''} ${c.slug || ''} ${c.domain || ''}`.toLowerCase();
+    const filtered = cities.filter((city) => {
+        const full = `${city.name || ''} ${city.slug || ''} ${city.domain || ''}`.toLowerCase();
         return full.includes(search.toLowerCase());
     });
 

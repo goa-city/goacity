@@ -29,7 +29,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ backgroundImage }) => {
         if (res.success) {
             setStep(2);
         } else {
-            setError(res.message);
+            setError(res.message ?? 'Unable to send login code.');
         }
     };
 
@@ -42,7 +42,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ backgroundImage }) => {
         if (res.success) {
             navigate('/dashboard');
         } else {
-            setError(res.message);
+            setError(res.message ?? 'Unable to verify login code.');
         }
     };
 
@@ -62,8 +62,8 @@ const LoginForm: React.FC<LoginFormProps> = ({ backgroundImage }) => {
                     </CardTitle>
                     <CardDescription className="mt-2">
                         {step === 1
-                            ? 'Enter your email to access your dashboard'
-                            : `Check your inbox, we sent a code to ${identifier}`
+                            ? 'Enter your email or whatsApp number to access your dashboard'
+                            : `Check your inbox or WhatsApp, we sent a code to ${identifier}`
                         }
                     </CardDescription>
                 </CardHeader>
@@ -79,10 +79,10 @@ const LoginForm: React.FC<LoginFormProps> = ({ backgroundImage }) => {
                         <form className="space-y-6" onSubmit={handleSendOtp}>
                             <Input
                                 id="identifier"
-                                label="Email Address"
-                                type="email"
+                                label="Email or WhatsApp Number"
+                                type="text"
                                 required
-                                placeholder="name@example.com"
+                                placeholder="name@example.com or phone number"
                                 value={identifier}
                                 onChange={(e) => setIdentifier(e.target.value)}
                             />

@@ -1,36 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
-import { useAdminAuth } from '../../context/AdminAuthContext';
 import { 
     ArrowDownTrayIcon, 
-    HandThumbDownIcon, 
     NoSymbolIcon, 
     UserGroupIcon,
     ClipboardDocumentCheckIcon,
-    UserPlusIcon,
-    MagnifyingGlassIcon,
     XMarkIcon,
-    CheckCircleIcon,
-    PencilIcon
+    EyeIcon
 } from '@heroicons/react/24/solid';
 import { Card } from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
-import { Dialog, Transition } from '@headlessui/react';
-import { Fragment } from 'react';
+import { getProfilePhotoUrl } from '../../utils/image';
 
 type TabType = 'active' | 'requests' | 'profiles';
 
 const AdminMentorship: React.FC = () => {
-    const { adminUser } = useAdminAuth();
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<TabType>('requests');
     const [relations, setRelations] = useState<any[]>([]);
     const [requests, setRequests] = useState<any[]>([]);
     const [profiles, setProfiles] = useState<any[]>([]);
-    const [mentors, setMentors] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [toast, setToast] = useState('');
+    const [selectedResponse, setSelectedResponse] = useState<any | null>(null);
 
     useEffect(() => {
         fetchData();
@@ -56,15 +49,6 @@ const AdminMentorship: React.FC = () => {
         }
     };
 
-    const fetchMentors = async () => {
-        try {
-            const res = await api.get('/admin/mentorship/mentors');
-            setMentors(res.data.data || []);
-        } catch (err) {
-            console.error("Failed to fetch mentors", err);
-        }
-    };
-
     const showToast = (msg: string) => {
         setToast(msg);
         setTimeout(() => setToast(''), 3000);
@@ -74,49 +58,14 @@ const AdminMentorship: React.FC = () => {
         navigate(`/admin/mentorship/requests/${request.id}`);
     };
 
-    const finalizeMatch = async (mentor: any) => {
-        setMatchingInProgress(true);
-        try {
-            // Get focus area from assessment answers if possible
-            const focusArea = selectedRequest.answers.find(a => a.field_key === 'growth_area')?.answer_value || 'Professional Growth';
-            
-            await api.post('/admin/mentorship/match', {
-                mentee_id: selectedRequest.user_id,
-                mentor_id: mentor.id,
-                focus_area: focusArea,
-                type: 'Long-term'
-            });
-            
-            showToast(`Covenant pair created successfully!`);
-            setMatchModalOpen(false);
-            fetchData();
-        } catch (err) {
-            console.error(err);
-            showToast('Failed to create mentorship pairing');
-        } finally {
-            setMatchingInProgress(false);
-        }
-    };
-
     const updateStatus = async (id: string, status: string) => {
         try {
-            await api.put(`/admin/mentorship/${id}/status`, { status });
+            await api.put(`/admin/mentorship/relations/${id}/status`, { status });
             showToast(`Mentorship status updated to ${status}`);
             fetchData();
         } catch (error) {
             console.error(error);
             showToast('Failed to update status');
-        }
-    };
-
-    const toggleApproval = async (userId: number, isApproved: boolean) => {
-        try {
-            await api.post(`/admin/mentorship/${userId}/approve`, { is_approved: isApproved });
-            showToast(isApproved ? 'Mentor profile approved!' : 'Mentor profile unapproved');
-            fetchData();
-        } catch (err) {
-            console.error(err);
-            showToast('Failed to update approval status');
         }
     };
 
@@ -135,11 +84,6 @@ const AdminMentorship: React.FC = () => {
             showToast('Export failed');
         }
     };
-
-    const filteredMentors = mentors.filter(m => 
-        `${m.first_name} ${m.last_name}`.toLowerCase().includes(mentorSearch.toLowerCase()) ||
-        m.mentorProfile?.expertise?.some(e => e.toLowerCase().includes(mentorSearch.toLowerCase()))
-    );
 
     return (
         <div className="max-w-7xl mx-auto py-10 px-6">
@@ -226,12 +170,12 @@ const AdminMentorship: React.FC = () => {
                                             </td>
                                             <td className="px-8 py-5">
                                                 <span className="text-[10px] font-black uppercase tracking-widest bg-zinc-100 dark:bg-zinc-800 px-3 py-1 rounded-lg text-zinc-500 border border-zinc-200 dark:border-zinc-700">
-                                                    {request.answers.find(a => a.field_key === 'mentee_category')?.answer_value || 'N/A'}
+                                                    {request.answers.find((a: { field_key: string; answer_value?: string }) => a.field_key === 'mentee_category')?.answer_value || 'N/A'}
                                                 </span>
                                             </td>
                                             <td className="px-8 py-5">
                                                 <p className="text-sm font-black text-zinc-900 dark:text-white line-clamp-1">
-                                                    {request.answers.find(a => a.field_key === 'growth_area')?.answer_value || 'General'}
+                                                    {request.answers.find((a: { field_key: string; answer_value?: string }) => a.field_key === 'growth_area')?.answer_value || 'General'}
                                                 </p>
                                             </td>
                                             <td className="px-8 py-5 text-[10px] font-black text-zinc-400 uppercase tracking-widest">
@@ -255,59 +199,72 @@ const AdminMentorship: React.FC = () => {
             )}
 
             {activeTab === 'profiles' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {loading ? (
-                        <div className="col-span-full py-20 text-center font-black uppercase tracking-widest text-zinc-400 text-sm animate-pulse">Loading profiles...</div>
-                    ) : profiles.length === 0 ? (
-                        <div className="col-span-full py-20 text-center bg-zinc-50 dark:bg-zinc-900/30 rounded-3xl border-2 border-dashed border-zinc-100 dark:border-zinc-800">
-                            <UserGroupIcon className="w-12 h-12 text-zinc-200 mx-auto mb-4" />
-                            <p className="text-zinc-400 font-black uppercase tracking-widest text-sm">No mentor profiles submitted.</p>
-                        </div>
-                    ) : (
-                        profiles.map((profile) => (
-                            <Card key={profile.id} className="p-6 border-zinc-100 dark:border-zinc-800 hover:shadow-2xl transition-all">
-                                <div className="flex items-center justify-between mb-6">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-14 h-14 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center font-black text-zinc-400 text-xl">
-                                            {profile.member?.first_name?.[0]}
-                                        </div>
-                                        <div>
-                                            <h3 className="font-black text-zinc-900 dark:text-white uppercase tracking-tight text-sm">{profile.member?.first_name} {profile.member?.last_name}</h3>
-                                            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Mentor Candidate</p>
-                                        </div>
-                                    </div>
-                                    {profile.is_approved ? (
-                                        <CheckCircleIcon className="w-8 h-8 text-emerald-500" />
-                                    ) : (
-                                        <NoSymbolIcon className="w-8 h-8 text-zinc-200" />
-                                    )}
-                                </div>
-
-                                <div className="space-y-4 mb-8">
-                                    <div>
-                                        <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1">Expertise</p>
-                                        <div className="flex flex-wrap gap-1">
-                                            {profile.expertise?.map((e: string) => (
-                                                <span key={e} className="text-[10px] font-bold bg-zinc-50 dark:bg-zinc-900 px-2 py-1 rounded text-zinc-500 border border-zinc-100 dark:border-zinc-800">{e}</span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1">Bio</p>
-                                        <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400 line-clamp-3">{profile.bio}</p>
-                                    </div>
-                                </div>
-
-                                <Button 
-                                    onClick={() => toggleApproval(profile.member_id, !profile.is_approved)}
-                                    className={`w-full ${profile.is_approved ? 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100'}`}
-                                >
-                                    {profile.is_approved ? 'Revoke Approval' : 'Approve Mentor'}
-                                </Button>
-                            </Card>
-                        ))
-                    )}
-                </div>
+                <Card className="border-zinc-100 dark:border-zinc-800 shadow-xl shadow-zinc-200/50 dark:shadow-none overflow-hidden">
+                    <div className="overflow-x-auto">
+                        {loading ? (
+                            <div className="p-12 text-center font-black uppercase tracking-widest text-zinc-400 text-sm animate-pulse">Loading profiles...</div>
+                        ) : profiles.length === 0 ? (
+                            <div className="py-20 text-center">
+                                <UserGroupIcon className="w-12 h-12 text-zinc-200 mx-auto mb-4" />
+                                <p className="text-zinc-400 font-black uppercase tracking-widest text-sm">No mentor profiles submitted.</p>
+                            </div>
+                        ) : (
+                            <table className="w-full text-left">
+                                <thead>
+                                    <tr className="border-b border-zinc-50 dark:border-zinc-800">
+                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400">Member</th>
+                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400 text-center">Form Submitted</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/50">
+                                    {profiles.map((profile) => (
+                                        <tr key={profile.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30 transition-colors">
+                                            <td className="px-8 py-5">
+                                                <div 
+                                                    className={`flex items-center gap-4 ${profile.reflectionResponse ? 'cursor-pointer group' : ''}`}
+                                                    onClick={() => {
+                                                        if (profile.reflectionResponse) {
+                                                            setSelectedResponse(profile.reflectionResponse);
+                                                        }
+                                                    }}
+                                                >
+                                                    <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-950/30 flex items-center justify-center text-indigo-600 font-black text-sm overflow-hidden shrink-0">
+                                                        {profile.member?.profile_photo ? (
+                                                            <img src={getProfilePhotoUrl(profile.member.profile_photo)} alt={profile.member.first_name} className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            profile.member?.first_name?.[0]
+                                                        )}
+                                                    </div>
+                                                    <div>
+                                                        <h4 className={`font-black text-zinc-900 dark:text-white uppercase tracking-tight text-sm ${profile.reflectionResponse ? 'group-hover:text-indigo-600 transition-colors underline decoration-dotted' : ''}`}>
+                                                            {profile.member?.first_name} {profile.member?.last_name}
+                                                        </h4>
+                                                        <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{profile.member?.email}</p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-8 py-5 text-center">
+                                                <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${
+                                                    profile.reflectionResponse 
+                                                        ? 'bg-emerald-50 text-emerald-600 border-emerald-100 cursor-pointer' 
+                                                        : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 border-zinc-200 dark:border-zinc-700'
+                                                }`}
+                                                onClick={() => {
+                                                    if (profile.reflectionResponse) {
+                                                        setSelectedResponse(profile.reflectionResponse);
+                                                    }
+                                                }}
+                                                >
+                                                    {profile.reflectionResponse ? 'SUBMITTED' : 'NOT SUBMITTED'}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                </Card>
             )}
 
             {activeTab === 'active' && (
@@ -334,7 +291,7 @@ const AdminMentorship: React.FC = () => {
                                     {relations.map((relation) => (
                                         <tr 
                                             key={relation.id} 
-                                            onClick={() => relation.request_id && navigate(`/admin/mentorship/requests/${relation.request_id}`)}
+                                            onClick={() => navigate(`/admin/mentorship/relations/${relation.id}`)}
                                             className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30 transition-colors cursor-pointer"
                                         >
                                             <td className="px-8 py-5">
@@ -357,6 +314,7 @@ const AdminMentorship: React.FC = () => {
                                             <td className="px-8 py-5 text-center">
                                                 <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border ${
                                                     relation.status === 'Active' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                                                    relation.status === 'Completed' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700' :
                                                     relation.status === 'Requested' ? 'bg-amber-50 text-amber-600 border-amber-100' :
                                                     'bg-zinc-50 text-zinc-400'
                                                 }`}>
@@ -365,28 +323,28 @@ const AdminMentorship: React.FC = () => {
                                             </td>
                                             <td className="px-8 py-5 text-right">
                                                 <div className="flex justify-end gap-2">
-                                                    {relation.request_id && (
-                                                        <button 
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                navigate(`/admin/mentorship/requests/${relation.request_id}`);
-                                                            }} 
-                                                            title="Edit Assignment" 
-                                                            className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-zinc-850 rounded-xl"
-                                                        >
-                                                            <PencilIcon className="w-5 h-5" />
-                                                        </button>
-                                                    )}
                                                     <button 
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            updateStatus(relation.id, 'Declined');
+                                                            navigate(`/admin/mentorship/relations/${relation.id}`);
                                                         }} 
-                                                        title="Archive" 
-                                                        className="p-2 text-red-400 hover:bg-red-50 rounded-xl"
+                                                        title="View Workspace" 
+                                                        className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-zinc-800 rounded-lg"
                                                     >
-                                                        <NoSymbolIcon className="w-5 h-5" />
+                                                        <EyeIcon className="w-5 h-5" />
                                                     </button>
+                                                    {relation.status !== 'Completed' && (
+                                                        <button 
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                updateStatus(relation.id, 'Declined');
+                                                            }} 
+                                                            title="Archive" 
+                                                            className="p-2 text-red-400 hover:bg-red-50 dark:hover:bg-zinc-800 rounded-lg"
+                                                        >
+                                                            <NoSymbolIcon className="w-5 h-5" />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>
@@ -396,6 +354,51 @@ const AdminMentorship: React.FC = () => {
                         )}
                     </div>
                 </Card>
+            )}
+            {/* Reflection Form Submission Answers Modal */}
+            {selectedResponse && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-zinc-950/80 backdrop-blur-md">
+                    <div className="bg-white dark:bg-zinc-900 w-full max-w-2xl rounded-3xl p-8 shadow-xl border border-gray-100 dark:border-zinc-800 animate-fadeIn flex flex-col max-h-[85vh]">
+                        <div className="flex justify-between items-center mb-6 border-b border-zinc-100 dark:border-zinc-850 pb-4 shrink-0">
+                            <div>
+                                <h2 className="text-xl font-bold text-zinc-900 dark:text-white uppercase tracking-tight">
+                                    {selectedResponse.form_title || 'Mentor Reflection Form'}
+                                </h2>
+                                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-1">
+                                    Submitted {new Date(selectedResponse.submitted_at).toLocaleDateString()}
+                                </p>
+                            </div>
+                            <button 
+                                onClick={() => setSelectedResponse(null)} 
+                                className="text-zinc-400 hover:text-zinc-650 dark:hover:text-white p-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                            >
+                                <XMarkIcon className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto space-y-6 pr-2">
+                            {selectedResponse.answers?.map((ans: any, idx: number) => (
+                                <div key={idx} className="border-b border-zinc-50 dark:border-zinc-850 pb-4 last:border-0 last:pb-0">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-indigo-650 mb-1 leading-normal">
+                                        {ans.field_label || ans.field_key}
+                                    </p>
+                                    <p className="text-sm font-bold text-zinc-800 dark:text-zinc-300 whitespace-pre-line leading-relaxed">
+                                        {ans.answer_value || <span className="text-zinc-300 italic font-normal">No answer submitted</span>}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="flex justify-end pt-6 border-t border-zinc-100 dark:border-zinc-850 mt-6 shrink-0">
+                            <Button 
+                                onClick={() => setSelectedResponse(null)}
+                                className="px-6 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 !py-2.5"
+                            >
+                                Close
+                            </Button>
+                        </div>
+                    </div>
+                </div>
             )}
 
         </div>

@@ -10,8 +10,25 @@ import { Card } from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
 import { Dialog } from '@headlessui/react';
 
+interface AdminForm {
+    id: number;
+    title: string;
+    code: string;
+    description?: string | null;
+    source_id?: number | null;
+    is_active?: boolean | number;
+    visibility?: string | null;
+}
+
+interface AdminFormCreateData {
+    title: string;
+    code: string;
+    description: string;
+    source_id: number | null;
+}
+
 const AdminForms: React.FC = () => {
-    const [forms, setForms] = useState<any[]>([]);
+    const [forms, setForms] = useState<AdminForm[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [toast, setToast] = useState('');
@@ -19,8 +36,8 @@ const AdminForms: React.FC = () => {
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [modalMode, setModalMode] = useState('create'); // 'create' or 'copy'
-    const [formData, setFormData] = useState({ title: '', code: '', description: '', source_id: null });
+    const [modalMode, setModalMode] = useState<'create' | 'copy'>('create');
+    const [formData, setFormData] = useState<AdminFormCreateData>({ title: '', code: '', description: '', source_id: null });
     const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
@@ -38,7 +55,7 @@ const AdminForms: React.FC = () => {
         }
     };
 
-    const showToast = (msg) => {
+    const showToast = (msg: string) => {
         setToast(msg);
         setTimeout(() => setToast(''), 3000);
     };
@@ -49,18 +66,18 @@ const AdminForms: React.FC = () => {
         setIsModalOpen(true);
     };
 
-    const openCopyModal = (form) => {
+    const openCopyModal = (form: AdminForm) => {
         setModalMode('copy');
         setFormData({ 
             title: `${form.title} (Copy)`, 
             code: `${form.code}_copy`, 
-            description: form.description, 
+            description: form.description || '', 
             source_id: form.id 
         });
         setIsModalOpen(true);
     };
 
-    const handleArchive = async (form) => {
+    const handleArchive = async (form: AdminForm) => {
         const action = form.is_active ? 'archive' : 'activate';
         if (!window.confirm(`Are you sure you want to ${action} this form?`)) return;
         try {
@@ -103,9 +120,9 @@ const AdminForms: React.FC = () => {
         }
     };
 
-    const filtered = forms.filter(f => 
-        f.title?.toLowerCase().includes(search.toLowerCase()) ||
-        f.code?.toLowerCase().includes(search.toLowerCase())
+    const filtered = forms.filter((form) =>
+        form.title?.toLowerCase().includes(search.toLowerCase()) ||
+        form.code?.toLowerCase().includes(search.toLowerCase())
     );
 
     return (

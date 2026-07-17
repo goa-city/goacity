@@ -139,6 +139,31 @@ const PublicProfile: React.FC = () => {
         </DashboardLayout>
     );
 
+    const hasData = (value: any): boolean => {
+        if (value === null || value === undefined) return false;
+        if (typeof value === 'string') {
+            const trimmed = value.trim();
+            if (trimmed === '' || trimmed === '-') return false;
+            if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+                try {
+                    const parsed = JSON.parse(trimmed);
+                    if (Array.isArray(parsed)) {
+                        return parsed.some(item => hasData(item));
+                    }
+                } catch (e) { }
+            }
+            return true;
+        }
+        if (Array.isArray(value)) {
+            return value.some(item => hasData(item));
+        }
+        return true;
+    };
+
+    const validAttributes = (member?.profile_attributes || [])
+        .filter(attr => !['profile photo', 'profile_photo'].includes(attr.label.toLowerCase()))
+        .filter(attr => hasData(attr.value));
+
     return (
         <DashboardLayout>
             <div className="max-w-4xl mx-auto px-4 sm:px-6">
@@ -191,24 +216,24 @@ const PublicProfile: React.FC = () => {
 
                 <Card className="rounded-2xl border-none shadow-2xl shadow-zinc-200/40 dark:shadow-none bg-white dark:bg-zinc-900 overflow-hidden mb-20">
                     <CardContent className="p-10 md:p-14">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8">
-                            {member.profile_attributes && member.profile_attributes.length > 0 ? (
-                                member.profile_attributes
-                                    .filter(attr => !['profile photo', 'profile_photo'].includes(attr.label.toLowerCase()))
-                                    .map((attr, i) => (
-                                        <div key={i} className="group border-b border-zinc-50 dark:border-zinc-800/50 pb-6 last:border-0 md:[&:nth-last-child(2)]:border-0 md:last:border-0">
-                                            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-3 block group-hover:text-indigo-500 transition-colors">
-                                                {attr.label}
-                                            </label>
-                                            <div className="text-base font-bold text-zinc-800 dark:text-zinc-200">
-                                                {renderAttributeValue(attr.value)}
-                                            </div>
+                        {validAttributes.length > 0 ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8">
+                                {validAttributes.map((attr, i) => (
+                                    <div key={i} className="group border-b border-zinc-50 dark:border-zinc-800/50 pb-3 last:border-0 md:[&:nth-last-child(2)]:border-0 md:last:border-0">
+                                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1 block group-hover:text-indigo-500 transition-colors">
+                                            {attr.label}
+                                        </label>
+                                        <div className="text-base font-bold text-zinc-800 dark:text-zinc-200">
+                                            {renderAttributeValue(attr.value)}
                                         </div>
-                                    ))
-                            ) : (
-                                <p className="col-span-2 text-zinc-400 font-medium italic">No profile attributes defined for this member.</p>
-                            )}
-                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-6">
+                                <p className="text-zinc-400 font-black uppercase text-[10px] tracking-[0.2em] italic">No updates are shared</p>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 
@@ -233,8 +258,8 @@ const PublicProfile: React.FC = () => {
                                 <Card key={srv.id} className="group rounded-[2rem] border-none shadow-xl shadow-zinc-100 dark:shadow-none p-10 hover:shadow-2xl transition-all bg-white dark:bg-zinc-900/50">
                                     <div className="mb-6">
                                         <span className={`text-[9px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full border ${srv.type === 'Paid'
-                                                ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                                                : 'border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                                            ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                            : 'border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400'
                                             }`}>
                                             {srv.type}
                                         </span>

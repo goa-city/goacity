@@ -10,7 +10,7 @@ import { Card, CardContent } from '../../../shared/components/ui/Card';
 import Button from '../../../shared/components/ui/Button';
 import CheckInModal from './CheckInModal';
 
-const getLocalYYYYMMDD = (dateInput: any) => {
+const getLocalYYYYMMDD = (dateInput: string | Date) => {
     const d = new Date(dateInput);
     const offset = d.getTimezoneOffset() * 60000;
     return (new Date(d.getTime() - offset)).toISOString().slice(0, 10);
@@ -27,7 +27,7 @@ const SingleMeetingView: React.FC = () => {
     const handleDevTest = async () => {
         if (!meeting) return;
         // In a real refactor, we might want to move this to a mutation
-        alert("ACCESS GRANTED — Resources now visible\nADMIN CHECK — Verify submission appears in /admin/meetings/" + id);
+        alert("ACCESS GRANTED — Resources now visible\nADMIN CHECK — Verify submission appears in /admin/meetings/" + meeting.id);
         try {
             if (meeting.feedback_form_id) {
                 await api.post('/member/submit-form', {
@@ -35,7 +35,7 @@ const SingleMeetingView: React.FC = () => {
                     meeting_id: meeting.id,
                     test_field: "Test Meeting Response"
                 });
-                alert("FORM SUBMITTED — Response linked to Meeting ID: " + id);
+                alert("FORM SUBMITTED — Response linked to Meeting ID: " + meeting.id);
                 refetch();
             }
         } catch (err) {
@@ -127,9 +127,9 @@ const SingleMeetingView: React.FC = () => {
                                 <div className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 px-6 py-2 rounded-2xl font-black uppercase text-[10px] tracking-widest border border-emerald-100 dark:border-emerald-800">
                                     ✓ Checked In
                                 </div>
-                                {meeting.is_paid == 1 && (meeting as any).my_payment_status && (
+                                {meeting.is_paid == 1 && meeting.my_payment_status && (
                                     <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mr-2 italic">
-                                        Paid {(meeting as any).my_payment_status === 'paid_cash' ? 'via Cash' : 'Online'}
+                                        Paid {meeting.my_payment_status === 'paid_cash' ? 'via Cash' : 'Online'}
                                     </span>
                                 )}
                             </div>
@@ -218,11 +218,8 @@ const SingleMeetingView: React.FC = () => {
             </div>
             
             {showCheckIn && (
-                <CheckInModal
-                    meeting={{
-                        ...meeting,
-                        payment_qr_image_url: (meeting as any).payment_qr_image_url
-                    }}
+                    <CheckInModal
+                    meeting={meeting}
                     onClose={() => setShowCheckIn(false)}
                     onSuccess={() => refetch()}
                 />

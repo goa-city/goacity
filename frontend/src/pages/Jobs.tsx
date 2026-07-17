@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPinIcon, MagnifyingGlassIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { MapPinIcon, MagnifyingGlassIcon, PlusIcon, BriefcaseIcon } from '@heroicons/react/24/outline';
 import DashboardLayout from '../layouts/DashboardLayout';
 import api from '../api/axios';
 
@@ -10,6 +10,10 @@ interface Job {
     company: string;
     location: string;
     type: string;
+    work_arrangement?: string;
+    salary_min?: number | null;
+    salary_max?: number | null;
+    salary_currency?: string | null;
 }
 
 // Generate initials from company name
@@ -56,6 +60,8 @@ const Jobs: React.FC = () => {
     const [keywords, setKeywords] = useState('');
     const [locationSearch, setLocationSearch] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('');
+    const [arrangementFilter, setArrangementFilter] = useState('');
+    const [minSalaryFilter, setMinSalaryFilter] = useState('');
     const [typeFilters, setTypeFilters] = useState<Record<string, boolean>>({
         freelance: true, fulltime: true, internship: true, parttime: true,
     });
@@ -75,6 +81,8 @@ const Jobs: React.FC = () => {
         if (keywords && !job.title?.toLowerCase().includes(keywords.toLowerCase()) && !job.company?.toLowerCase().includes(keywords.toLowerCase())) return false;
         if (locationSearch && !job.location?.toLowerCase().includes(locationSearch.toLowerCase())) return false;
         if (categoryFilter && job.type !== categoryFilter) return false;
+        if (arrangementFilter && job.work_arrangement !== arrangementFilter) return false;
+        if (minSalaryFilter && (job.salary_min === null || job.salary_min === undefined || job.salary_min < Number(minSalaryFilter))) return false;
         return true;
     });
 
@@ -84,10 +92,7 @@ const Jobs: React.FC = () => {
                 {/* Header */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-12">
                     <div>
-                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-[9px] font-black uppercase tracking-widest mb-4">
-                            Opportunities
-                        </div>
-                        <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight uppercase italic">Career Board</h1>
+                        <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight">Jobs</h1>
                         <p className="text-zinc-500 dark:text-zinc-400 mt-2 font-medium">Discover opportunities within our community.</p>
                     </div>
                     <button
@@ -102,7 +107,7 @@ const Jobs: React.FC = () => {
                 {/* Search & Filters */}
                 <div className="bg-white dark:bg-zinc-900/30 shadow-2xl shadow-zinc-200/50 dark:shadow-none rounded-[2.5rem] p-8 mb-12">
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-end">
-                        <div className="lg:col-span-4">
+                        <div className="lg:col-span-3">
                             <label className="block text-[10px] uppercase font-black tracking-widest text-zinc-400 mb-3 ml-2">Keywords</label>
                             <div className="relative">
                                 <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
@@ -115,7 +120,7 @@ const Jobs: React.FC = () => {
                                 />
                             </div>
                         </div>
-                        <div className="lg:col-span-4">
+                        <div className="lg:col-span-3">
                             <label className="block text-[10px] uppercase font-black tracking-widest text-zinc-400 mb-3 ml-2">Location</label>
                             <div className="relative">
                                 <MapPinIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
@@ -128,29 +133,60 @@ const Jobs: React.FC = () => {
                                 />
                             </div>
                         </div>
-                        <div className="lg:col-span-4">
-                             <div className="flex flex-wrap gap-4 px-2">
-                                {[
-                                    { key: 'freelance',  label: 'FREELANCE' },
-                                    { key: 'fulltime',   label: 'FULL TIME' },
-                                    { key: 'internship', label: 'INTERNSHIP' },
-                                    { key: 'parttime',   label: 'PART TIME' },
-                                ].map(({ key, label }) => (
-                                    <label key={key} className="flex items-center gap-2 cursor-pointer select-none group">
-                                        <div className="relative flex items-center justify-center">
-                                            <input
-                                                type="checkbox"
-                                                checked={typeFilters[key]}
-                                                onChange={() => toggleType(key)}
-                                                className="peer appearance-none w-5 h-5 rounded-lg border-2 border-zinc-200 dark:border-zinc-700 checked:bg-indigo-500 checked:border-indigo-500 transition-all"
-                                            />
-                                            <svg className="absolute w-3 h-3 text-white opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7"></path></svg>
-                                        </div>
-                                        <span className={`text-[10px] font-black tracking-widest transition-colors ${typeFilters[key] ? 'text-zinc-900 dark:text-white' : 'text-zinc-400'}`}>{label}</span>
-                                    </label>
-                                ))}
-                            </div>
+                        <div className="lg:col-span-3">
+                            <label className="block text-[10px] uppercase font-black tracking-widest text-zinc-400 mb-3 ml-2">Work Arrangement</label>
+                            <select
+                                value={arrangementFilter}
+                                onChange={e => setArrangementFilter(e.target.value)}
+                                className="w-full bg-zinc-50 dark:bg-zinc-800/50 border-0 rounded-2xl py-4 px-4 text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all outline-none appearance-none"
+                            >
+                                <option value="">All Arrangements</option>
+                                <option value="Onsite">Onsite</option>
+                                <option value="Remote">Remote</option>
+                                <option value="Hybrid">Hybrid</option>
+                            </select>
                         </div>
+                        <div className="lg:col-span-3">
+                            <label className="block text-[10px] uppercase font-black tracking-widest text-zinc-400 mb-3 ml-2">Min Salary</label>
+                            <input
+                                type="number"
+                                value={minSalaryFilter}
+                                onChange={e => setMinSalaryFilter(e.target.value)}
+                                placeholder="Minimum salary"
+                                className="w-full bg-zinc-50 dark:bg-zinc-800/50 border-0 rounded-2xl py-4 px-4 text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
+                            />
+                        </div>
+                    </div>
+                    
+                    <div className="mt-6 pt-6 border-t border-zinc-100 dark:border-zinc-800/50 flex flex-wrap gap-6 items-center justify-between">
+                        <div className="flex flex-wrap gap-6">
+                            {[
+                                { key: 'freelance',  label: 'FREELANCE' },
+                                { key: 'fulltime',   label: 'FULL TIME' },
+                                { key: 'internship', label: 'INTERNSHIP' },
+                                { key: 'parttime',   label: 'PART TIME' },
+                            ].map(({ key, label }) => (
+                                <label key={key} className="flex items-center gap-2 cursor-pointer select-none group">
+                                    <div className="relative flex items-center justify-center">
+                                        <input
+                                            type="checkbox"
+                                            checked={typeFilters[key]}
+                                            onChange={() => toggleType(key)}
+                                            className="peer appearance-none w-5 h-5 rounded-lg border-2 border-zinc-200 dark:border-zinc-700 checked:bg-indigo-500 checked:border-indigo-500 transition-all"
+                                        />
+                                        <svg className="absolute w-3 h-3 text-white opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7"></path></svg>
+                                    </div>
+                                    <span className={`text-[10px] font-black tracking-widest transition-colors ${typeFilters[key] ? 'text-zinc-900 dark:text-white' : 'text-zinc-400'}`}>{label}</span>
+                                </label>
+                            ))}
+                        </div>
+                        <button
+                            onClick={() => navigate('/jobs/my-postings')}
+                            className="text-xs font-bold text-sky-600 hover:text-sky-700 flex items-center gap-1.5"
+                        >
+                            <BriefcaseIcon className="w-4 h-4 text-sky-500" />
+                            Manage My Postings
+                        </button>
                     </div>
                 </div>
 
@@ -182,9 +218,16 @@ const Jobs: React.FC = () => {
                                     <div className="flex-1 min-w-0 text-center md:text-left">
                                         <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 mb-2">
                                             <h3 className="text-lg font-black text-zinc-900 dark:text-white tracking-tight uppercase">{job.title}</h3>
-                                            <span className={`inline-block text-[9px] font-black px-3 py-1 rounded-full border self-center md:self-auto ${typeColorMap[job.type] || 'bg-zinc-100 text-zinc-500 border-zinc-200'}`}>
-                                                {job.type?.toUpperCase()}
-                                            </span>
+                                            <div className="flex flex-wrap gap-2 self-center md:self-auto">
+                                                <span className={`inline-block text-[9px] font-black px-3 py-1 rounded-full border ${typeColorMap[job.type] || 'bg-zinc-100 text-zinc-500 border-zinc-200'}`}>
+                                                    {job.type?.toUpperCase()}
+                                                </span>
+                                                {job.work_arrangement && (
+                                                    <span className="inline-block text-[9px] font-black px-3 py-1 rounded-full border bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700">
+                                                        {job.work_arrangement.toUpperCase()}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                         <div className="flex flex-wrap justify-center md:justify-start items-center gap-4 text-zinc-500 dark:text-zinc-400 font-medium text-sm">
                                             <span className="flex items-center gap-1.5">
@@ -195,6 +238,13 @@ const Jobs: React.FC = () => {
                                                 <MapPinIcon className="w-4 h-4" />
                                                 {job.location}
                                             </span>
+                                            {job.salary_min && (
+                                                <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold">
+                                                    <span>·</span>
+                                                    {job.salary_currency || 'INR'} {job.salary_min.toLocaleString()}
+                                                    {job.salary_max ? ` - ${job.salary_max.toLocaleString()}` : ''}
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
 

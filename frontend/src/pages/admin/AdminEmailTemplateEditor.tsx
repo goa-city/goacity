@@ -61,7 +61,7 @@ const AdminEmailTemplateEditor: React.FC = () => {
         setTimeout(() => setToast(''), 3000);
     };
 
-    const handleSave = async (e) => {
+    const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setSaving(true);
         try {
@@ -79,7 +79,7 @@ const AdminEmailTemplateEditor: React.FC = () => {
         }
     };
 
-    const handleCopyPlaceholder = (val) => {
+    const handleCopyPlaceholder = (val: string) => {
         navigator.clipboard.writeText(val);
         showToast(`Copied ${val} to clipboard!`);
     };

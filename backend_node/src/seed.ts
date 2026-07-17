@@ -18,11 +18,11 @@ async function main() {
   // Create Admin
   const passwordHash = await bcrypt.hash('admin123', 10);
   await prisma.admin.upsert({
-    where: { email: 'admin@goa.city' },
+    where: { email: 'superadmin@goa.city' },
     update: {},
     create: {
       full_name: 'Admin',
-      email: 'admin@goa.city',
+      email: 'superadmin@goa.city',
       password_hash: passwordHash,
       role: 'admin',
       is_super_admin: true,
@@ -30,7 +30,18 @@ async function main() {
     }
   });
 
-  console.log('Seeded City 1 and Admin: admin@goa.city / admin123');
+  console.log('Seeded City 1 and Admin: superadmin@goa.city / admin123');
+
+  // Seed default Resource Categories
+  const defaultCategories = ['Community', 'Awards', 'Event', 'Design', 'Interviews'];
+  for (const cat of defaultCategories) {
+    await prisma.resourceCategory.upsert({
+      where: { name: cat },
+      update: {},
+      create: { name: cat }
+    });
+  }
+  console.log('Seeded default resource categories:', defaultCategories);
 }
 
 main().catch(console.error).finally(() => prisma.$disconnect());

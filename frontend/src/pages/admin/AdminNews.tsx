@@ -6,8 +6,19 @@ import {
 } from '@heroicons/react/24/solid';
 import { Card } from '../../shared/components/ui/Card';
 
+interface NewsPost {
+    id: number;
+    content?: string | null;
+    full_name?: string | null;
+    link_title?: string | null;
+    media_url?: string | null;
+    media_type?: string | null;
+    member_email?: string | null;
+    created_at: string;
+}
+
 const AdminNews: React.FC = () => {
-    const [posts, setPosts] = useState<any[]>([]);
+    const [posts, setPosts] = useState<NewsPost[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [toast, setToast] = useState('');
@@ -24,7 +35,7 @@ const AdminNews: React.FC = () => {
         } finally { setLoading(false); }
     };
 
-    const showToast = (msg) => {
+    const showToast = (msg: string) => {
         setToast(msg);
         setTimeout(() => setToast(''), 3000);
     };

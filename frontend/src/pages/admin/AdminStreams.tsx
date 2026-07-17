@@ -8,17 +8,40 @@ import { Dialog } from '@headlessui/react';
 import { Card } from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
 
+interface StreamFormOption {
+    id: number;
+    title: string;
+    code: string;
+}
+
+interface AdminStream {
+    id: number;
+    name: string;
+    description?: string | null;
+    color: string;
+    form_id?: number | null;
+    form_title?: string | null;
+    member_count: number;
+}
+
+interface StreamFormData {
+    name: string;
+    description: string;
+    color: string;
+    form_id: string;
+}
+
 const AdminStreams: React.FC = () => {
-    const [streams, setStreams] = useState<any[]>([]);
-    const [forms, setForms] = useState<any[]>([]);
+    const [streams, setStreams] = useState<AdminStream[]>([]);
+    const [forms, setForms] = useState<StreamFormOption[]>([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [editingStream, setEditingStream] = useState<any>(null);
+    const [editingStream, setEditingStream] = useState<AdminStream | null>(null);
     const [search, setSearch] = useState('');
     const [toast, setToast] = useState('');
 
     // Form State
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<StreamFormData>({
         name: '',
         description: '',
         color: '#0ea5e9',
@@ -43,19 +66,19 @@ const AdminStreams: React.FC = () => {
         }
     };
 
-    const showToast = (msg) => {
+    const showToast = (msg: string) => {
         setToast(msg);
         setTimeout(() => setToast(''), 3000);
     };
 
-    const handleOpenModal = (stream = null) => {
+    const handleOpenModal = (stream: AdminStream | null = null) => {
         setEditingStream(stream);
         if (stream) {
             setFormData({
                 name: stream.name,
                 description: stream.description || '',
                 color: stream.color,
-                form_id: stream.form_id || ''
+                form_id: stream.form_id ? String(stream.form_id) : ''
             });
         } else {
             setFormData({
@@ -68,7 +91,7 @@ const AdminStreams: React.FC = () => {
         setIsModalOpen(true);
     };
 
-    const handleSave = async (e) => {
+    const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         try {
             if (editingStream) {
@@ -261,7 +284,7 @@ const AdminStreams: React.FC = () => {
                             <div>
                                 <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Description</label>
                                 <textarea 
-                                    className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-4 font-medium min-h-[80px]" rows="3" placeholder="Briefly describe what this stream is about..."
+                                    className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-4 font-medium min-h-[80px]" rows={3} placeholder="Briefly describe what this stream is about..."
                                     value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})}
                                 ></textarea>
                             </div>

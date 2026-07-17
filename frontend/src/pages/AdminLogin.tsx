@@ -17,7 +17,7 @@ const AdminLogin: React.FC = () => {
         if (result.success) {
             navigate('/admin');
         } else {
-            setError(result.message);
+            setError(result.message ?? 'Authentication failed.');
         }
     };
 
