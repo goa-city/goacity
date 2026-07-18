@@ -10,6 +10,7 @@ export interface FormField {
     required: boolean;
     is_optional?: boolean;
     is_profile: boolean;
+    show_other?: boolean;
     options?: any;
     conditional_logic?: any;
     conditions?: any;

@@ -10,13 +10,13 @@ import {
     SparklesIcon,
     UsersIcon,
     LightBulbIcon,
-    HeartIcon,
     CalendarDaysIcon,
     XMarkIcon,
     ArrowLeftOnRectangleIcon,
     MoonIcon,
     SunIcon
 } from '@heroicons/react/24/outline';
+import { MentorshipIcon } from './icons/MentorshipIcon';
 import { useTheme } from '../context/ThemeContext';
 
 interface SidebarLeftProps {
@@ -46,7 +46,7 @@ const SidebarLeft: React.FC<SidebarLeftProps> = ({ mobileOpen, setMobileOpen }) 
         { name: 'City', href: '/dashboard', icon: HomeIcon },
         { name: 'News', href: '/news', icon: NewspaperIcon },
         { name: 'My People', href: '/my-people', icon: UsersIcon },
-        { name: 'Mentorship', href: '/mentorship', icon: HeartIcon },
+        { name: 'Mentorship', href: '/mentorship', icon: MentorshipIcon },
         { name: 'Meetings', href: '/meetings', icon: CalendarDaysIcon },
         { name: 'Stewardship', href: '/stewardship', icon: SparklesIcon },
         { name: 'Resources', href: '/resources', icon: BookOpenIcon },

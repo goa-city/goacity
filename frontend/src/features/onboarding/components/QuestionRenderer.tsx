@@ -73,20 +73,28 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({ question, value, on
             const rawOptions = question.type === 'choice_bool' 
                 ? (Array.isArray(question.options) && question.options.length > 0 ? question.options : ['Yes', 'No'])
                 : (question.options || []);
-            const options = Array.isArray(rawOptions) ? rawOptions.filter(Boolean) : [];
+            let options = Array.isArray(rawOptions) ? rawOptions.filter(Boolean) : [];
+            if (question.type === 'choice' && question.show_other) {
+                options = [...options, 'Other'];
+            }
+            const isOtherActive = question.type === 'choice' && question.show_other && value !== undefined && value !== null && value !== '' && !rawOptions.filter(Boolean).includes(value);
             return (
                 <div className="flex flex-col gap-3 max-w-xl">
                     {options.map((opt, i) => {
                         const isSelected = question.type === 'choice_bool' 
                             ? (value !== '' && value !== undefined && value !== null && value === (i === 0)) 
-                            : (value === opt);
+                            : (opt === 'Other'
+                                ? (value !== undefined && value !== null && value !== '' && !rawOptions.filter(Boolean).includes(value))
+                                : (value === opt));
                         return (
                             <button
                                 key={opt}
                                 onClick={() => {
                                     const newVal = question.type === 'choice_bool' ? (i === 0) : opt;
                                     onChange(question.field, newVal);
-                                    setTimeout(() => onNext(newVal), 300);
+                                    if (opt !== 'Other') {
+                                        setTimeout(() => onNext(newVal), 300);
+                                    }
                                 }}
                                 className={`w-full text-left px-6 py-4 rounded-xl border-2 text-base font-bold transition-all flex items-center justify-between group
                                     ${isSelected 
@@ -102,6 +110,16 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({ question, value, on
                             </button>
                         );
                     })}
+                    {isOtherActive && (
+                        <input
+                            type="text"
+                            placeholder="Please specify..."
+                            value={value === 'Other' ? '' : value}
+                            onChange={(e) => onChange(question.field, e.target.value || 'Other')}
+                            className="w-full bg-transparent border-b-3 border-zinc-200 dark:border-zinc-800 focus:border-primary text-xl py-3 outline-none text-zinc-900 dark:text-white font-bold transition-colors mt-2"
+                            autoFocus
+                        />
+                    )}
                 </div>
             );
 

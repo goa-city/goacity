@@ -13,7 +13,6 @@ import {
     InboxStackIcon,
     PowerIcon,
     SparklesIcon,
-    HeartIcon,
     LightBulbIcon,
     HandRaisedIcon,
     UserGroupIcon,
@@ -30,6 +29,7 @@ import {
     LinkIcon
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../context/ThemeContext';
+import { MentorshipIcon } from '../components/icons/MentorshipIcon';
 
 const AdminLayout: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
     const { logout, adminUser, activeCity, citiesList, changeCity } = useAdminAuth();
@@ -138,7 +138,7 @@ const AdminLayout: React.FC<{ children?: React.ReactNode }> = ({ children }) => 
             icon: UsersIcon,
             subItems: [
                 { name: 'Stewardship', icon: SparklesIcon, id: 'stewardship', path: '/admin/stewardship' },
-                { name: 'Mentorship', icon: HeartIcon, id: 'mentorship', path: '/admin/mentorship' },
+                { name: 'Mentorship', icon: MentorshipIcon, id: 'mentorship', path: '/admin/mentorship' },
                 { name: 'Incubator', icon: LightBulbIcon, id: 'incubator', path: '/admin/incubator' },
                 { name: 'Collab Desk', icon: HandRaisedIcon, id: 'collabs', path: '/admin/collabs' },
                 { name: 'Job Board', icon: BriefcaseIcon, id: 'jobs', path: '/admin/jobs' },

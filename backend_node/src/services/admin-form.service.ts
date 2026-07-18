@@ -57,6 +57,7 @@ export class AdminFormService {
                         is_required: f.is_required ?? (f.required ? 1 : 0),
                         is_optional: f.is_optional ? 1 : 0,
                         is_profile: f.is_profile ? 1 : 0,
+                        show_other: f.show_other ? 1 : 0,
                         options: Array.isArray(f.options) ? f.options : (f.options || {}),
                         conditions: f.conditions || f.conditional_logic || {},
                         sort_order: f.sort_order ?? index
@@ -116,6 +117,7 @@ export class AdminFormService {
                             is_required: f.is_required,
                             is_optional: f.is_optional,
                             is_profile: f.is_profile,
+                            show_other: f.show_other,
                             sort_order: f.sort_order,
                             section: f.section,
                             conditions: f.conditions || {},

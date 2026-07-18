@@ -126,7 +126,10 @@ const FormPreview: React.FC<FormPreviewProps> = ({ fields, fieldsPerPage, onClos
                         const rawOptions = field?.field_type === 'choice_bool'
                             ? (Array.isArray(field?.options) && field.options.length > 0 ? field.options : ['Yes', 'No'])
                             : (Array.isArray(field?.options) ? field.options : []);
-                        const options = rawOptions.filter(Boolean);
+                        let options = rawOptions.filter(Boolean);
+                        if (field?.field_type === 'choice' && (field as any).show_other) {
+                            options = [...options, 'Other'];
+                        }
 
                         return (
                             <div key={field.field_key} className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: `${idx * 100}ms` }}>
@@ -172,7 +175,6 @@ const FormPreview: React.FC<FormPreviewProps> = ({ fields, fieldsPerPage, onClos
                                         />
                                     )}
 
-                                    {/* Date */}
                                     {field.field_type === 'date' && (
                                         <div className="relative">
                                             <DatePicker
@@ -190,20 +192,22 @@ const FormPreview: React.FC<FormPreviewProps> = ({ fields, fieldsPerPage, onClos
                                         </div>
                                     )}
 
-                                    {/* Choice / Choice Bool */}
+                                    {/* Choice / Single Choice */}
                                     {['choice', 'choice_bool'].includes(field.field_type) && (
                                         <div className="flex flex-col gap-3 max-w-xl">
                                             {options.map((opt: string, i: number) => {
                                                 const isSelected = field.field_type === 'choice_bool'
                                                     ? (responses[field.field_key] !== undefined && responses[field.field_key] === (i === 0))
-                                                    : responses[field.field_key] === opt;
+                                                    : (opt === 'Other'
+                                                        ? (responses[field.field_key] !== undefined && responses[field.field_key] !== '' && !rawOptions.filter(Boolean).includes(responses[field.field_key]))
+                                                        : responses[field.field_key] === opt);
                                                 return (
                                                     <button
                                                         key={opt}
                                                         onClick={() => {
                                                             const newVal = field.field_type === 'choice_bool' ? (i === 0) : opt;
                                                             handleChange(field.field_key, newVal);
-                                                            if (currentPageQuestions.length === 1) {
+                                                            if (currentPageQuestions.length === 1 && opt !== 'Other') {
                                                                 setTimeout(() => handleNext(newVal), 300);
                                                             }
                                                         }}
@@ -221,6 +225,22 @@ const FormPreview: React.FC<FormPreviewProps> = ({ fields, fieldsPerPage, onClos
                                                     </button>
                                                 );
                                             })}
+                                            {field.field_type === 'choice' && (field as any).show_other && (
+                                                (() => {
+                                                    const isOtherActive = responses[field.field_key] !== undefined && responses[field.field_key] !== '' && !rawOptions.filter(Boolean).includes(responses[field.field_key]);
+                                                    if (!isOtherActive) return null;
+                                                    return (
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Please specify..."
+                                                            value={responses[field.field_key] === 'Other' ? '' : responses[field.field_key]}
+                                                            onChange={(e) => handleChange(field.field_key, e.target.value || 'Other')}
+                                                            className="w-full bg-transparent border-b-3 border-zinc-200 dark:border-zinc-800 focus:border-indigo-600 text-xl py-3 outline-none text-zinc-900 dark:text-white font-bold transition-colors mt-2"
+                                                            autoFocus
+                                                        />
+                                                    );
+                                                })()
+                                            )}
                                         </div>
                                     )}
 

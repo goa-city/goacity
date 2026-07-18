@@ -57,6 +57,7 @@ const FormEditor: React.FC = () => {
                 required: f.is_required === 1 || f.required === true,
                 is_optional: f.is_optional === 1 || (f as any).is_optional === true,
                 is_profile: f.is_profile === 1 || f.is_profile === true,
+                show_other: f.show_other === 1 || (f as any).show_other === true,
                 options: Array.isArray(f.options) ? f.options : (
                     f.options ? (
                         typeof f.options === 'string' 
@@ -138,6 +139,7 @@ const FormEditor: React.FC = () => {
                 is_required: (f as any).required ? 1 : 0,
                 is_optional: (f as any).is_optional ? 1 : 0,
                 is_profile: (f as any).is_profile ? 1 : 0,
+                show_other: (f as any).show_other ? 1 : 0,
                 conditions: (f as any).conditional_logic || {},
             }))
         });

@@ -10,6 +10,7 @@ export interface OnboardingQuestion {
     options?: string[];
     is_required: boolean;
     is_optional?: boolean;
+    show_other?: boolean;
     conditions?: any;
 }
 

@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import { 
     ArrowDownTrayIcon, 
-    NoSymbolIcon, 
+    ArchiveBoxIcon, 
     UserGroupIcon,
     ClipboardDocumentCheckIcon,
     XMarkIcon,
-    EyeIcon
+    EyeIcon,
+    TrashIcon
 } from '@heroicons/react/24/solid';
 import { Card } from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
@@ -66,6 +67,18 @@ const AdminMentorship: React.FC = () => {
         } catch (error) {
             console.error(error);
             showToast('Failed to update status');
+        }
+    };
+
+    const handleDeleteRelation = async (id: string) => {
+        if (!window.confirm("Are you sure you want to permanently delete this mentorship relationship? All associated sessions, goals, tasks, and materials will be deleted permanently.")) return;
+        try {
+            await api.delete(`/admin/mentorship/relations/${id}`);
+            showToast('Mentorship relationship deleted successfully');
+            fetchData();
+        } catch (error) {
+            console.error(error);
+            showToast('Failed to delete mentorship relationship');
         }
     };
 
@@ -175,7 +188,7 @@ const AdminMentorship: React.FC = () => {
                                             </td>
                                             <td className="px-8 py-5">
                                                 <p className="text-sm font-black text-zinc-900 dark:text-white line-clamp-1">
-                                                    {request.answers.find((a: { field_key: string; answer_value?: string }) => a.field_key === 'growth_area')?.answer_value || 'General'}
+                                                    {request.answers.find((a: { field_key: string; answer_value?: string }) => ['growth_area', 'expertise_needed', 'q_1778518154399'].includes(a.field_key))?.answer_value || 'General'}
                                                 </p>
                                             </td>
                                             <td className="px-8 py-5 text-[10px] font-black text-zinc-400 uppercase tracking-widest">
@@ -316,6 +329,8 @@ const AdminMentorship: React.FC = () => {
                                                     relation.status === 'Active' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
                                                     relation.status === 'Completed' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700' :
                                                     relation.status === 'Requested' ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                                                    relation.status === 'Archived' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 border-zinc-200 dark:border-zinc-700' :
+                                                    relation.status === 'Declined' ? 'bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-950/30 dark:border-rose-900/50' :
                                                     'bg-zinc-50 text-zinc-400'
                                                 }`}>
                                                     {relation.status}
@@ -333,18 +348,28 @@ const AdminMentorship: React.FC = () => {
                                                     >
                                                         <EyeIcon className="w-5 h-5" />
                                                     </button>
-                                                    {relation.status !== 'Completed' && (
+                                                    {relation.status !== 'Completed' && relation.status !== 'Archived' && relation.status !== 'Declined' && (
                                                         <button 
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                updateStatus(relation.id, 'Declined');
+                                                                updateStatus(relation.id, 'Archived');
                                                             }} 
                                                             title="Archive" 
-                                                            className="p-2 text-red-400 hover:bg-red-50 dark:hover:bg-zinc-800 rounded-lg"
+                                                            className="p-2 text-amber-600 hover:bg-amber-50 dark:hover:bg-zinc-800 rounded-lg"
                                                         >
-                                                            <NoSymbolIcon className="w-5 h-5" />
+                                                            <ArchiveBoxIcon className="w-5 h-5" />
                                                         </button>
                                                     )}
+                                                    <button 
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleDeleteRelation(relation.id);
+                                                        }} 
+                                                        title="Delete Relationship" 
+                                                        className="p-2 text-rose-600 hover:bg-rose-50 dark:hover:bg-zinc-800 rounded-lg"
+                                                    >
+                                                        <TrashIcon className="w-5 h-5" />
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>

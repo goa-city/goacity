@@ -36,11 +36,10 @@ const MenteeRecommendations: React.FC = () => {
                         <div className="flex items-center gap-3 mb-4">
                             <span className="px-4 py-1 bg-indigo-500/10 text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-full border border-indigo-500/20">Phase 1: Alignment</span>
                         </div>
-                        <h1 className="text-5xl font-black text-zinc-900 dark:text-white tracking-tighter uppercase italic">Recommended Matches</h1>
-                        <p className="text-zinc-500 dark:text-zinc-400 mt-4 text-lg font-medium italic">Based on your assessment, these leaders are best positioned to guide your current growth journey.</p>
+                        <h1 className="text-5xl font-black text-zinc-900 dark:text-white tracking-tighter">Recommended Mentors</h1>
+                        <p className="text-zinc-500 dark:text-zinc-400 mt-4 text-lg font-medium">Based on your assessment, these mentors are best positioned to guide your current growth journey.</p>
                     </div>
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
                     {recommendations?.map((rec: any) => (
                         <div key={rec.mentor_id} className="relative group">
@@ -64,13 +63,11 @@ const MenteeRecommendations: React.FC = () => {
                                         </div>
                                     </div>
                                 </div>
-
                                 <div className="bg-indigo-50 dark:bg-indigo-950/20 p-5 rounded-2xl border border-indigo-100 dark:border-indigo-900/50 mb-8">
                                     <p className="text-xs font-bold text-indigo-900 dark:text-indigo-300 italic leading-relaxed">
                                         "{rec.match_why}"
                                     </p>
                                 </div>
-
                                 <div className="flex-1">
                                     <div className="flex flex-wrap gap-2 mb-8">
                                         {Array.isArray(rec.expertise) && rec.expertise.slice(0, 3).map((e: string) => (
@@ -78,8 +75,7 @@ const MenteeRecommendations: React.FC = () => {
                                         ))}
                                     </div>
                                 </div>
-
-                                <button 
+                                <button
                                     onClick={() => navigate(`/profile/${rec.mentor_id}`)}
                                     className="w-full py-4 bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 font-black uppercase tracking-[0.2em] text-[10px] rounded-xl hover:bg-indigo-600 dark:hover:bg-zinc-100 transition-all shadow-xl active:scale-95 mt-auto"
                                 >
@@ -89,11 +85,10 @@ const MenteeRecommendations: React.FC = () => {
                         </div>
                     ))}
                 </div>
-
                 <div className="mt-20 p-12 bg-zinc-50 dark:bg-zinc-900/50 rounded-[3rem] border border-zinc-200 dark:border-zinc-800 text-center">
                     <h3 className="text-2xl font-black text-zinc-900 dark:text-white uppercase italic mb-4">Not finding the right alignment?</h3>
                     <p className="text-zinc-500 dark:text-zinc-400 font-medium italic mb-8 max-w-2xl mx-auto">Our ecosystem is constantly growing. You can also explore the full directory or request a custom matching session with an admin.</p>
-                    <button 
+                    <button
                         onClick={() => navigate('/mentors')}
                         className="px-10 py-4 border-2 border-zinc-900 dark:border-white text-zinc-900 dark:text-white font-black uppercase tracking-[0.2em] text-[10px] rounded-xl hover:bg-zinc-900 hover:text-white dark:hover:bg-white dark:hover:text-zinc-900 transition-all shadow-sm"
                     >

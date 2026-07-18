@@ -240,6 +240,7 @@ model FormField {
   is_required  Int?    @default(0) @db.SmallInt
   is_optional  Int?    @default(0) @db.SmallInt
   is_profile   Int?    @default(0) @db.SmallInt
+  show_other   Int?    @default(0) @db.SmallInt
   sort_order   Int?    @default(0)
   section      String? @db.VarChar(100)
   conditions   Json?
@@ -460,7 +461,7 @@ model MentorshipRelation {
   id            String    @id @default(uuid())
   mentor_id     Int
   mentee_id     Int
-  status        String    @default("Requested") @db.VarChar(50) // Requested, Active, Completed, Declined
+  status        String    @default("Requested") @db.VarChar(50) // Requested, Active, Completed, Declined, Archived
   current_phase String    @default("Foundations") @db.VarChar(50) // Foundations, Strategy, Impact
   type          String    @db.VarChar(50)
   focus_area    String?   @db.VarChar(255)
@@ -469,6 +470,7 @@ model MentorshipRelation {
   updated_at    DateTime? @default(now()) @db.Timestamp(6)
   started_at    DateTime? @db.Timestamp(6)
   ended_at      DateTime? @db.Timestamp(6)
+  response_id   Int?      @unique
 
   mentee   Member @relation("MentorshipMentee", fields: [mentee_id], references: [id], onDelete: Cascade)
   mentor   Member @relation("MentorshipMentor", fields: [mentor_id], references: [id], onDelete: Cascade)

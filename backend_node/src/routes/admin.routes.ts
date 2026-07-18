@@ -20,7 +20,7 @@ import { getAdminPages, createPage, updatePage, getAdminPageById, deletePage } f
 import { getWhatsAppStatus, sendWhatsAppMessage, getWhatsAppLogs, broadcastWhatsApp, sendMeetingAlert, refreshWhatsApp, restartWhatsApp, getWhatsAppBroadcasts, getWhatsAppBroadcastById, hideWhatsAppBroadcast, retryWhatsAppBroadcast } from '../controllers/whatsapp.controller.js';
 import { getTemplates as getEmailTemplates, createTemplate as createEmailTemplate, updateTemplate as updateEmailTemplate, deleteTemplate as deleteEmailTemplate, getTemplateById as getEmailTemplateById } from '../controllers/email-template.controller.js';
 import { getTemplates as getWhatsAppTemplates, createTemplate as createWhatsAppTemplate, updateTemplate as updateWhatsAppTemplate, deleteTemplate as deleteWhatsAppTemplate, getTemplateById as getWhatsAppTemplateById } from '../controllers/whatsapp-template.controller.js';
-import { getAdminMentorships, toggleMentorApproval, exportMentorshipReport, getAdminMentorshipRequests, getAdminMentorshipRequestById, getAdminMentors, adminMatchMentorship, getAdminMentorProfiles, getMentorshipById, updateMentorshipStatus, notifyMentorshipRelation } from '../controllers/mentorship.controller.js';
+import { getAdminMentorships, toggleMentorApproval, exportMentorshipReport, getAdminMentorshipRequests, getAdminMentorshipRequestById, getAdminMentors, adminMatchMentorship, getAdminMentorProfiles, getMentorshipById, updateMentorshipStatus, notifyMentorshipRelation, updateMentorshipMentor, deleteMentorshipRelation, updateMentorshipDetails } from '../controllers/mentorship.controller.js';
 import { validate } from '../middleware/validate.js';
 import { 
     createEmailTemplateSchema, updateEmailTemplateSchema,
@@ -168,7 +168,10 @@ router.post('/mentorship/:userId/approve', toggleMentorApproval);
 router.get('/mentorship/export', exportMentorshipReport);
 router.get('/mentorship/relations/:id', getMentorshipById);
 router.put('/mentorship/relations/:id/status', updateMentorshipStatus);
+router.put('/mentorship/relations/:id/mentor', updateMentorshipMentor);
+router.put('/mentorship/relations/:id/details', updateMentorshipDetails);
 router.post('/mentorship/relations/:id/notify', notifyMentorshipRelation);
+router.delete('/mentorship/relations/:id', deleteMentorshipRelation);
 
 // City Management (Super Admin)
 router.get('/cities', superAdminMiddleware, getCities);

@@ -33,13 +33,18 @@ export const useOnboarding = (formId?: string) => {
         }
     }, [form]);
 
+    const formDataRef = useRef(formData);
+    useEffect(() => {
+        formDataRef.current = formData;
+    }, [formData]);
+
     const filteredQuestions = form ? getFilteredQuestions(form.questions, formData) : [];
 
     const saveProgress = useCallback(async (stepToSave: number) => {
         if (!form?.id) return;
         try {
             await submitOnboarding(
-                formData,
+                formDataRef.current,
                 true,
                 stepToSave,
                 form.id
@@ -47,11 +52,11 @@ export const useOnboarding = (formId?: string) => {
         } catch (err) {
             console.error("[ONBOARDING] Autosave failed", err);
         }
-    }, [formData, form?.id]);
+    }, [form?.id]);
 
     const submitFinal = async () => {
         if (!form?.id) return;
-        const result = await submitOnboarding(formData, false, currentStep, form.id);
+        const result = await submitOnboarding(formDataRef.current, false, currentStep, form.id);
         // Invalidate and remove cache so next load hits server fresh
         queryClient.removeQueries({ queryKey: ['onboarding-form', formId] });
         return result;
@@ -70,6 +75,7 @@ export const useOnboarding = (formId?: string) => {
         setCurrentStep,
         formData,
         setFormData,
+        formDataRef,
         filteredQuestions,
         isLoading,
         error,

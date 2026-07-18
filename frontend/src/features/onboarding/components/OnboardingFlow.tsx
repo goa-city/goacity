@@ -25,6 +25,7 @@ const OnboardingFlow: React.FC = () => {
         setCurrentStep,
         formData,
         setFormData,
+        formDataRef,
         filteredQuestions,
         isLoading,
         error,
@@ -48,7 +49,7 @@ const OnboardingFlow: React.FC = () => {
         // Validation logic for all questions on current page
         for (const q of currentPageQuestions) {
             if (q.is_required && q.type !== 'intro') {
-                const val = formData[q.field];
+                const val = formDataRef.current[q.field];
                 const isEmpty = val === undefined || val === null || val === '' || (Array.isArray(val) && val.length === 0);
 
                 if (isEmpty) {

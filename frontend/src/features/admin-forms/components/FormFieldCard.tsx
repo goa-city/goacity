@@ -139,6 +139,18 @@ const FormFieldCard: React.FC<FormFieldCardProps> = ({ field, index, totalFields
                             <span className="text-[10px] font-black uppercase tracking-widest text-amber-500 group-hover:text-amber-600 transition-colors">Show Optional Tag</span>
                         </label>
 
+                        {field.field_type === 'choice' && (
+                            <label className="flex items-center gap-2 cursor-pointer group">
+                                <input 
+                                    type="checkbox" 
+                                    checked={(field as any).show_other || false}
+                                    onChange={(e) => onChange({ ...field, show_other: e.target.checked } as any)}
+                                    className="w-4 h-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500"
+                                />
+                                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 group-hover:text-indigo-700 transition-colors">Show Other</span>
+                            </label>
+                        )}
+
                         <label className="flex items-center gap-2 cursor-pointer group">
                             <input 
                                 type="checkbox" 

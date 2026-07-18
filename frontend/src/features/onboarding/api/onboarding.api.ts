@@ -30,6 +30,7 @@ export const fetchOnboardingForm = async (formId?: number | string | null) => {
             placeholder: q.placeholder || null,
             is_required: q.is_required === 1 || q.required === true,
             is_optional: q.is_optional === 1 || q.is_optional === true,
+            show_other: q.show_other === 1 || q.show_other === true,
             // Normalize options: DB may store as {0:'x',1:'y'} or []
             options: Array.isArray(q.options)
                 ? q.options

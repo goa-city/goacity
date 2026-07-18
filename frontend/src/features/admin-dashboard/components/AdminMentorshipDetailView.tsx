@@ -14,8 +14,12 @@ import {
     LinkIcon,
     ExclamationTriangleIcon,
     LockClosedIcon,
+    EnvelopeIcon,
+    ChatBubbleLeftRightIcon,
+    ChevronDownIcon,
+    XMarkIcon
 } from '@heroicons/react/24/outline';
-import { CheckCircleIcon as SolidCheckCircleIcon } from '@heroicons/react/24/solid';
+import { CheckCircleIcon as SolidCheckCircleIcon, ArchiveBoxIcon } from '@heroicons/react/24/solid';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -62,6 +66,8 @@ interface MentorshipMaterial {
 
 interface MentorshipRelation {
     id: string;
+    mentor_id: number;
+    mentee_id: number;
     type: string;
     focus_area: string;
     status: string;
@@ -91,9 +97,50 @@ const AdminMentorshipDetailView: React.FC<AdminMentorshipDetailViewProps> = ({ r
     const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
     const [completing, setCompleting] = useState(false);
 
+    // Notification states
+    const [showNotifyModal, setShowNotifyModal] = useState(false);
+    const [notifyType, setNotifyType] = useState<'email' | 'whatsapp'>('email');
+    const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+    const [emailTemplates, setEmailTemplates] = useState<any[]>([]);
+    const [whatsappTemplates, setWhatsappTemplates] = useState<any[]>([]);
+    const [notifying, setNotifying] = useState(false);
+    const [sendToMentor, setSendToMentor] = useState(false);
+    const [sendToMentee, setSendToMentee] = useState(false);
+
+    // Change mentor states
+    const [mentors, setMentors] = useState<any[]>([]);
+    const [selectedMentorId, setSelectedMentorId] = useState<string>('');
+
+    // Edit details states
+    const [isEditingDetails, setIsEditingDetails] = useState(false);
+    const [editFocusArea, setEditFocusArea] = useState('');
+    const [editType, setEditType] = useState('');
+
     const showToast = (msg: string): void => {
         setToast(msg);
         setTimeout(() => setToast(''), 3500);
+    };
+
+    const fetchTemplates = async () => {
+        try {
+            const [emailRes, whatsappRes] = await Promise.all([
+                api.get('/admin/email-templates'),
+                api.get('/admin/whatsapp-templates')
+            ]);
+            setEmailTemplates(emailRes.data || []);
+            setWhatsappTemplates(whatsappRes.data || []);
+        } catch (err) {
+            console.error("Failed to fetch templates", err);
+        }
+    };
+
+    const fetchMentors = async () => {
+        try {
+            const res = await api.get('/admin/mentorship/mentors');
+            setMentors(res.data.data || []);
+        } catch (err) {
+            console.error("Failed to fetch mentors", err);
+        }
     };
 
     const fetchMentorship = useCallback(async (): Promise<void> => {
@@ -101,6 +148,9 @@ const AdminMentorshipDetailView: React.FC<AdminMentorshipDetailViewProps> = ({ r
         try {
             const res = await api.get<MentorshipRelation>(`/admin/mentorship/relations/${relationId}`);
             setMentorship(res.data);
+            setSelectedMentorId(String(res.data.mentor_id));
+            setEditFocusArea(res.data.focus_area || '');
+            setEditType(res.data.type || '');
         } catch (error: unknown) {
             const message = (error as { response?: { data?: { message?: string } } })
                 .response?.data?.message || 'Failed to load mentorship data';
@@ -113,7 +163,91 @@ const AdminMentorshipDetailView: React.FC<AdminMentorshipDetailViewProps> = ({ r
 
     useEffect(() => {
         fetchMentorship();
-    }, [fetchMentorship]);
+        fetchTemplates();
+        fetchMentors();
+    }, [relationId, fetchMentorship]);
+
+    const handleSaveDetails = async () => {
+        try {
+            await api.put(`/admin/mentorship/relations/${relationId}/details`, {
+                focus_area: editFocusArea,
+                type: editType
+            });
+            showToast("Details updated successfully!");
+            setIsEditingDetails(false);
+            fetchMentorship();
+        } catch (err) {
+            console.error(err);
+            showToast("Failed to update details.");
+        }
+    };
+
+    const handleNotify = (type: 'email' | 'whatsapp') => {
+        setNotifyType(type);
+        setSendToMentor(false);
+        setSendToMentee(false);
+        const templates = type === 'email' ? emailTemplates : whatsappTemplates;
+        if (templates.length > 0) {
+            setSelectedTemplateId(String(templates[0].id));
+        } else {
+            setSelectedTemplateId('');
+        }
+        setShowNotifyModal(true);
+    };
+
+    const executeNotify = async () => {
+        if (!selectedTemplateId) {
+            showToast("Please select a template first.");
+            return;
+        }
+        if (!mentorship) {
+            showToast("No active mentorship found.");
+            return;
+        }
+
+        const recipients: string[] = [];
+        if (sendToMentor) recipients.push('mentor');
+        if (sendToMentee) recipients.push('mentee');
+
+        if (recipients.length === 0) {
+            showToast("Please select at least one recipient.");
+            return;
+        }
+
+        const confirmMsg = `Send ${notifyType} notifications to ${recipients.join(' and ')}?`;
+        if (!window.confirm(confirmMsg)) return;
+
+        setNotifying(true);
+        setShowNotifyModal(false);
+        try {
+            await api.post(`/admin/mentorship/relations/${mentorship.id}/notify`, {
+                type: notifyType,
+                templateId: selectedTemplateId,
+                recipients
+            });
+            showToast("Notifications sent successfully!");
+        } catch (err) {
+            console.error(err);
+            showToast("Failed to send notifications.");
+        } finally {
+            setNotifying(false);
+        }
+    };
+
+    const handleChangeMentor = async () => {
+        if (!selectedMentorId || !mentorship) return;
+        const confirmChange = window.confirm("Are you sure you want to change the mentor for this relationship?");
+        if (!confirmChange) return;
+
+        try {
+            await api.put(`/admin/mentorship/relations/${relationId}/mentor`, { mentor_id: Number(selectedMentorId) });
+            showToast("Mentor updated successfully!");
+            fetchMentorship();
+        } catch (err) {
+            console.error(err);
+            showToast("Failed to update mentor.");
+        }
+    };
 
     const handleMarkComplete = async (): Promise<void> => {
         setCompleting(true);
@@ -160,7 +294,7 @@ const AdminMentorshipDetailView: React.FC<AdminMentorshipDetailViewProps> = ({ r
 
     const phases = ['Foundations', 'Strategy', 'Impact'];
     const currentPhaseIndex = phases.indexOf(mentorship.current_phase || 'Foundations');
-    const isCompleted = mentorship.status === 'Completed';
+    const isCompleted = ['Completed', 'Archived', 'Declined'].includes(mentorship.status);
 
     return (
         <div className="max-w-7xl mx-auto py-10 px-6 pb-20">
@@ -180,17 +314,25 @@ const AdminMentorshipDetailView: React.FC<AdminMentorshipDetailViewProps> = ({ r
                 Back to Mentorship Hub
             </button>
 
-            {/* ── Completed Banner ── */}
+            {/* ── Completed / Archived / Declined Banner ── */}
             {isCompleted && (
-                <div className="mb-8 flex items-center gap-4 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/40 rounded-lg px-6 py-4">
-                    <LockClosedIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <div className={`mb-8 flex items-center gap-4 border rounded-lg px-6 py-4 ${
+                    mentorship.status === 'Completed'
+                        ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-100 dark:border-emerald-900/40 text-emerald-600 dark:text-emerald-400'
+                        : 'bg-zinc-50 dark:bg-zinc-800/30 border-zinc-100 dark:border-zinc-850 text-zinc-500 dark:text-zinc-400'
+                }`}>
+                    <LockClosedIcon className={`w-5 h-5 shrink-0 ${
+                        mentorship.status === 'Completed' ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400'
+                    }`} />
                     <div>
-                        <p className="text-[11px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
-                            Mentorship Completed
+                        <p className={`text-[11px] font-black uppercase tracking-widest ${
+                            mentorship.status === 'Completed' ? 'text-emerald-700 dark:text-emerald-450' : 'text-zinc-500 dark:text-zinc-400'
+                        }`}>
+                            Mentorship {mentorship.status}
                         </p>
-                        <p className="text-xs text-emerald-600 dark:text-emerald-500 mt-0.5">
-                            This relationship was completed on {formatDate(mentorship.ended_at || mentorship.created_at)}.
-                            All interactions are now locked for both mentor and mentee.
+                        <p className="text-xs mt-0.5">
+                            This relationship was {mentorship.status.toLowerCase()} on {formatDate(mentorship.ended_at || mentorship.created_at)}.
+                            All interactions are now locked.
                         </p>
                     </div>
                 </div>
@@ -207,9 +349,12 @@ const AdminMentorshipDetailView: React.FC<AdminMentorshipDetailViewProps> = ({ r
                             Started {formatDate(mentorship.created_at)}
                         </span>
                         <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border ${
-                            isCompleted
-                                ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/40'
-                                : 'bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-900/40'
+                            mentorship.status === 'Active' ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/40' :
+                            mentorship.status === 'Completed' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700' :
+                            mentorship.status === 'Requested' ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-900/40' :
+                            mentorship.status === 'Archived' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 border-zinc-200 dark:border-zinc-700' :
+                            mentorship.status === 'Declined' ? 'bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-450 border-rose-100 dark:border-rose-900/40' :
+                            'bg-zinc-50 dark:bg-zinc-850 text-zinc-400'
                         }`}>
                             {mentorship.status}
                         </span>
@@ -267,25 +412,48 @@ const AdminMentorshipDetailView: React.FC<AdminMentorshipDetailViewProps> = ({ r
 
                     {/* Reopen / Mark as Completed Actions */}
                     {isCompleted ? (
-                        <button
-                            onClick={async () => {
-                                const confirmReopen = window.confirm("Are you sure you want to reopen this mentorship? This will restore active features for both mentor and mentee.");
-                                if (!confirmReopen) return;
-                                try {
-                                    await api.put(`/admin/mentorship/relations/${relationId}/status`, { status: 'Active' });
-                                    showToast('Mentorship relationship has been reopened and is now Active.');
-                                    await fetchMentorship();
-                                } catch (error: unknown) {
-                                    const message = (error as { response?: { data?: { message?: string } } })
-                                        .response?.data?.message || 'Failed to reopen status';
-                                    showToast(message);
-                                }
-                            }}
-                            className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-bold shadow-md inline-flex items-center gap-2 transition-colors"
-                        >
-                            <SolidCheckCircleIcon className="w-5 h-5" />
-                            Reopen Relationship
-                        </button>
+                        <div className="flex gap-2">
+                            {mentorship.status === 'Archived' && (
+                                <button
+                                    onClick={async () => {
+                                        const confirmUnarchive = window.confirm("Are you sure you want to unarchive this mentorship? This will restore active features for both mentor and mentee.");
+                                        if (!confirmUnarchive) return;
+                                        try {
+                                            await api.put(`/admin/mentorship/relations/${relationId}/status`, { status: 'Active' });
+                                            showToast('Mentorship relationship has been unarchived and is now Active.');
+                                            await fetchMentorship();
+                                        } catch (error: unknown) {
+                                            const message = (error as { response?: { data?: { message?: string } } })
+                                                .response?.data?.message || 'Failed to unarchive status';
+                                            showToast(message);
+                                        }
+                                    }}
+                                    className="px-6 py-2.5 bg-zinc-650 hover:bg-zinc-700 text-white rounded-lg text-sm font-bold shadow-md inline-flex items-center gap-2 transition-colors"
+                                >
+                                    <ArchiveBoxIcon className="w-5 h-5" />
+                                    Unarchive Relationship
+                                </button>
+                            )}
+                            <button
+                                onClick={async () => {
+                                    const confirmReopen = window.confirm("Are you sure you want to reopen this mentorship? This will restore active features for both mentor and mentee.");
+                                    if (!confirmReopen) return;
+                                    try {
+                                        await api.put(`/admin/mentorship/relations/${relationId}/status`, { status: 'Active' });
+                                        showToast('Mentorship relationship has been reopened and is now Active.');
+                                        await fetchMentorship();
+                                    } catch (error: unknown) {
+                                        const message = (error as { response?: { data?: { message?: string } } })
+                                            .response?.data?.message || 'Failed to reopen status';
+                                        showToast(message);
+                                    }
+                                }}
+                                className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-bold shadow-md inline-flex items-center gap-2 transition-colors"
+                            >
+                                <SolidCheckCircleIcon className="w-5 h-5" />
+                                Reopen Relationship
+                            </button>
+                        </div>
                     ) : (
                         <button
                             onClick={() => setShowCompleteConfirm(true)}
@@ -545,34 +713,132 @@ const AdminMentorshipDetailView: React.FC<AdminMentorshipDetailViewProps> = ({ r
                 {/* ── Right Column: Overview ── */}
                 <div className="lg:col-span-4 space-y-8">
                     <section className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
+                        <div className="flex justify-between items-center mb-6 border-b border-zinc-50 dark:border-zinc-800 pb-2">
+                            <h3 className="text-base font-bold text-zinc-900 dark:text-white uppercase tracking-wider italic">
+                                Workspace Overview
+                            </h3>
+                            <button
+                                onClick={() => setIsEditingDetails(!isEditingDetails)}
+                                className="text-xs font-bold text-indigo-650 dark:text-indigo-400 hover:underline uppercase tracking-wider"
+                            >
+                                {isEditingDetails ? 'Cancel' : 'Edit'}
+                            </button>
+                        </div>
+                        
+                        {isEditingDetails ? (
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-1">Focus Area</label>
+                                    <input
+                                        type="text"
+                                        value={editFocusArea}
+                                        onChange={(e) => setEditFocusArea(e.target.value)}
+                                        className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 px-3 h-10 text-xs font-medium"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-1">Type</label>
+                                    <select
+                                        value={editType}
+                                        onChange={(e) => setEditType(e.target.value)}
+                                        className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 px-3 h-10 text-xs font-medium"
+                                    >
+                                        <option value="Long-term">Long-term</option>
+                                        <option value="Micro">Micro</option>
+                                    </select>
+                                </div>
+                                <button
+                                    onClick={handleSaveDetails}
+                                    className="w-full py-2 bg-indigo-600 hover:bg-indigo-750 text-white rounded-xl text-xs font-bold transition-colors"
+                                >
+                                    Save Changes
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-center py-2 border-b border-zinc-50 dark:border-zinc-800 text-xs">
+                                    <span className="text-zinc-500 dark:text-zinc-400 font-bold uppercase">Focus Area</span>
+                                    <span className="font-extrabold text-sky-600 dark:text-sky-400">{mentorship.focus_area}</span>
+                                </div>
+                                <div className="flex justify-between items-center py-2 border-b border-zinc-50 dark:border-zinc-800 text-xs">
+                                    <span className="text-zinc-500 dark:text-zinc-400 font-bold uppercase">Type</span>
+                                    <span className="font-extrabold text-zinc-800 dark:text-zinc-300">{mentorship.type}</span>
+                                </div>
+                                <div className="flex justify-between items-center py-2 border-b border-zinc-50 dark:border-zinc-800 text-xs">
+                                    <span className="text-zinc-500 dark:text-zinc-400 font-bold uppercase">Current Phase</span>
+                                    <span className="font-extrabold text-indigo-600 dark:text-indigo-400">{mentorship.current_phase}</span>
+                                </div>
+                                <div className="flex justify-between items-center py-2 border-b border-zinc-50 dark:border-zinc-800 text-xs">
+                                    <span className="text-zinc-500 dark:text-zinc-400 font-bold uppercase">Sessions Logged</span>
+                                    <span className="font-extrabold text-zinc-800 dark:text-zinc-300">{mentorship.sessions.length} Sessions</span>
+                                </div>
+                                <div className="flex justify-between items-center py-2 border-b border-zinc-50 dark:border-zinc-800 text-xs">
+                                    <span className="text-zinc-500 dark:text-zinc-400 font-bold uppercase">Milestones</span>
+                                    <span className="font-extrabold text-zinc-800 dark:text-zinc-300">{mentorship.goals.length} Goals</span>
+                                </div>
+                                <div className="flex justify-between items-center py-2 text-xs">
+                                    <span className="text-zinc-500 dark:text-zinc-400 font-bold uppercase">Materials</span>
+                                    <span className="font-extrabold text-zinc-800 dark:text-zinc-300">{mentorship.materials.length} Shared</span>
+                                </div>
+                            </div>
+                        )}
+                    </section>
+
+                    {/* Change Mentor Panel */}
+                    <section className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
                         <h3 className="text-base font-bold text-zinc-900 dark:text-white uppercase tracking-wider mb-6 italic border-b border-zinc-50 dark:border-zinc-800 pb-2">
-                            Workspace Overview
+                            Manage Assignment
                         </h3>
                         <div className="space-y-4">
-                            <div className="flex justify-between items-center py-2 border-b border-zinc-50 dark:border-zinc-800 text-xs">
-                                <span className="text-zinc-500 dark:text-zinc-400 font-bold uppercase">Focus Area</span>
-                                <span className="font-extrabold text-sky-600 dark:text-sky-400">{mentorship.focus_area}</span>
+                            <div>
+                                <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2">Change Mentor</label>
+                                <div className="flex gap-2">
+                                    <select
+                                        value={selectedMentorId}
+                                        onChange={(e) => setSelectedMentorId(e.target.value)}
+                                        className="flex-1 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 px-3 h-10 text-xs font-medium"
+                                    >
+                                        <option value="">Select a new mentor...</option>
+                                        {mentors.map(m => (
+                                            <option key={m.id} value={m.id}>{m.first_name} {m.last_name} ({m.email})</option>
+                                        ))}
+                                    </select>
+                                    <button
+                                        onClick={handleChangeMentor}
+                                        disabled={!selectedMentorId || selectedMentorId === String(mentorship.mentor_id)}
+                                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-colors disabled:opacity-50 animate-pulse"
+                                    >
+                                        Update
+                                    </button>
+                                </div>
                             </div>
-                            <div className="flex justify-between items-center py-2 border-b border-zinc-50 dark:border-zinc-800 text-xs">
-                                <span className="text-zinc-500 dark:text-zinc-400 font-bold uppercase">Type</span>
-                                <span className="font-extrabold text-zinc-800 dark:text-zinc-300">{mentorship.type}</span>
-                            </div>
-                            <div className="flex justify-between items-center py-2 border-b border-zinc-50 dark:border-zinc-800 text-xs">
-                                <span className="text-zinc-500 dark:text-zinc-400 font-bold uppercase">Current Phase</span>
-                                <span className="font-extrabold text-indigo-600 dark:text-indigo-400">{mentorship.current_phase}</span>
-                            </div>
-                            <div className="flex justify-between items-center py-2 border-b border-zinc-50 dark:border-zinc-800 text-xs">
-                                <span className="text-zinc-500 dark:text-zinc-400 font-bold uppercase">Sessions Logged</span>
-                                <span className="font-extrabold text-zinc-800 dark:text-zinc-300">{mentorship.sessions.length} Sessions</span>
-                            </div>
-                            <div className="flex justify-between items-center py-2 border-b border-zinc-50 dark:border-zinc-800 text-xs">
-                                <span className="text-zinc-500 dark:text-zinc-400 font-bold uppercase">Milestones</span>
-                                <span className="font-extrabold text-zinc-800 dark:text-zinc-300">{mentorship.goals.length} Goals</span>
-                            </div>
-                            <div className="flex justify-between items-center py-2 text-xs">
-                                <span className="text-zinc-500 dark:text-zinc-400 font-bold uppercase">Materials</span>
-                                <span className="font-extrabold text-zinc-800 dark:text-zinc-300">{mentorship.materials.length} Shared</span>
-                            </div>
+                        </div>
+                    </section>
+
+                    {/* Alerts & Notifications Panel */}
+                    <section className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
+                        <h3 className="text-base font-bold text-zinc-900 dark:text-white uppercase tracking-wider mb-6 italic border-b border-zinc-50 dark:border-zinc-800 pb-2">
+                            Alerts & Notifications
+                        </h3>
+                        <div className="flex flex-col gap-3">
+                            <button
+                                type="button"
+                                onClick={() => handleNotify('email')}
+                                disabled={notifying}
+                                className="flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20 disabled:opacity-50"
+                            >
+                                <EnvelopeIcon className="w-4 h-4" />
+                                Send Email Alert
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleNotify('whatsapp')}
+                                disabled={notifying}
+                                className="flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 disabled:opacity-50"
+                            >
+                                <ChatBubbleLeftRightIcon className="w-4 h-4" />
+                                Send WhatsApp Alert
+                            </button>
                         </div>
                     </section>
 
@@ -628,6 +894,128 @@ const AdminMentorshipDetailView: React.FC<AdminMentorshipDetailViewProps> = ({ r
                                 )}
                                 {completing ? 'Completing...' : 'Yes, Mark Complete'}
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Notify Modal ── */}
+            {showNotifyModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-white dark:bg-zinc-900 rounded-[2.5rem] shadow-2xl w-full max-w-2xl p-8 relative border border-zinc-100 dark:border-zinc-800 animate-in zoom-in-95 duration-300">
+                        <button 
+                            onClick={() => setShowNotifyModal(false)} 
+                            className="absolute top-8 right-8 text-zinc-400 hover:text-zinc-650 dark:hover:text-zinc-200 transition-colors"
+                        >
+                            <XMarkIcon className="w-6 h-6" />
+                        </button>
+
+                        <div className="mb-8">
+                            <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest mb-4 ${notifyType === 'email' ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-600' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600'}`}>
+                                {notifyType === 'email' ? 'Email Alert System' : 'WhatsApp Alert System'}
+                            </div>
+                            <h3 className="text-3xl font-black text-zinc-900 dark:text-white leading-tight tracking-tighter uppercase italic">
+                                Select <span className={notifyType === 'email' ? 'text-indigo-600' : 'text-emerald-605'}>Template</span>
+                            </h3>
+                            <p className="text-zinc-500 dark:text-zinc-400 text-sm font-medium mt-2">
+                                Choose a template to alert both the mentor and the mentee.
+                            </p>
+                        </div>
+
+                        <div className="space-y-6">
+                            <div>
+                                <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Available Templates</label>
+                                <div className="relative">
+                                    <ChevronDownIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400 pointer-events-none" />
+                                    <select 
+                                        value={selectedTemplateId}
+                                        onChange={(e) => setSelectedTemplateId(e.target.value)}
+                                        className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 px-6 h-14 font-medium appearance-none"
+                                    >
+                                        {(notifyType === 'email' ? emailTemplates : whatsappTemplates).map(t => (
+                                            <option key={t.id} value={t.id}>{t.title} {t.subject ? `(${t.subject})` : ''}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Select Recipients</label>
+                                <div className="flex flex-wrap gap-4">
+                                    <label className="flex items-center gap-3 bg-zinc-50 dark:bg-zinc-950 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800 cursor-pointer select-none hover:bg-zinc-100/50 dark:hover:bg-zinc-900 transition-colors flex-1 min-w-[200px]">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={sendToMentor}
+                                            onChange={(e) => setSendToMentor(e.target.checked)}
+                                            className="w-5 h-5 rounded-lg border-zinc-300 dark:border-zinc-700 text-indigo-650 focus:ring-indigo-500"
+                                        />
+                                        <div>
+                                            <p className="text-xs font-black uppercase text-zinc-900 dark:text-white">Mentor</p>
+                                            <p className="text-[10px] text-zinc-450 dark:text-zinc-500 font-bold lowercase">
+                                                {mentorship?.mentor?.first_name} {mentorship?.mentor?.last_name}
+                                            </p>
+                                        </div>
+                                    </label>
+                                    <label className="flex items-center gap-3 bg-zinc-50 dark:bg-zinc-950 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800 cursor-pointer select-none hover:bg-zinc-100/50 dark:hover:bg-zinc-900 transition-colors flex-1 min-w-[200px]">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={sendToMentee}
+                                            onChange={(e) => setSendToMentee(e.target.checked)}
+                                            className="w-5 h-5 rounded-lg border-zinc-300 dark:border-zinc-700 text-indigo-650 focus:ring-indigo-500"
+                                        />
+                                        <div>
+                                            <p className="text-xs font-black uppercase text-zinc-900 dark:text-white">Mentee</p>
+                                            <p className="text-[10px] text-zinc-450 dark:text-zinc-500 font-bold lowercase">
+                                                {mentorship?.mentee?.first_name} {mentorship?.mentee?.last_name}
+                                            </p>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div className="bg-zinc-50 dark:bg-zinc-950 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800">
+                                <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-black uppercase tracking-widest mb-3">Content Preview</p>
+                                <div className="max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                                    {(() => {
+                                        const templates = notifyType === 'email' ? emailTemplates : whatsappTemplates;
+                                        const selected = templates.find(t => String(t.id) === String(selectedTemplateId));
+                                        if (!selected) return <p className="text-zinc-400 italic text-sm">No template selected</p>;
+                                        return (
+                                            <div className="space-y-4">
+                                                {selected.subject && (
+                                                    <div>
+                                                        <p className="text-[10px] font-black uppercase text-zinc-400">Subject:</p>
+                                                        <p className="text-sm font-bold text-zinc-900 dark:text-white">{selected.subject}</p>
+                                                    </div>
+                                                )}
+                                                <div>
+                                                    <p className="text-[10px] font-black uppercase text-zinc-400">Message Body:</p>
+                                                    <div 
+                                                        className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed whitespace-pre-wrap mt-1"
+                                                        dangerouslySetInnerHTML={{ __html: selected.content || selected.message || selected.body || '' }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3 pt-4">
+                                <button
+                                    onClick={executeNotify}
+                                    disabled={!sendToMentor && !sendToMentee}
+                                    className={`flex-1 justify-center py-4 rounded-2xl text-xs font-black uppercase tracking-widest text-white shadow-xl transition-all ${notifyType === 'email' ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/20' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'}`}
+                                >
+                                    Confirm & Send {notifyType === 'email' ? 'Email' : 'WhatsApp'}
+                                </button>
+                                <button
+                                    onClick={() => setShowNotifyModal(false)}
+                                    className="px-8 justify-center py-4 border border-zinc-200 text-zinc-650 dark:text-zinc-400 font-bold rounded-2xl hover:bg-zinc-50 hover:text-zinc-800 transition-all text-xs uppercase"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

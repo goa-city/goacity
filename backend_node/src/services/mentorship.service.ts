@@ -237,11 +237,34 @@ export class MentorshipService {
     static async updateStatus(id: string, status: string) {
         const data: any = { status };
         if (status === 'Active') data.started_at = new Date();
-        if (status === 'Completed') data.ended_at = new Date();
+        if (status === 'Completed' || status === 'Archived') data.ended_at = new Date();
 
         return prisma.mentorshipRelation.update({
             where: { id },
             data
+        });
+    }
+
+    static async updateMentor(id: string, mentor_id: number) {
+        return prisma.mentorshipRelation.update({
+            where: { id },
+            data: { mentor_id }
+        });
+    }
+
+    static async deleteRelation(id: string) {
+        return prisma.mentorshipRelation.delete({
+            where: { id }
+        });
+    }
+
+    static async updateDetails(id: string, data: { type: string, focus_area: string }) {
+        return prisma.mentorshipRelation.update({
+            where: { id },
+            data: {
+                type: data.type,
+                focus_area: data.focus_area
+            }
         });
     }
 
@@ -386,32 +409,18 @@ export class MentorshipService {
         console.log(`[MENTORSHIP] Found ${responses.length} responses for form ${form.id}`);
 
         // Filter out those responses that have already been matched to a relation.
-        // A response is considered matched if there is any relationship created AFTER the response was submitted,
-        // or if there is an active relationship currently.
+        // A response is considered matched if there is any relationship linked to it via response_id.
         const relations = await prisma.mentorshipRelation.findMany({
-            select: { mentee_id: true, created_at: true, status: true }
+            select: { response_id: true }
         });
+        const matchedResponseIds = new Set(relations.map(rel => rel.response_id).filter(Boolean));
 
         const filtered = responses.filter(r => {
             if (!r.user_id) return false;
 
-            // If user has an active/requested relationship, filter them out entirely
-            const hasActiveRelation = relations.some(rel => 
-                rel.mentee_id === r.user_id && ['Requested', 'Active'].includes(rel.status)
-            );
-            if (hasActiveRelation) return false;
-
-            // For completed/archived relations, only filter out this response if it was submitted 
-            // BEFORE the latest completed relation was created (meaning it was already used for that match)
-            const userRelations = relations.filter(rel => rel.mentee_id === r.user_id);
-            if (userRelations.length > 0) {
-                const latestRelationDate = new Date(Math.max(...userRelations.map(rel => new Date(rel.created_at || 0).getTime())));
-                const responseSubmittedDate = new Date(r.submitted_at || 0);
-                
-                // If this response was submitted before the latest relationship started, it is "used"
-                if (responseSubmittedDate < latestRelationDate) {
-                    return false;
-                }
+            // If this response is linked to a relation, it is matched (used)
+            if (matchedResponseIds.has(r.id)) {
+                return false;
             }
 
             return true;
@@ -490,7 +499,7 @@ export class MentorshipService {
         });
     }
 
-    static async adminMatchMentorMentee(data: { mentee_id: number, mentor_id: number, focus_area: string, type: string }) {
+    static async adminMatchMentorMentee(data: { mentee_id: number, mentor_id: number, focus_area: string, type: string, response_id?: number }) {
         return prisma.mentorshipRelation.create({
             data: {
                 mentee_id: data.mentee_id,
@@ -499,7 +508,8 @@ export class MentorshipService {
                 type: data.type,
                 status: 'Active',
                 started_at: new Date(),
-                current_phase: 'Foundations'
+                current_phase: 'Foundations',
+                response_id: data.response_id
             }
         });
     }

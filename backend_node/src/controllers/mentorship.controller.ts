@@ -155,6 +155,38 @@ export const updateMentorshipStatus = async (req: Request, res: Response, next: 
     }
 };
 
+export const updateMentorshipMentor = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        const { mentor_id } = req.body;
+        const result = await MentorshipService.updateMentor(id as string, Number(mentor_id));
+        res.json({ success: true, data: result });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const deleteMentorshipRelation = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        await MentorshipService.deleteRelation(id as string);
+        res.json({ success: true, message: 'Mentorship relation deleted successfully' });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const updateMentorshipDetails = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        const { type, focus_area } = req.body;
+        const result = await MentorshipService.updateDetails(id as string, { type, focus_area });
+        res.json({ success: true, data: result });
+    } catch (error) {
+        next(error);
+    }
+};
+
 // --- ADMIN ---
 export const getAdminMentorships = async (req: Request, res: Response, next: NextFunction) => {
     try {

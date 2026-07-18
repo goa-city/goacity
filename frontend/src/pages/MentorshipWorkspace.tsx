@@ -105,7 +105,7 @@ const MentorshipWorkspace: React.FC = () => {
     const isMentor = mentorship.mentor_id === user?.id;
     const partner = isMentor ? mentorship.mentee : mentorship.mentor;
     const roleString = isMentor ? 'Mentee' : 'Mentor';
-    const isCompleted = mentorship.status === 'Completed';
+    const isCompleted = ['Completed', 'Archived', 'Declined'].includes(mentorship.status);
 
     const phases = ['Foundations', 'Strategy', 'Impact'];
     const currentPhaseIndex = phases.indexOf(mentorship.current_phase || 'Foundations');

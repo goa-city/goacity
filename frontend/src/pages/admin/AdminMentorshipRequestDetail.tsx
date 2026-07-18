@@ -147,13 +147,14 @@ const AdminMentorshipRequestDetail: React.FC = () => {
 
         setMatchingInProgress(true);
         try {
-            const focusArea = String(request?.answers.find((a) => a.field_key === 'growth_area')?.answer_value || 'Professional Growth');
+            const focusArea = String(request?.answers.find((a) => ['growth_area', 'expertise_needed', 'q_1778518154399'].includes(a.field_key))?.answer_value || 'Professional Growth');
             
             const res = await api.post('/admin/mentorship/match', {
                 mentee_id: request?.user_id,
                 mentor_id: mentor.id,
                 focus_area: focusArea,
-                type: 'Long-term'
+                type: 'Long-term',
+                response_id: Number(id)
             });
             
             showToast(`Covenant pair created successfully!`);
