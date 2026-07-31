@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
-import { ArrowLeftIcon } from '@heroicons/react/24/outline'; // Assuming you have heroicons
+import { ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface AdminMemberCreateForm {
     first_name: string;
@@ -14,14 +15,29 @@ interface AdminMemberCreateForm {
 
 const AdminMemberCreate: React.FC = () => {
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
     const [formData, setFormData] = useState<AdminMemberCreateForm>({
         first_name: '',
         last_name: '',
         role: 'member',
         profile_photo: ''
     });
+    const [streams, setStreams] = useState<any[]>([]);
+    const [selectedStreamIds, setSelectedStreamIds] = useState<number[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchStreams = async () => {
+            try {
+                const { data } = await api.get('/admin/streams');
+                setStreams(data);
+            } catch (err) {
+                console.error("Failed to fetch streams", err);
+            }
+        };
+        fetchStreams();
+    }, []);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({
@@ -41,8 +57,19 @@ const AdminMemberCreate: React.FC = () => {
             return;
         }
 
+        if (selectedStreamIds.length === 0) {
+            setError("At least one stream must be selected.");
+            setLoading(false);
+            return;
+        }
+
         try {
-            await api.post('/admin/users', formData);
+            await api.post('/admin/users', {
+                ...formData,
+                stream_ids: selectedStreamIds
+            });
+            queryClient.invalidateQueries({ queryKey: ['admin-members'] });
+            queryClient.invalidateQueries({ queryKey: ['member-stats'] });
             navigate('/admin/members');
         } catch (err: unknown) {
             console.error("Failed to create member", err);
@@ -125,6 +152,48 @@ const AdminMemberCreate: React.FC = () => {
                                 onChange={handleChange}
                                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
                             />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Streams *</label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {streams.map((stream) => {
+                                const isChecked = selectedStreamIds.includes(stream.id);
+                                return (
+                                    <label
+                                        key={stream.id}
+                                        className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                                            isChecked
+                                                ? 'border-indigo-500 bg-indigo-50/20 dark:bg-indigo-950/10'
+                                                : 'border-gray-200 hover:bg-gray-50'
+                                        }`}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                            checked={isChecked}
+                                            onChange={() => {
+                                                if (isChecked) {
+                                                    setSelectedStreamIds(selectedStreamIds.filter(id => id !== stream.id));
+                                                } else {
+                                                    setSelectedStreamIds([...selectedStreamIds, stream.id]);
+                                                }
+                                            }}
+                                        />
+                                        <span
+                                            className="text-xs font-black uppercase tracking-widest px-2.5 py-1 rounded border"
+                                            style={{
+                                                backgroundColor: `${stream.color || '#6366f1'}1A`,
+                                                color: stream.color || '#6366f1',
+                                                borderColor: `${stream.color || '#6366f1'}33`
+                                            }}
+                                        >
+                                            {stream.name}
+                                        </span>
+                                    </label>
+                                );
+                            })}
                         </div>
                     </div>
 

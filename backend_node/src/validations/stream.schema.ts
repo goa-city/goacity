@@ -12,9 +12,10 @@ export const createStreamSchema = z.object({
 
 export const updateStreamSchema = z.object({
     params: z.object({
-        id: z.string().regex(/^\d+$/, 'ID must be a number'),
+        id: z.string().regex(/^\d+$/, 'ID must be a number').optional(),
     }).optional(),
     body: z.object({
+        id: z.union([z.string(), z.number()]).optional(),
         name: z.string().min(1, 'Name is required').optional(),
         description: z.string().optional().nullable(),
         color: z.string().optional().nullable(),

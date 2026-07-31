@@ -68,5 +68,26 @@ Update `OnboardingFlow.tsx` and `useOnboarding.ts`:
 - Handle public access routes.
 - Execute redirection based on form config. 
 
----
-*Updated by Antigravity on 2026-05-08*
+*Updated by Antigravity on 2026-07-22*
+
+## 6. July 22, 2026 Mobile Layout, Modal Overlaps, and Onboarding Persistence Edits
+
+### A. Mobile Layout & Bottom Navigation Customization
+- **Top Mobile Header**: Visible on all screen viewports below `lg` (responsive breakpoints). Features a left-aligned uppercase brand logo (**`GOA.CITY`** via logo asset) and a right-aligned hamburger menu toggle (`Bars3Icon` with custom stroke weight).
+- **Bottom Navigation Bar**: Repositioned Home in the center as a floating circular action button with a prominent ring border and elevation shadow. Remaining items are grouped:
+  - **Left**: My People (labeled "People"), News.
+  - **Right**: Mentorship, Meetings.
+- **Content Layout Spacing**: Set content wrapper padding to `pb-24 lg:pb-0` to clear the bottom nav bar on mobile.
+
+### B. Modal Overlap Prevention & Input Width Alignment
+- **Mobile Modal Padding**: Updated all modal overlays in `MentorshipWorkspace.tsx` to use `p-6 pb-28 md:pb-6`, keeping modal buttons and interactive items clear of the fixed bottom navigation bar on mobile.
+  - Modals updated: Log Session, Edit Session, Create Objective, Share Material, Submit Response, Pay RSVP Session.
+- **Input Widths**: Enforced `w-full` constraints on `<form>` tags and inner input containers to ensure text inputs, textareas, and datepickers align uniformly across flex layouts.
+
+### C. Onboarding Persistence & Title Design
+- **Form Title**: Styled the form's `<h1>` title using the `.page-heading` class, adding a centered colored divider line underneath.
+- **Mobile Spacing**: Increased top spacing of the onboarding container to `pt-32 sm:pt-40` to avoid clipping against the fixed progress bar.
+- **Edit & Resubmit Logic**:
+  - `/form-progress` retrieves existing answers for completed responses (latest response, draft or completed).
+  - Completed onboarding forms start at step 0 to allow review/editing of all sections, but keeping all existing answers pre-populated.
+  - Submitting onboarding forms updates the existing response record in place (no duplicate response rows in DB).

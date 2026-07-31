@@ -167,7 +167,7 @@ const OnboardingFlow: React.FC = () => {
         <div className="min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-white transition-colors duration-500 flex flex-col font-sans overflow-hidden">
 
             {/* Progress Bar */}
-            <div className="fixed top-0 left-0 w-full z-50">
+            <div className="fixed top-0 left-0 w-full z-50 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md border-b border-zinc-100/80 dark:border-zinc-800/80 shadow-sm">
                 <div className="w-full h-1 bg-zinc-100 dark:bg-zinc-900">
                     <motion.div
                         className="h-full bg-primary"
@@ -175,7 +175,7 @@ const OnboardingFlow: React.FC = () => {
                         transition={{ duration: 0.5 }}
                     />
                 </div>
-                <div className="flex justify-between items-center px-6 py-6">
+                <div className="flex justify-between items-center px-6 py-3">
                     <button onClick={() => setIsDark(!isDark)} className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 transition-colors">
                         {isDark ? <SunIcon className="w-5 h-5 text-yellow-400" /> : <MoonIcon className="w-5 h-5 text-zinc-400" />}
                     </button>
@@ -195,7 +195,16 @@ const OnboardingFlow: React.FC = () => {
             </div>
 
             {/* Main Content */}
-            <div className="flex-1 flex flex-col items-center px-6 sm:px-12 relative z-10 overflow-y-auto pt-32 pb-20">
+            <div className="flex-1 flex flex-col items-center px-6 sm:px-12 relative z-10 overflow-y-auto pt-32 sm:pt-40 pb-16">
+                {form?.title && (
+                    <div className="w-full max-w-3xl text-center mb-8 shrink-0">
+                        <h1 className="page-heading">
+                            {form.title}
+                        </h1>
+                        <div className="h-1 w-16 bg-indigo-600 dark:bg-indigo-400 mx-auto mt-3 rounded-full opacity-80" />
+                    </div>
+                )}
+
                 <AnimatePresence custom={direction} mode="wait">
                     <motion.div
                         key={currentStep}
@@ -205,39 +214,41 @@ const OnboardingFlow: React.FC = () => {
                         animate="center"
                         exit="exit"
                         transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                        className="w-full max-w-4xl"
+                        className="w-full max-w-3xl"
                     >
-                        <div className="space-y-12">
+                        <div className="space-y-6">
                             {currentPageQuestions.map((q, idx) => (
                                 <div key={q.id || q.field} className="animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: `${idx * 100}ms` }}>
-                                    <div className="mb-6">
-                                        <h2 className={`font-black leading-[1.15] tracking-tight ${q.type === 'intro' ? 'text-2xl sm:text-2xl text-center' : 'text-xl sm:text-2xl'}`}>
+                                    <div className="mb-2">
+                                        <h2 className={`font-black leading-snug tracking-tight ${q.type === 'intro' ? 'text-2xl sm:text-3xl text-center mb-4' : 'text-lg sm:text-xl'}`}>
                                             {q.title}
                                             {q.is_required && q.type !== 'intro' && <span className="text-red-500 ml-1">*</span>}
                                         </h2>
                                         {q.is_optional && q.type !== 'intro' && (
-                                            <span className="inline-block mt-2 text-[10px] font-black uppercase tracking-widest text-amber-500 bg-amber-50 dark:bg-amber-950/20 px-2.5 py-1 rounded-lg border border-amber-200 dark:border-amber-800">Optional</span>
+                                            <span className="inline-block mt-1 text-[10px] font-black uppercase tracking-widest text-amber-500 bg-amber-50 dark:bg-amber-950/20 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800">Optional</span>
                                         )}
                                     </div>
 
                                     {(q.subtitle || q.description) && (
-                                        <p className="text-base sm:text-lg text-zinc-500 dark:text-zinc-400 mb-8 font-medium leading-relaxed w-full">
+                                        <p className={`text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mb-3 font-medium leading-relaxed w-full ${q.type === 'intro' ? 'text-center text-sm sm:text-base' : ''}`}>
                                             {q.subtitle || q.description}
                                         </p>
                                     )}
 
-                                    <QuestionRenderer
-                                        question={q}
-                                        value={formData[q.field]}
-                                        onChange={(field, val) => {
-                                            setValidationError(null);
-                                            handleChange(field, val);
-                                        }}
-                                        onNext={(val) => {
-                                            if (currentPageQuestions.length === 1) handleNext();
-                                        }}
-                                        inputRef={idx === 0 ? inputRef : undefined}
-                                    />
+                                    <div className="mt-2">
+                                        <QuestionRenderer
+                                            question={q}
+                                            value={formData[q.field]}
+                                            onChange={(field, val) => {
+                                                setValidationError(null);
+                                                handleChange(field, val);
+                                            }}
+                                            onNext={(val) => {
+                                                if (currentPageQuestions.length === 1) handleNext();
+                                            }}
+                                            inputRef={idx === 0 ? inputRef : undefined}
+                                        />
+                                    </div>
                                 </div>
                             ))}
 
@@ -245,29 +256,29 @@ const OnboardingFlow: React.FC = () => {
                                 <motion.p
                                     initial={{ x: -10, opacity: 0 }}
                                     animate={{ x: 0, opacity: 1 }}
-                                    className="mt-4 text-red-500 font-bold text-sm flex items-center gap-2"
+                                    className="mt-4 text-red-500 font-bold text-xs sm:text-sm flex items-center gap-2 bg-red-50 dark:bg-red-950/20 p-3 rounded-xl border border-red-100 dark:border-red-900/50"
                                 >
-                                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse flex-shrink-0" />
                                     {validationError}
                                 </motion.p>
                             )}
                         </div>
 
                         {/* Navigation */}
-                        <div className="mt-16 flex items-center justify-between">
+                        <div className="mt-10 flex items-center justify-between">
                             {currentStep > 0 ? (
-                                <button onClick={handleBack} className="w-14 h-14 flex items-center justify-center rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-primary transition-all">
-                                    <ChevronLeftIcon className="w-6 h-6" />
+                                <button onClick={handleBack} className="w-11 h-11 flex items-center justify-center rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-primary transition-all">
+                                    <ChevronLeftIcon className="w-5 h-5" />
                                 </button>
                             ) : <div />}
 
                             <button
                                 onClick={handleNext}
                                 disabled={isSubmitting}
-                                className="bg-primary hover:bg-primary/90 text-white px-10 py-4 rounded-xl text-lg font-black shadow-2xl shadow-primary/20 transition-all flex items-center gap-3"
+                                className="bg-primary hover:bg-primary/90 text-white px-8 py-3 rounded-xl text-base font-bold shadow-xl shadow-primary/20 transition-all flex items-center gap-2"
                             >
                                 {isSubmitting ? 'Finalizing...' : (currentStep === pages.length - 1 ? 'Complete Path' : 'Continue')}
-                                {!isSubmitting && <ChevronRightIcon className="w-5 h-5" />}
+                                {!isSubmitting && <ChevronRightIcon className="w-4 h-4" />}
                             </button>
                         </div>
                     </motion.div>

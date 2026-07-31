@@ -19,6 +19,10 @@ export const checkCondition = (condition: any, data: any) => {
     if (operator === 'neq') return fieldValue !== value;
     if (operator === 'contains') return Array.isArray(fieldValue) ? fieldValue.includes(value) : fieldValue?.includes(value);
     if (operator === 'not_empty') return fieldValue && (!Array.isArray(fieldValue) || fieldValue.length > 0);
+    if (operator === 'gt') return Number(fieldValue) > Number(value);
+    if (operator === 'lt') return Number(fieldValue) < Number(value);
+    if (operator === 'gte') return Number(fieldValue) >= Number(value);
+    if (operator === 'lte') return Number(fieldValue) <= Number(value);
     return true;
 };
 

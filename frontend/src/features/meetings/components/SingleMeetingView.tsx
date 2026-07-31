@@ -106,7 +106,7 @@ const SingleMeetingView: React.FC = () => {
                                     <button
                                         onClick={() => rsvp('not_sure')}
                                         disabled={isRsvping}
-                                        className={`flex items-center gap-2 px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'not_sure' ? 'bg-amber-500 text-white shadow-xl shadow-amber-500/20' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}
+                                        className={`flex items-center gap-2 px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'not_sure' ? 'bg-orange-500 text-white shadow-xl shadow-orange-500/20' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}
                                     >
                                         <QuestionMarkCircleIcon className="w-4 h-4" />
                                         {isRsvping && meeting.my_rsvp === 'not_sure' ? '...' : 'Maybe'}
@@ -114,7 +114,7 @@ const SingleMeetingView: React.FC = () => {
                                     <button
                                         onClick={() => rsvp('cant_go')}
                                         disabled={isRsvping}
-                                        className={`flex items-center gap-2 px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'cant_go' ? 'bg-red-500 text-white shadow-xl shadow-red-500/20' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}
+                                        className={`flex items-center gap-2 px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'cant_go' ? 'bg-zinc-900 dark:bg-black text-white shadow-xl shadow-zinc-900/20' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}
                                     >
                                         <XCircleIcon className="w-4 h-4" />
                                         {isRsvping && meeting.my_rsvp === 'cant_go' ? '...' : 'No'}

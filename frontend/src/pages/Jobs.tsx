@@ -92,8 +92,8 @@ const Jobs: React.FC = () => {
                 {/* Header */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-12">
                     <div>
-                        <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight">Jobs</h1>
-                        <p className="text-zinc-500 dark:text-zinc-400 mt-2 font-medium">Discover opportunities within our community.</p>
+                        <h1 className="page-heading">Jobs</h1>
+                        <p className="page-description">Discover opportunities within our community.</p>
                     </div>
                     <button
                         onClick={() => navigate('/jobs/post')}

@@ -101,6 +101,48 @@ const MemberDetailView: React.FC = () => {
         }
     };
 
+    const renderAttributeValue = (value: any) => {
+        if (!value) return <span className="text-zinc-300 italic font-normal">Not set</span>;
+
+        let displayValue = value;
+        if (Array.isArray(value)) {
+            displayValue = value.join(', ');
+        } else if (typeof value === 'string' && value.startsWith('[') && value.endsWith(']')) {
+            try {
+                const parsed = JSON.parse(value);
+                if (Array.isArray(parsed)) displayValue = parsed.join(', ');
+            } catch (e) { }
+        }
+
+        const valStr = String(displayValue);
+
+        // Base64 Image or Image URL
+        if (valStr.startsWith('data:image/') || /\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i.test(valStr)) {
+            return (
+                <div className="mt-2 w-24 h-24 rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-sm bg-zinc-50 dark:bg-zinc-900">
+                    <img src={valStr} alt="Attribute" className="w-full h-full object-cover" />
+                </div>
+            );
+        }
+
+        // URLs
+        if (valStr.startsWith('http://') || valStr.startsWith('https://') || valStr.startsWith('www.')) {
+            const href = valStr.startsWith('www.') ? `https://${valStr}` : valStr;
+            return (
+                <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center gap-1 break-all"
+                >
+                    {valStr}
+                </a>
+            );
+        }
+
+        return <span className="break-words">{valStr}</span>;
+    };
+
     if (isLoading) return <div className="p-10 animate-pulse text-zinc-400 font-black uppercase text-center tracking-widest">Retrieving deep profile metrics...</div>;
     if (!member) return null;
 
@@ -328,7 +370,7 @@ const MemberDetailView: React.FC = () => {
                                             {member.profile_attributes?.map((attr, idx) => (
                                                 <div key={idx} className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-2">
                                                     <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400 w-48">{attr.label}</span>
-                                                    <span className="text-sm font-black text-zinc-700 dark:text-zinc-300">{attr.value || <span className="text-zinc-300 italic font-normal">Not set</span>}</span>
+                                                    <div className="text-sm font-bold text-zinc-700 dark:text-zinc-300">{renderAttributeValue(attr.value)}</div>
                                                 </div>
                                             ))}
                                             {(!member.profile_attributes || member.profile_attributes.length === 0) && (
@@ -374,7 +416,7 @@ const MemberDetailView: React.FC = () => {
                                                         {resp.answers.map((ans, aidx) => (
                                                             <div key={aidx} className="pt-4 first:pt-0">
                                                                 <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-1">{ans.label}</p>
-                                                                <p className="text-sm font-bold text-zinc-700 dark:text-zinc-300">{ans.value || <span className="text-zinc-200 italic font-normal">No answer</span>}</p>
+                                                                <div className="text-sm font-bold text-zinc-700 dark:text-zinc-300">{renderAttributeValue(ans.value)}</div>
                                                             </div>
                                                         ))}
                                                     </div>

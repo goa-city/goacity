@@ -66,8 +66,8 @@ const MyPeople: React.FC = () => {
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
                 <div>
 
-                    <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight">My People</h1>
-                    <p className="text-zinc-500 dark:text-zinc-400 mt-2 font-medium">Discover members within your streams and view their services.</p>
+                    <h1 className="page-heading">My People</h1>
+                    <p className="page-description">Discover members within your streams and view their services.</p>
                 </div>
 
                 <div className="relative w-full md:w-80 group">

@@ -19,7 +19,7 @@ import {
     ChevronDownIcon,
     XMarkIcon
 } from '@heroicons/react/24/outline';
-import { CheckCircleIcon as SolidCheckCircleIcon, ArchiveBoxIcon } from '@heroicons/react/24/solid';
+import { CheckCircleIcon as SolidCheckCircleIcon, ArchiveBoxIcon, ClipboardDocumentCheckIcon as SolidClipboardDocumentCheckIcon } from '@heroicons/react/24/solid';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -79,6 +79,7 @@ interface MentorshipRelation {
     sessions: MentorshipSession[];
     goals: MentorshipGoal[];
     materials: MentorshipMaterial[];
+    response_id?: number | null;
 }
 
 interface AdminMentorshipDetailViewProps {
@@ -116,9 +117,33 @@ const AdminMentorshipDetailView: React.FC<AdminMentorshipDetailViewProps> = ({ r
     const [editFocusArea, setEditFocusArea] = useState('');
     const [editType, setEditType] = useState('');
 
+    const [showRequestsModal, setShowRequestsModal] = useState(false);
+    const [menteeRequests, setMenteeRequests] = useState<any[]>([]);
+    const [loadingRequests, setLoadingRequests] = useState(false);
+
     const showToast = (msg: string): void => {
         setToast(msg);
         setTimeout(() => setToast(''), 3500);
+    };
+
+    const handleViewMenteeRequests = async () => {
+        if (!mentorship?.response_id) {
+            showToast("No request form is linked to this mentorship relationship.");
+            return;
+        }
+        setLoadingRequests(true);
+        setShowRequestsModal(true);
+        try {
+            const res = await api.get(`/admin/mentorship/requests/${mentorship.response_id}`);
+            if (res.data.success && res.data.data) {
+                setMenteeRequests([res.data.data]);
+            }
+        } catch (err) {
+            console.error("Failed to load request details", err);
+            showToast("Failed to load mentorship request form.");
+        } finally {
+            setLoadingRequests(false);
+        }
     };
 
     const fetchTemplates = async () => {
@@ -316,18 +341,15 @@ const AdminMentorshipDetailView: React.FC<AdminMentorshipDetailViewProps> = ({ r
 
             {/* ── Completed / Archived / Declined Banner ── */}
             {isCompleted && (
-                <div className={`mb-8 flex items-center gap-4 border rounded-lg px-6 py-4 ${
-                    mentorship.status === 'Completed'
-                        ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-100 dark:border-emerald-900/40 text-emerald-600 dark:text-emerald-400'
-                        : 'bg-zinc-50 dark:bg-zinc-800/30 border-zinc-100 dark:border-zinc-850 text-zinc-500 dark:text-zinc-400'
-                }`}>
-                    <LockClosedIcon className={`w-5 h-5 shrink-0 ${
-                        mentorship.status === 'Completed' ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400'
-                    }`} />
+                <div className={`mb-8 flex items-center gap-4 border rounded-lg px-6 py-4 ${mentorship.status === 'Completed'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-100 dark:border-emerald-900/40 text-emerald-600 dark:text-emerald-400'
+                    : 'bg-zinc-50 dark:bg-zinc-800/30 border-zinc-100 dark:border-zinc-850 text-zinc-500 dark:text-zinc-400'
+                    }`}>
+                    <LockClosedIcon className={`w-5 h-5 shrink-0 ${mentorship.status === 'Completed' ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400'
+                        }`} />
                     <div>
-                        <p className={`text-[11px] font-black uppercase tracking-widest ${
-                            mentorship.status === 'Completed' ? 'text-emerald-700 dark:text-emerald-450' : 'text-zinc-500 dark:text-zinc-400'
-                        }`}>
+                        <p className={`text-[11px] font-black uppercase tracking-widest ${mentorship.status === 'Completed' ? 'text-emerald-700 dark:text-emerald-450' : 'text-zinc-500 dark:text-zinc-400'
+                            }`}>
                             Mentorship {mentorship.status}
                         </p>
                         <p className="text-xs mt-0.5">
@@ -343,19 +365,18 @@ const AdminMentorshipDetailView: React.FC<AdminMentorshipDetailViewProps> = ({ r
                 <div className="flex-1">
                     <div className="flex items-center gap-3 mb-4 flex-wrap">
                         <span className="px-4 py-1 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[10px] font-black uppercase tracking-widest rounded-full border border-indigo-500/20">
-                            {mentorship.type} Relation
+                            {mentorship.type}
                         </span>
                         <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
                             Started {formatDate(mentorship.created_at)}
                         </span>
-                        <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border ${
-                            mentorship.status === 'Active' ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/40' :
+                        <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border ${mentorship.status === 'Active' ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/40' :
                             mentorship.status === 'Completed' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700' :
-                            mentorship.status === 'Requested' ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-900/40' :
-                            mentorship.status === 'Archived' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 border-zinc-200 dark:border-zinc-700' :
-                            mentorship.status === 'Declined' ? 'bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-450 border-rose-100 dark:border-rose-900/40' :
-                            'bg-zinc-50 dark:bg-zinc-850 text-zinc-400'
-                        }`}>
+                                mentorship.status === 'Requested' ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-900/40' :
+                                    mentorship.status === 'Archived' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 border-zinc-200 dark:border-zinc-700' :
+                                        mentorship.status === 'Declined' ? 'bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-450 border-rose-100 dark:border-rose-900/40' :
+                                            'bg-zinc-50 dark:bg-zinc-850 text-zinc-400'
+                            }`}>
                             {mentorship.status}
                         </span>
                     </div>
@@ -363,11 +384,10 @@ const AdminMentorshipDetailView: React.FC<AdminMentorshipDetailViewProps> = ({ r
                         Mentorship <span className="text-indigo-600">Workspace</span>
                     </h1>
                     <p className="text-sm text-gray-500 dark:text-zinc-400 mt-2 max-w-xl">
-                        Admin view focused on{' '}
+                        Mentorship focused on{' '}
                         <span className="text-zinc-900 dark:text-indigo-400 font-extrabold">
                             {mentorship.focus_area}
                         </span>
-                        . Read-only — no changes can be made from this view.
                     </p>
                 </div>
 
@@ -534,13 +554,12 @@ const AdminMentorshipDetailView: React.FC<AdminMentorshipDetailViewProps> = ({ r
                                                         {formatDate(session.session_date)}
                                                     </span>
                                                     {session.is_paid && (
-                                                        <span className={`text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
-                                                            session.payment_status === 'Paid'
-                                                                ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30'
-                                                                : session.payment_status === 'Verifying'
-                                                                    ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-100 dark:border-amber-900/30'
-                                                                    : 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 border border-rose-100 dark:border-rose-900/30'
-                                                        }`}>
+                                                        <span className={`text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider ${session.payment_status === 'Paid'
+                                                            ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30'
+                                                            : session.payment_status === 'Verifying'
+                                                                ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-100 dark:border-amber-900/30'
+                                                                : 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 border border-rose-100 dark:border-rose-900/30'
+                                                            }`}>
                                                             Paid Session: ₹{session.price}
                                                             {session.payment_status === 'Paid' && ' (Paid)'}
                                                             {session.payment_status === 'Verifying' && ' (Verifying)'}
@@ -671,7 +690,7 @@ const AdminMentorshipDetailView: React.FC<AdminMentorshipDetailViewProps> = ({ r
                                                 <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0 ${mat.status === 'Responded'
                                                     ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30'
                                                     : 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-100 dark:border-amber-900/30'
-                                                }`}>
+                                                    }`}>
                                                     {mat.status}
                                                 </span>
                                             </div>
@@ -711,10 +730,10 @@ const AdminMentorshipDetailView: React.FC<AdminMentorshipDetailViewProps> = ({ r
                 </div>
 
                 {/* ── Right Column: Overview ── */}
-                <div className="lg:col-span-4 space-y-8">
+                <div className="lg:col-span-4 space-y-1">
                     <section className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
-                        <div className="flex justify-between items-center mb-6 border-b border-zinc-50 dark:border-zinc-800 pb-2">
-                            <h3 className="text-base font-bold text-zinc-900 dark:text-white uppercase tracking-wider italic">
+                        <div className="flex justify-between items-center mb-2 border-b border-zinc-50 dark:border-zinc-800 pb-2">
+                            <h3 className="text-base font-bold text-zinc-900 dark:text-white uppercase tracking-wider">
                                 Workspace Overview
                             </h3>
                             <button
@@ -724,9 +743,8 @@ const AdminMentorshipDetailView: React.FC<AdminMentorshipDetailViewProps> = ({ r
                                 {isEditingDetails ? 'Cancel' : 'Edit'}
                             </button>
                         </div>
-                        
                         {isEditingDetails ? (
-                            <div className="space-y-4">
+                            <div className="space-y-1">
                                 <div>
                                     <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-1">Focus Area</label>
                                     <input
@@ -737,31 +755,33 @@ const AdminMentorshipDetailView: React.FC<AdminMentorshipDetailViewProps> = ({ r
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-1">Type</label>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-1">Schedule</label>
                                     <select
                                         value={editType}
                                         onChange={(e) => setEditType(e.target.value)}
                                         className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 px-3 h-10 text-xs font-medium"
                                     >
-                                        <option value="Long-term">Long-term</option>
-                                        <option value="Micro">Micro</option>
+                                        <option value="Weekly">Weekly</option>
+                                        <option value="Every 2 weeks">Every 2 weeks</option>
+                                        <option value="Monthly">Monthly</option>
+                                        <option value="Flexible">Flexible</option>
                                     </select>
                                 </div>
                                 <button
                                     onClick={handleSaveDetails}
-                                    className="w-full py-2 bg-indigo-600 hover:bg-indigo-750 text-white rounded-xl text-xs font-bold transition-colors"
+                                    className="w-full py-2 bg-indigo-600 hover:bg-indigo-755 text-white rounded-xl text-xs font-bold transition-colors"
                                 >
                                     Save Changes
                                 </button>
                             </div>
                         ) : (
-                            <div className="space-y-4">
+                            <div className="space-y-1">
                                 <div className="flex justify-between items-center py-2 border-b border-zinc-50 dark:border-zinc-800 text-xs">
                                     <span className="text-zinc-500 dark:text-zinc-400 font-bold uppercase">Focus Area</span>
                                     <span className="font-extrabold text-sky-600 dark:text-sky-400">{mentorship.focus_area}</span>
                                 </div>
                                 <div className="flex justify-between items-center py-2 border-b border-zinc-50 dark:border-zinc-800 text-xs">
-                                    <span className="text-zinc-500 dark:text-zinc-400 font-bold uppercase">Type</span>
+                                    <span className="text-zinc-500 dark:text-zinc-400 font-bold uppercase">Schedule</span>
                                     <span className="font-extrabold text-zinc-800 dark:text-zinc-300">{mentorship.type}</span>
                                 </div>
                                 <div className="flex justify-between items-center py-2 border-b border-zinc-50 dark:border-zinc-800 text-xs">
@@ -782,6 +802,18 @@ const AdminMentorshipDetailView: React.FC<AdminMentorshipDetailViewProps> = ({ r
                                 </div>
                             </div>
                         )}
+
+                        {mentorship.response_id && (
+                            <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800/80 mt-4">
+                                <button
+                                    type="button"
+                                    onClick={handleViewMenteeRequests}
+                                    className="w-full py-2.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-xl text-xs font-black uppercase tracking-widest transition-all"
+                                >
+                                    View Mentee Request Form
+                                </button>
+                            </div>
+                        )}
                     </section>
 
                     {/* Change Mentor Panel */}
@@ -792,21 +824,21 @@ const AdminMentorshipDetailView: React.FC<AdminMentorshipDetailViewProps> = ({ r
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2">Change Mentor</label>
-                                <div className="flex gap-2">
+                                <div className="flex gap-2 min-w-0">
                                     <select
                                         value={selectedMentorId}
                                         onChange={(e) => setSelectedMentorId(e.target.value)}
-                                        className="flex-1 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 px-3 h-10 text-xs font-medium"
+                                        className="flex-1 min-w-0 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 px-3 h-10 text-xs font-medium truncate"
                                     >
                                         <option value="">Select a new mentor...</option>
                                         {mentors.map(m => (
-                                            <option key={m.id} value={m.id}>{m.first_name} {m.last_name} ({m.email})</option>
+                                            <option key={m.id} value={m.id}>{m.first_name} {m.last_name}</option>
                                         ))}
                                     </select>
                                     <button
                                         onClick={handleChangeMentor}
                                         disabled={!selectedMentorId || selectedMentorId === String(mentorship.mentor_id)}
-                                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-colors disabled:opacity-50 animate-pulse"
+                                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-755 text-white rounded-xl text-xs font-bold transition-colors disabled:opacity-50 shrink-0"
                                     >
                                         Update
                                     </button>
@@ -903,8 +935,8 @@ const AdminMentorshipDetailView: React.FC<AdminMentorshipDetailViewProps> = ({ r
             {showNotifyModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm animate-in fade-in duration-300">
                     <div className="bg-white dark:bg-zinc-900 rounded-[2.5rem] shadow-2xl w-full max-w-2xl p-8 relative border border-zinc-100 dark:border-zinc-800 animate-in zoom-in-95 duration-300">
-                        <button 
-                            onClick={() => setShowNotifyModal(false)} 
+                        <button
+                            onClick={() => setShowNotifyModal(false)}
                             className="absolute top-8 right-8 text-zinc-400 hover:text-zinc-650 dark:hover:text-zinc-200 transition-colors"
                         >
                             <XMarkIcon className="w-6 h-6" />
@@ -927,7 +959,7 @@ const AdminMentorshipDetailView: React.FC<AdminMentorshipDetailViewProps> = ({ r
                                 <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Available Templates</label>
                                 <div className="relative">
                                     <ChevronDownIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400 pointer-events-none" />
-                                    <select 
+                                    <select
                                         value={selectedTemplateId}
                                         onChange={(e) => setSelectedTemplateId(e.target.value)}
                                         className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 px-6 h-14 font-medium appearance-none"
@@ -943,8 +975,8 @@ const AdminMentorshipDetailView: React.FC<AdminMentorshipDetailViewProps> = ({ r
                                 <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Select Recipients</label>
                                 <div className="flex flex-wrap gap-4">
                                     <label className="flex items-center gap-3 bg-zinc-50 dark:bg-zinc-950 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800 cursor-pointer select-none hover:bg-zinc-100/50 dark:hover:bg-zinc-900 transition-colors flex-1 min-w-[200px]">
-                                        <input 
-                                            type="checkbox" 
+                                        <input
+                                            type="checkbox"
                                             checked={sendToMentor}
                                             onChange={(e) => setSendToMentor(e.target.checked)}
                                             className="w-5 h-5 rounded-lg border-zinc-300 dark:border-zinc-700 text-indigo-650 focus:ring-indigo-500"
@@ -957,8 +989,8 @@ const AdminMentorshipDetailView: React.FC<AdminMentorshipDetailViewProps> = ({ r
                                         </div>
                                     </label>
                                     <label className="flex items-center gap-3 bg-zinc-50 dark:bg-zinc-950 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800 cursor-pointer select-none hover:bg-zinc-100/50 dark:hover:bg-zinc-900 transition-colors flex-1 min-w-[200px]">
-                                        <input 
-                                            type="checkbox" 
+                                        <input
+                                            type="checkbox"
                                             checked={sendToMentee}
                                             onChange={(e) => setSendToMentee(e.target.checked)}
                                             className="w-5 h-5 rounded-lg border-zinc-300 dark:border-zinc-700 text-indigo-650 focus:ring-indigo-500"
@@ -990,7 +1022,7 @@ const AdminMentorshipDetailView: React.FC<AdminMentorshipDetailViewProps> = ({ r
                                                 )}
                                                 <div>
                                                     <p className="text-[10px] font-black uppercase text-zinc-400">Message Body:</p>
-                                                    <div 
+                                                    <div
                                                         className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed whitespace-pre-wrap mt-1"
                                                         dangerouslySetInnerHTML={{ __html: selected.content || selected.message || selected.body || '' }}
                                                     />
@@ -1016,6 +1048,96 @@ const AdminMentorshipDetailView: React.FC<AdminMentorshipDetailViewProps> = ({ r
                                     Cancel
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* ── Mentee Requests Modal ── */}
+            {showRequestsModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-white dark:bg-zinc-900 rounded-[2.5rem] shadow-2xl w-full max-w-4xl max-h-[85vh] p-8 relative border border-zinc-100 dark:border-zinc-800 animate-in zoom-in-95 duration-300 flex flex-col">
+                        <button
+                            onClick={() => setShowRequestsModal(false)}
+                            className="absolute top-8 right-8 text-zinc-400 hover:text-zinc-650 dark:hover:text-zinc-200 transition-colors"
+                        >
+                            <XMarkIcon className="w-6 h-6" />
+                        </button>
+
+                        <div className="mb-6 shrink-0">
+                            <h3 className="text-3xl font-black text-zinc-900 dark:text-white leading-tight tracking-tighter">
+                                Mentee Request <span className="text-indigo-650">Form</span>
+                            </h3>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-6 pb-4">
+                            {loadingRequests ? (
+                                <div className="py-20 flex flex-col items-center justify-center">
+                                    <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4" />
+                                    <p className="text-zinc-400 font-black uppercase text-[10px] tracking-[0.2em] animate-pulse">Loading Requests...</p>
+                                </div>
+                            ) : menteeRequests.length === 0 ? (
+                                <div className="py-20 text-center bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800 rounded-2xl">
+                                    <p className="text-zinc-500 dark:text-zinc-400 text-sm font-bold uppercase tracking-wider">No request forms found.</p>
+                                </div>
+                            ) : (
+                                menteeRequests.map((req, reqIdx) => (
+                                    <div key={req.id} className="p-6">
+                                        <div className="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800/60 pb-3 mb-4">
+                                            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+                                                Submitted {formatDate(req.submitted_at)}
+                                            </span>
+                                        </div>
+                                        <div className="space-y-5">
+                                            {req.form_fields
+                                                ?.filter((field: any) => field.field_type !== 'header' && field.field_type !== 'section')
+                                                ?.map((field: any, fieldIdx: number) => {
+                                                    const answer = req.answers.find((a: any) => a.field_key === field.field_key);
+                                                    return (
+                                                        <div key={field.id} className={fieldIdx > 0 ? "pt-5 border-t border-zinc-100 dark:border-zinc-800/50" : ""}>
+                                                            <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                                <SolidClipboardDocumentCheckIcon className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                                                                {field.label}
+                                                            </p>
+                                                            <div className="text-lg font-medium text-zinc-800 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap">
+                                                                {(() => {
+                                                                    if (!answer) return <span className="text-zinc-400 italic">No response provided</span>;
+                                                                    const value = answer.answer_value;
+                                                                    if (value === undefined || value === null || value === '') {
+                                                                        return <span className="text-zinc-400 italic">No response provided</span>;
+                                                                    }
+
+                                                                    let parsed = value;
+                                                                    if (typeof value === 'string') {
+                                                                        const trimmed = value.trim();
+                                                                        if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+                                                                            try {
+                                                                                parsed = JSON.parse(trimmed);
+                                                                            } catch (e) {
+                                                                                // ignore
+                                                                            }
+                                                                        }
+                                                                    }
+
+                                                                    if (Array.isArray(parsed)) {
+                                                                        return (
+                                                                            <ul className="list-disc pl-5 space-y-1">
+                                                                                {parsed.map((item: any, idx: number) => (
+                                                                                    <li key={idx}>{String(item)}</li>
+                                                                                ))}
+                                                                            </ul>
+                                                                        );
+                                                                    }
+
+                                                                    return String(value);
+                                                                })()}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </div>
                 </div>

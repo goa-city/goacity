@@ -24,7 +24,8 @@ import {
     PencilIcon,
     LockClosedIcon
 } from '@heroicons/react/24/outline';
-import { CheckCircleIcon as SolidCheckCircleIcon } from '@heroicons/react/24/solid';
+import { CheckCircleIcon as SolidCheckCircleIcon, ClipboardDocumentCheckIcon as SolidClipboardDocumentCheckIcon } from '@heroicons/react/24/solid';
+import api from '../api/axios';
 
 const MentorshipWorkspace: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -82,6 +83,36 @@ const MentorshipWorkspace: React.FC = () => {
     const [paymentNote, setPaymentNote] = useState('');
     const [sessionQrFile, setSessionQrFile] = useState<File | null>(null);
     const [editSessionQrFile, setEditSessionQrFile] = useState<File | null>(null);
+
+    const [showRequestsModal, setShowRequestsModal] = useState(false);
+    const [menteeRequests, setMenteeRequests] = useState<any[]>([]);
+    const [loadingRequests, setLoadingRequests] = useState(false);
+    const [toast, setToast] = useState('');
+
+    const showToast = (msg: string): void => {
+        setToast(msg);
+        setTimeout(() => setToast(''), 3500);
+    };
+
+    const handleViewMenteeRequests = async () => {
+        if (!mentorship?.response_id) {
+            showToast("No request form is linked to this mentorship relationship.");
+            return;
+        }
+        setLoadingRequests(true);
+        setShowRequestsModal(true);
+        try {
+            const res = await api.get(`/member/mentorship/requests/${mentorship.response_id}`);
+            if (res.data.success && res.data.data) {
+                setMenteeRequests([res.data.data]);
+            }
+        } catch (err) {
+            console.error("Failed to load request details", err);
+            showToast("Failed to load mentorship request form.");
+        } finally {
+            setLoadingRequests(false);
+        }
+    };
 
     if (isLoading) return (
         <DashboardLayout>
@@ -251,11 +282,11 @@ const MentorshipWorkspace: React.FC = () => {
                     <div className="flex-1">
                         <div className="flex items-center gap-3 mb-4">
                             <span className="px-4 py-1 bg-indigo-500/10 text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-full border border-indigo-500/20">
-                                {mentorship.type} Relation
+                                {mentorship.type}
                             </span>
                             <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Started {new Date(mentorship.created_at).toLocaleDateString()}</span>
                         </div>
-                        <h1 className="text-3xl font-extrabold text-[#2D2D46] dark:text-zinc-100 tracking-tighter uppercase leading-none mb-3">
+                        <h1 className="page-heading uppercase">
                             Mentorship <span className="text-indigo-600">Workspace</span>
                         </h1>
                         <p className="text-sm text-gray-500 mt-2 max-w-xl">
@@ -264,27 +295,6 @@ const MentorshipWorkspace: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-6">
-                        {/* ── Multiple Mentorships Switcher ── */}
-                        {myMentorships && myMentorships.length > 1 && (
-                            <div className="flex flex-col">
-                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Switch Pairing</label>
-                                <select
-                                    value={id}
-                                    onChange={(e) => navigate(`/dashboard/mentorship/${e.target.value}`)}
-                                    className="border border-gray-300 dark:border-zinc-800 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-sky-500 outline-none font-bold text-[#2D2D46] dark:text-zinc-300 bg-white dark:bg-zinc-900"
-                                >
-                                    {myMentorships.map((rel: any) => {
-                                        const p = rel.mentor_id === user?.id ? rel.mentee : rel.mentor;
-                                        return (
-                                            <option key={rel.id} value={rel.id}>
-                                                {p?.first_name} {p?.last_name} ({rel.mentor_id === user?.id ? 'Mentee' : 'Mentor'})
-                                            </option>
-                                        );
-                                    })}
-                                </select>
-                            </div>
-                        )}
-
                         <div className="bg-white dark:bg-zinc-900 p-4 rounded-3xl border border-gray-100 dark:border-zinc-800 flex items-center gap-4 shadow-sm">
                             <div className="w-12 h-12 bg-zinc-100 dark:bg-zinc-800 rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-700 shadow-sm shrink-0">
                                 {partner?.profile_photo ? (
@@ -678,12 +688,12 @@ const MentorshipWorkspace: React.FC = () => {
                     </div>
 
                     {/* Right Column: Dynamic Status & Info */}
-                    <div className="lg:col-span-4 space-y-8">
+                    <div className="lg:col-span-4 space-y-1">
                         <section className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-3xl p-6 shadow-sm">
-                            <h3 className="text-base font-bold text-zinc-950 dark:text-white uppercase tracking-wider mb-6 italic border-b border-zinc-50 dark:border-zinc-800 pb-2">
+                            <h3 className="text-base font-bold text-zinc-950 dark:text-white uppercase tracking-wider mb-2 italic border-b border-zinc-50 dark:border-zinc-800 pb-2">
                                 Workspace Overview
                             </h3>
-                            <div className="space-y-4">
+                            <div className="space-y-1">
                                 <div className="flex justify-between items-center py-2 border-b border-zinc-50 dark:border-zinc-800 text-xs">
                                     <span className="text-zinc-500 dark:text-zinc-400 font-bold uppercase">Paired Role</span>
                                     <span className="font-extrabold text-[#2D2D46] dark:text-zinc-350">{isMentor ? 'Mentor' : 'Mentee'}</span>
@@ -691,6 +701,10 @@ const MentorshipWorkspace: React.FC = () => {
                                 <div className="flex justify-between items-center py-2 border-b border-zinc-50 dark:border-zinc-800 text-xs">
                                     <span className="text-zinc-500 dark:text-zinc-400 font-bold uppercase">Focus Area</span>
                                     <span className="font-extrabold text-sky-600 dark:text-sky-400">{mentorship.focus_area}</span>
+                                </div>
+                                <div className="flex justify-between items-center py-2 border-b border-zinc-50 dark:border-zinc-800 text-xs">
+                                    <span className="text-zinc-500 dark:text-zinc-400 font-bold uppercase">Schedule</span>
+                                    <span className="font-extrabold text-zinc-800 dark:text-zinc-300">{mentorship.type}</span>
                                 </div>
                                 <div className="flex justify-between items-center py-2 border-b border-zinc-50 dark:border-zinc-800 text-xs">
                                     <span className="text-zinc-500 dark:text-zinc-400 font-bold uppercase">Current Phase</span>
@@ -704,6 +718,17 @@ const MentorshipWorkspace: React.FC = () => {
                                     <span className="text-zinc-500 dark:text-zinc-400 font-bold uppercase">Active Milestones</span>
                                     <span className="font-extrabold text-zinc-800 dark:text-zinc-300">{mentorship.goals?.length || 0} Goals</span>
                                 </div>
+                                {mentorship.response_id && (
+                                    <div className="pt-4 mt-2">
+                                        <button
+                                            type="button"
+                                            onClick={handleViewMenteeRequests}
+                                            className="w-full py-2.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-xl text-xs font-black uppercase tracking-widest transition-all"
+                                        >
+                                            View Request Form
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </section>
                     </div>
@@ -715,7 +740,7 @@ const MentorshipWorkspace: React.FC = () => {
 
             {/* Log Session Modal */}
             {isLoggingSession && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-zinc-950/80 backdrop-blur-md">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-6 pb-28 md:pb-6 bg-zinc-950/80 backdrop-blur-md">
                     <div className="bg-white dark:bg-zinc-900 w-full max-w-2xl rounded-3xl p-8 shadow-xl border border-gray-100 dark:border-zinc-800 animate-fadeIn">
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-2xl font-black text-[#2D2D46] dark:text-white uppercase italic tracking-tight">Schedule New Session</h2>
@@ -724,8 +749,8 @@ const MentorshipWorkspace: React.FC = () => {
                             </button>
                         </div>
 
-                        <form onSubmit={handleLogSession} className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <form onSubmit={handleLogSession} className="w-full space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
                                 <div className={isMentor ? "" : "md:col-span-2"}>
                                     <label className="block text-sm font-bold text-gray-700 dark:text-zinc-300 mb-1">Session Date</label>
                                     <input
@@ -775,7 +800,7 @@ const MentorshipWorkspace: React.FC = () => {
                                 )}
                             </div>
 
-                            <div>
+                            <div className="w-full">
                                 <label className="block text-sm font-bold text-gray-700 dark:text-zinc-300 mb-1">Session Name</label>
                                 <input
                                     type="text"
@@ -785,7 +810,7 @@ const MentorshipWorkspace: React.FC = () => {
                                     onChange={e => setSessionData({ ...sessionData, next_steps: e.target.value })}
                                 />
                             </div>
-                            <div>
+                            <div className="w-full">
                                 <label className="block text-sm font-bold text-gray-700 dark:text-zinc-300 mb-1">Shared Agenda / Notes</label>
                                 <textarea
                                     className="w-full border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white rounded-xl p-3 text-sm focus:ring-2 focus:ring-sky-500 outline-none font-medium"
@@ -807,7 +832,7 @@ const MentorshipWorkspace: React.FC = () => {
 
             {/* Edit Session Modal */}
             {isEditingSession && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-zinc-950/80 backdrop-blur-md">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-6 pb-28 md:pb-6 bg-zinc-950/80 backdrop-blur-md">
                     <div className="bg-white dark:bg-zinc-900 w-full max-w-2xl rounded-3xl p-8 shadow-xl border border-gray-100 dark:border-zinc-800 animate-fadeIn">
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-2xl font-black text-[#2D2D46] dark:text-white uppercase italic tracking-tight">Edit Session</h2>
@@ -816,8 +841,8 @@ const MentorshipWorkspace: React.FC = () => {
                             </button>
                         </div>
 
-                        <form onSubmit={handleEditSession} className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <form onSubmit={handleEditSession} className="w-full space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
                                 <div className={isMentor ? "" : "md:col-span-2"}>
                                     <label className="block text-sm font-bold text-gray-700 dark:text-zinc-300 mb-1">Session Date</label>
                                     <input
@@ -899,7 +924,7 @@ const MentorshipWorkspace: React.FC = () => {
 
             {/* Define Milestone Goal Modal */}
             {isAddingGoal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-zinc-950/80 backdrop-blur-md">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-6 pb-28 md:pb-6 bg-zinc-950/80 backdrop-blur-md">
                     <div className="bg-white dark:bg-zinc-900 w-full max-w-xl rounded-3xl p-8 shadow-xl border border-gray-100 dark:border-zinc-800 animate-fadeIn">
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-2xl font-black text-[#2D2D46] dark:text-white uppercase italic tracking-tight">Create Objective</h2>
@@ -908,7 +933,7 @@ const MentorshipWorkspace: React.FC = () => {
                             </button>
                         </div>
 
-                        <form onSubmit={handleAddGoal} className="space-y-6">
+                        <form onSubmit={handleAddGoal} className="w-full space-y-6">
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 dark:text-zinc-300 mb-1">Objective Title</label>
                                 <input
@@ -950,7 +975,7 @@ const MentorshipWorkspace: React.FC = () => {
 
             {/* Share Material Modal */}
             {isAddingMaterial && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-zinc-950/80 backdrop-blur-md">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-6 pb-28 md:pb-6 bg-zinc-950/80 backdrop-blur-md">
                     <div className="bg-white dark:bg-zinc-900 w-full max-w-xl rounded-3xl p-8 shadow-xl border border-gray-100 dark:border-zinc-800 animate-fadeIn">
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-2xl font-black text-[#2D2D46] dark:text-white uppercase italic tracking-tight">Share Resource</h2>
@@ -959,7 +984,7 @@ const MentorshipWorkspace: React.FC = () => {
                             </button>
                         </div>
 
-                        <form onSubmit={handleAddMaterial} className="space-y-6">
+                        <form onSubmit={handleAddMaterial} className="w-full space-y-6">
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 dark:text-zinc-300 mb-1">Resource Title</label>
                                 <input
@@ -1010,7 +1035,7 @@ const MentorshipWorkspace: React.FC = () => {
 
             {/* Read & Respond Modal */}
             {respondingMaterialId && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-zinc-950/80 backdrop-blur-md">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-6 pb-28 md:pb-6 bg-zinc-950/80 backdrop-blur-md">
                     <div className="bg-white dark:bg-zinc-900 w-full max-w-xl rounded-3xl p-8 shadow-xl border border-gray-100 dark:border-zinc-800 animate-fadeIn">
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-2xl font-black text-[#2D2D46] dark:text-white uppercase italic tracking-tight">Submit Response</h2>
@@ -1019,7 +1044,7 @@ const MentorshipWorkspace: React.FC = () => {
                             </button>
                         </div>
 
-                        <form onSubmit={handleSubmitMaterialResponse} className="space-y-6">
+                        <form onSubmit={handleSubmitMaterialResponse} className="w-full space-y-6">
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 dark:text-zinc-300 mb-1">My Notes / Answers</label>
                                 <textarea
@@ -1050,7 +1075,7 @@ const MentorshipWorkspace: React.FC = () => {
 
             {/* Pay RSVP Session Modal */}
             {payingSessionId && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-zinc-950/80 backdrop-blur-md">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-6 pb-28 md:pb-6 bg-zinc-950/80 backdrop-blur-md">
                     <div className="bg-white w-full max-w-md rounded-3xl p-8 shadow-xl border border-gray-100 animate-fadeIn text-center">
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-xl font-bold text-[#2D2D46] uppercase italic">Confirm Session Payment</h2>
@@ -1059,7 +1084,7 @@ const MentorshipWorkspace: React.FC = () => {
                             </button>
                         </div>
 
-                        <form onSubmit={handleSubmitSessionPayment} className="space-y-6 flex flex-col items-center">
+                        <form onSubmit={handleSubmitSessionPayment} className="w-full space-y-6 flex flex-col items-center">
                             <p className="text-gray-500 text-xs">
                                 Please scan the QR code to send payment of <span className="font-bold text-zinc-900">₹{mentorship.sessions?.find((s: any) => s.id === payingSessionId)?.price || mentorship.mentor?.mentorProfile?.default_session_price || '0'}</span> directly to your mentor.
                             </p>
@@ -1099,6 +1124,102 @@ const MentorshipWorkspace: React.FC = () => {
                             </div>
                         </form>
                     </div>
+                </div>
+            )}
+            {/* ── Requests Modal ── */}
+            {showRequestsModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-white dark:bg-zinc-900 rounded-[2.5rem] shadow-2xl w-full max-w-4xl max-h-[85vh] p-8 relative border border-zinc-100 dark:border-zinc-800 animate-in zoom-in-95 duration-300 flex flex-col">
+                        <button
+                            onClick={() => setShowRequestsModal(false)}
+                            className="absolute top-8 right-8 text-zinc-400 hover:text-zinc-650 dark:hover:text-zinc-200 transition-colors"
+                        >
+                            <XMarkIcon className="w-6 h-6" />
+                        </button>
+
+                        <div className="mb-6 shrink-0">
+                            <h3 className="text-3xl font-black text-zinc-900 dark:text-white leading-tight tracking-tighter">
+                                Mentee Request <span className="text-indigo-650">Form</span>
+                            </h3>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-6 pb-4">
+                            {loadingRequests ? (
+                                <div className="py-20 flex flex-col items-center justify-center">
+                                    <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4" />
+                                    <p className="text-zinc-400 font-black uppercase text-[10px] tracking-[0.2em] animate-pulse">Loading Request...</p>
+                                </div>
+                            ) : menteeRequests.length === 0 ? (
+                                <div className="py-20 text-center bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800 rounded-2xl">
+                                    <p className="text-zinc-500 dark:text-zinc-400 text-sm font-bold uppercase tracking-wider">No request form found.</p>
+                                </div>
+                            ) : (
+                                menteeRequests.map((req, reqIdx) => (
+                                    <div key={req.id} className="p-6">
+                                        <div className="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800/60 pb-3 mb-4">
+                                            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+                                                Submitted {formatDate(req.submitted_at)}
+                                            </span>
+                                        </div>
+                                        <div className="space-y-5">
+                                            {req.form_fields
+                                                ?.filter((field: any) => field.field_type !== 'header' && field.field_type !== 'section')
+                                                ?.map((field: any, fieldIdx: number) => {
+                                                    const answer = req.answers.find((a: any) => a.field_key === field.field_key);
+                                                    return (
+                                                        <div key={field.id} className={fieldIdx > 0 ? "pt-5 border-t border-zinc-100 dark:border-zinc-800/50" : ""}>
+                                                            <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                                <SolidClipboardDocumentCheckIcon className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                                                                {field.label}
+                                                            </p>
+                                                            <div className="text-lg font-medium text-zinc-850 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap">
+                                                                {(() => {
+                                                                    if (!answer) return <span className="text-zinc-400 italic">No response provided</span>;
+                                                                    const value = answer.answer_value;
+                                                                    if (value === undefined || value === null || value === '') {
+                                                                        return <span className="text-zinc-400 italic">No response provided</span>;
+                                                                    }
+
+                                                                    let parsed = value;
+                                                                    if (typeof value === 'string') {
+                                                                        const trimmed = value.trim();
+                                                                        if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+                                                                            try {
+                                                                                parsed = JSON.parse(trimmed);
+                                                                            } catch (e) {
+                                                                                // ignore
+                                                                            }
+                                                                        }
+                                                                    }
+
+                                                                    if (Array.isArray(parsed)) {
+                                                                        return (
+                                                                            <ul className="list-disc pl-5 space-y-1">
+                                                                                {parsed.map((item: any, idx: number) => (
+                                                                                    <li key={idx}>{String(item)}</li>
+                                                                                ))}
+                                                                            </ul>
+                                                                        );
+                                                                    }
+
+                                                                    return String(value);
+                                                                })()}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {toast && (
+                <div className="fixed bottom-6 right-6 bg-zinc-900/90 text-white border border-zinc-800 px-6 py-3 rounded-2xl font-bold tracking-widest uppercase text-[10px] shadow-2xl z-[150] animate-in fade-in slide-in-from-bottom-4">
+                    {toast}
                 </div>
             )}
 

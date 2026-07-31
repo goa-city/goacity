@@ -62,8 +62,14 @@ export const getVerifiedOrgs = async (req: Request, res: Response, next: NextFun
 
 export const getMemberDirectory = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const result = await StewardshipService.getMemberDirectory();
-        res.json(result);
+        const { willing_to_mentor, search, area } = req.query;
+        const filters = {
+            willing_to_mentor: willing_to_mentor === 'true',
+            search: typeof search === 'string' ? search : undefined,
+            area: typeof area === 'string' ? area : undefined
+        };
+        const result = await StewardshipService.getMemberDirectory(filters);
+        res.json({ success: true, data: result });
     } catch (error) {
         next(error);
     }

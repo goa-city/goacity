@@ -38,6 +38,60 @@ const MentorshipStart: React.FC = () => {
     const [qrPreview, setQrPreview] = useState('');
     const [saving, setSaving] = useState(false);
 
+    // Acceptance Modal State
+    const [acceptingRequest, setAcceptingRequest] = useState<any | null>(null);
+    const [startedAt, setStartedAt] = useState('');
+    const [endedAt, setEndedAt] = useState('');
+    const [meetingSchedule, setMeetingSchedule] = useState('');
+    const [sessionPrice, setSessionPrice] = useState('');
+    const [acceptQrFile, setAcceptQrFile] = useState<File | null>(null);
+    const [acceptQrPreview, setAcceptQrPreview] = useState('');
+    const [submittingAccept, setSubmittingAccept] = useState(false);
+
+    const handleOpenAcceptModal = (req: any) => {
+        setAcceptingRequest(req);
+        const today = new Date().toISOString().split('T')[0];
+        setStartedAt(today);
+        const threeMonthsLater = new Date();
+        threeMonthsLater.setMonth(threeMonthsLater.getMonth() + 3);
+        setEndedAt(threeMonthsLater.toISOString().split('T')[0]);
+        setMeetingSchedule('');
+        setSessionPrice(req.mentor?.mentorProfile?.default_session_price ? String(req.mentor.mentorProfile.default_session_price) : '0');
+        if (req.mentor?.mentorProfile?.payment_qr_image) {
+            const baseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '');
+            setAcceptQrPreview(`${baseUrl}/uploads/${req.mentor.mentorProfile.payment_qr_image}`);
+        } else {
+            setAcceptQrPreview('');
+        }
+        setAcceptQrFile(null);
+    };
+
+    const handleAcceptSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!acceptingRequest) return;
+        setSubmittingAccept(true);
+        try {
+            const formData = new FormData();
+            formData.append('status', 'Active');
+            formData.append('started_at', startedAt);
+            formData.append('ended_at', endedAt);
+            formData.append('meeting_schedule', meetingSchedule);
+            formData.append('session_price', sessionPrice);
+            if (acceptQrFile) {
+                formData.append('payment_qr_image', acceptQrFile);
+            }
+            await updateMentorshipRelationStatus(acceptingRequest.id, formData);
+            alert('Mentorship relationship started successfully!');
+            setAcceptingRequest(null);
+            window.location.reload();
+        } catch (err: any) {
+            console.error(err);
+            alert(err.response?.data?.message || 'Failed to accept request.');
+        } finally {
+            setSubmittingAccept(false);
+        }
+    };
+
     // Initializing settings fields when profile loads
     React.useEffect(() => {
         if (mentorProfile) {
@@ -128,10 +182,10 @@ const MentorshipStart: React.FC = () => {
         <DashboardLayout>
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
                 <div>
-                    <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight">
-                        Mentorship <span className="text-indigo-605">Exchange</span>
+                    <h1 className="page-heading">
+                        Mentorship Exchange
                     </h1>
-                    <p className="text-zinc-500 dark:text-zinc-400 mt-2 font-medium">
+                    <p className="page-description">
                         An ecosystem designed for intentional growth, wisdom transfer, and leadership multiplication.
                     </p>
                 </div>
@@ -349,7 +403,7 @@ const MentorshipStart: React.FC = () => {
                                         </div>
                                         <div className="flex items-center gap-2 shrink-0">
                                             <button
-                                                onClick={() => updateMentorshipRelationStatus(req.id, 'Active')}
+                                                onClick={() => handleOpenAcceptModal(req)}
                                                 className="p-2 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-xl hover:bg-emerald-100 transition-colors"
                                                 title="Accept Request"
                                             >
@@ -463,6 +517,125 @@ const MentorshipStart: React.FC = () => {
                             </div>
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* Mentorship Acceptance Modal */}
+            {acceptingRequest && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-md animate-fadeIn font-sans">
+                    <div className="relative bg-white dark:bg-zinc-900 w-full max-w-lg rounded-[2.5rem] shadow-3xl overflow-hidden border border-zinc-100 dark:border-zinc-800">
+                        <button
+                            onClick={() => setAcceptingRequest(null)}
+                            className="absolute right-6 top-6 w-10 h-10 rounded-full bg-zinc-50 dark:bg-zinc-850 flex items-center justify-center text-zinc-500 hover:text-gray-700 transition-colors"
+                        >
+                            <XMarkIcon className="w-6 h-6" />
+                        </button>
+
+                        <div className="p-10 md:p-12 max-h-[85vh] overflow-y-auto">
+                            <div className="mb-8">
+                                <h3 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tight uppercase italic">Accept Mentorship</h3>
+                                <p className="text-zinc-500 text-sm italic mt-1">
+                                    Define alignment terms with <span className="font-bold text-zinc-900 dark:text-white">{acceptingRequest.mentee.first_name} {acceptingRequest.mentee.last_name}</span>.
+                                </p>
+                            </div>
+
+                            <form onSubmit={handleAcceptSubmit} className="space-y-6">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5 ml-1">Start Date</label>
+                                        <input
+                                            type="date"
+                                            required
+                                            value={startedAt}
+                                            onChange={e => setStartedAt(e.target.value)}
+                                            className="w-full bg-zinc-50 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3 text-xs focus:ring-2 focus:ring-emerald-500 outline-none font-bold"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5 ml-1">End Date</label>
+                                        <input
+                                            type="date"
+                                            required
+                                            value={endedAt}
+                                            onChange={e => setEndedAt(e.target.value)}
+                                            className="w-full bg-zinc-50 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3 text-xs focus:ring-2 focus:ring-emerald-500 outline-none font-bold"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5 ml-1">Meeting Schedule</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        placeholder="e.g. Tuesdays at 5:00 PM (Weekly)"
+                                        value={meetingSchedule}
+                                        onChange={e => setMeetingSchedule(e.target.value)}
+                                        className="w-full bg-zinc-50 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3 text-xs focus:ring-2 focus:ring-emerald-500 outline-none font-bold"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5 ml-1">Session Cost (₹)</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            required
+                                            placeholder="0 for free"
+                                            value={sessionPrice}
+                                            onChange={e => setSessionPrice(e.target.value)}
+                                            className="w-full bg-zinc-50 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3 text-xs focus:ring-2 focus:ring-emerald-500 outline-none font-bold"
+                                        />
+                                    </div>
+                                </div>
+
+                                {Number(sessionPrice) > 0 && (
+                                    <div className="border-t border-zinc-100 dark:border-zinc-800 pt-6">
+                                        <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2 ml-1">
+                                            Relationship Payment QR Code
+                                        </label>
+                                        <div className="flex flex-col gap-4">
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={e => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) {
+                                                        setAcceptQrFile(file);
+                                                        setAcceptQrPreview(URL.createObjectURL(file));
+                                                    }
+                                                }}
+                                                className="text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                                            />
+                                            {acceptQrPreview && (
+                                                <div className="w-24 h-24 border border-zinc-200 rounded-xl overflow-hidden shadow-inner bg-zinc-50 flex items-center justify-center p-2">
+                                                    <img src={acceptQrPreview} alt="QR Preview" className="max-w-full max-h-full object-contain" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="flex justify-end gap-3 pt-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => setAcceptingRequest(null)}
+                                        className="px-6 py-2.5 border border-gray-250 text-gray-600 font-bold rounded-xl hover:bg-gray-50 transition-colors text-xs"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={submittingAccept}
+                                        className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-colors text-xs shadow-md disabled:opacity-50"
+                                    >
+                                        {submittingAccept ? 'Activating...' : 'Confirm Acceptance'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
                 </div>
             )}
         </DashboardLayout>

@@ -122,6 +122,40 @@ export class MemberService {
                 }
             }
         }
+
+        // Fetch active mentorship relationships
+        const mentorships = await prisma.mentorshipRelation.findMany({
+            where: {
+                OR: [
+                    { mentor_id: userId },
+                    { mentee_id: userId }
+                ],
+                status: { notIn: ['Declined', 'Archived'] }
+            },
+            include: {
+                mentor: { select: { id: true, first_name: true, last_name: true } },
+                mentee: { select: { id: true, first_name: true, last_name: true } }
+            },
+            orderBy: { created_at: 'desc' }
+        });
+
+        for (const rel of mentorships) {
+            const isMentor = rel.mentor_id === userId;
+            const partner = isMentor ? rel.mentee : rel.mentor;
+            const partnerName = `${partner.first_name || ''} ${partner.last_name || ''}`.trim() || 'Partner';
+            const roleText = isMentor ? `Mentee: ${partnerName}` : `Mentor: ${partnerName}`;
+
+            pending_actions.push({
+                id: `mentorship-${rel.id}`,
+                type: 'mentorship',
+                mentorship_id: rel.id,
+                message: `Mentorship with ${partnerName} (${rel.focus_area || rel.type})`,
+                sub_message: roleText,
+                status: rel.status,
+                stream_color: '#8B5CF6' // Soft violet/purple accent color
+            });
+        }
+
         return {
             user: {
                 id: member.id,

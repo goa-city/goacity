@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
-import { 
+import {
     ArrowLeftIcon,
     UserPlusIcon,
     MagnifyingGlassIcon,
@@ -148,15 +148,16 @@ const AdminMentorshipRequestDetail: React.FC = () => {
         setMatchingInProgress(true);
         try {
             const focusArea = String(request?.answers.find((a) => ['growth_area', 'expertise_needed', 'q_1778518154399'].includes(a.field_key))?.answer_value || 'Professional Growth');
-            
+            const relationType = String(request?.answers.find((a) => a.field_key === 'q_1778518472632')?.answer_value || 'Long-term');
+
             const res = await api.post('/admin/mentorship/match', {
                 mentee_id: request?.user_id,
                 mentor_id: mentor.id,
                 focus_area: focusArea,
-                type: 'Long-term',
+                type: relationType,
                 response_id: Number(id)
             });
-            
+
             showToast(`Covenant pair created successfully!`);
             if (res.data.success && res.data.data) {
                 setMatchedRelation({
@@ -178,7 +179,7 @@ const AdminMentorshipRequestDetail: React.FC = () => {
     const removeMentor = async () => {
         if (!window.confirm('Are you sure you want to remove this mentor assignment? This will permanently delete the covenant pairing.')) return;
         if (!matchedRelation) return;
-        
+
         setMatchingInProgress(true);
         try {
             await api.delete(`/admin/mentorship/relations/${matchedRelation.id}`);
@@ -247,16 +248,16 @@ const AdminMentorshipRequestDetail: React.FC = () => {
 
     const filteredMentors = mentorSearch.trim() === '' ? [] : mentors.filter((m) => {
         if (m.id === request?.user_id) return false;
-        
+
         const fullName = `${m.first_name || ''} ${m.last_name || ''}`.toLowerCase();
         const email = (m.email || '').toLowerCase();
         const search = mentorSearch.toLowerCase();
         const matchesNameOrEmail = fullName.includes(search) || email.includes(search);
-        
-        const matchesExpertise = m.mentorProfile?.expertise?.some((e: string) => 
+
+        const matchesExpertise = m.mentorProfile?.expertise?.some((e: string) =>
             e.toLowerCase().includes(search)
         );
-        
+
         return matchesNameOrEmail || matchesExpertise;
     });
 
@@ -273,7 +274,7 @@ const AdminMentorshipRequestDetail: React.FC = () => {
         <div className="max-w-7xl mx-auto py-10 px-6">
             {toast && <div className="fixed bottom-4 right-4 bg-emerald-500 text-white px-6 py-3 rounded-xl font-bold tracking-widest uppercase text-[10px] shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-4">{toast}</div>}
 
-            <button 
+            <button
                 onClick={() => navigate('/admin/mentorship')}
                 className="flex items-center gap-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors font-black uppercase tracking-widest text-[10px] mb-8 group"
             >
@@ -298,55 +299,55 @@ const AdminMentorshipRequestDetail: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-6">
-                        {request?.form_fields?.map((field) => {
-                            const answer = request.answers.find((a) => a.field_key === field.field_key);
-                            
-                            // If it's a section/header with no answer needed, we can still show it or skip
-                            if (field.field_type === 'header' || field.field_type === 'section') return null;
-
-                            return (
-                                <Card key={field.id} className="p-8 border-zinc-100 dark:border-zinc-800 shadow-sm hover:shadow-md transition-shadow bg-zinc-50/30 dark:bg-zinc-900/10">
-                                    <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-4 border-b border-indigo-50 dark:border-indigo-950/30 pb-3 flex items-center gap-2">
-                                        <ClipboardDocumentCheckIcon className="w-4 h-4" />
-                                        {field.label}
-                                    </p>
-                                    <div className="text-lg font-medium text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">
-                                        {(() => {
-                                            if (!answer) return <span className="text-zinc-400 italic">No response provided</span>;
-                                            const value = answer.answer_value;
-                                            if (value === undefined || value === null || value === '') {
-                                                return <span className="text-zinc-400 italic">No response provided</span>;
-                                            }
-                                            
-                                            let parsed = value;
-                                            if (typeof value === 'string') {
-                                                const trimmed = value.trim();
-                                                if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-                                                    try {
-                                                        parsed = JSON.parse(trimmed);
-                                                    } catch (e) {
-                                                        // ignore
+                    <div className="p-8 border-zinc-100 dark:border-zinc-800 shadow-sm bg-zinc-50/30 dark:bg-zinc-900/10">
+                        <div className="space-y-6">
+                            {request?.form_fields
+                                ?.filter((field) => field.field_type !== 'header' && field.field_type !== 'section')
+                                ?.map((field, index) => {
+                                    const answer = request.answers.find((a) => a.field_key === field.field_key);
+                                    return (
+                                        <div key={field.id} className={index > 0 ? "border-t border-zinc-100 dark:border-zinc-800/50" : ""}>
+                                            <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                <ClipboardDocumentCheckIcon className="w-4 h-4" />
+                                                {field.label}
+                                            </p>
+                                            <div className="text-base font-medium text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">
+                                                {(() => {
+                                                    if (!answer) return <span className="text-zinc-400 italic">No response provided</span>;
+                                                    const value = answer.answer_value;
+                                                    if (value === undefined || value === null || value === '') {
+                                                        return <span className="text-zinc-400 italic">No response provided</span>;
                                                     }
-                                                }
-                                            }
-                                            
-                                            if (Array.isArray(parsed)) {
-                                                return (
-                                                    <ul className="list-disc pl-5 space-y-1">
-                                                        {parsed.map((item: any, idx: number) => (
-                                                            <li key={idx}>{String(item)}</li>
-                                                        ))}
-                                                    </ul>
-                                                );
-                                            }
-                                            
-                                            return String(value);
-                                        })()}
-                                    </div>
-                                </Card>
-                            );
-                        })}
+
+                                                    let parsed = value;
+                                                    if (typeof value === 'string') {
+                                                        const trimmed = value.trim();
+                                                        if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+                                                            try {
+                                                                parsed = JSON.parse(trimmed);
+                                                            } catch (e) {
+                                                                // ignore
+                                                            }
+                                                        }
+                                                    }
+
+                                                    if (Array.isArray(parsed)) {
+                                                        return (
+                                                            <ul className="list-disc pl-5 space-y-1">
+                                                                {parsed.map((item: any, idx: number) => (
+                                                                    <li key={idx}>{String(item)}</li>
+                                                                ))}
+                                                            </ul>
+                                                        );
+                                                    }
+
+                                                    return String(value);
+                                                })()}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                        </div>
                     </div>
                 </div>
 
@@ -410,8 +411,8 @@ const AdminMentorshipRequestDetail: React.FC = () => {
 
                                 <div className="relative mb-6">
                                     <MagnifyingGlassIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" />
-                                    <input 
-                                        type="text" 
+                                    <input
+                                        type="text"
                                         placeholder="Search mentors..."
                                         value={mentorSearch}
                                         onChange={(e) => setMentorSearch(e.target.value)}
@@ -426,7 +427,7 @@ const AdminMentorshipRequestDetail: React.FC = () => {
                                         <p className="text-center py-10 text-zinc-400 font-black uppercase tracking-widest text-[10px]">No matching members found.</p>
                                     ) : (
                                         filteredMentors.map((mentor) => (
-                                            <button 
+                                            <button
                                                 key={mentor.id}
                                                 onClick={() => finalizeMatch(mentor)}
                                                 disabled={matchingInProgress}
@@ -481,8 +482,8 @@ const AdminMentorshipRequestDetail: React.FC = () => {
             {showNotifyModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm animate-in fade-in duration-300">
                     <div className="bg-white dark:bg-zinc-900 rounded-[2.5rem] shadow-2xl w-full max-w-2xl p-8 relative border border-zinc-100 dark:border-zinc-800 animate-in zoom-in-95 duration-300">
-                        <button 
-                            onClick={() => setShowNotifyModal(false)} 
+                        <button
+                            onClick={() => setShowNotifyModal(false)}
                             className="absolute top-8 right-8 text-zinc-400 hover:text-zinc-650 dark:hover:text-zinc-200 transition-colors"
                         >
                             <XMarkIcon className="w-6 h-6" />
@@ -505,7 +506,7 @@ const AdminMentorshipRequestDetail: React.FC = () => {
                                 <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Available Templates</label>
                                 <div className="relative">
                                     <ChevronDownIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400 pointer-events-none" />
-                                    <select 
+                                    <select
                                         value={selectedTemplateId}
                                         onChange={(e) => setSelectedTemplateId(e.target.value)}
                                         className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 px-6 h-14 font-medium appearance-none"
@@ -521,8 +522,8 @@ const AdminMentorshipRequestDetail: React.FC = () => {
                                 <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Select Recipients</label>
                                 <div className="flex flex-wrap gap-4">
                                     <label className="flex items-center gap-3 bg-zinc-50 dark:bg-zinc-950 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800 cursor-pointer select-none hover:bg-zinc-100/50 dark:hover:bg-zinc-900 transition-colors flex-1 min-w-[200px]">
-                                        <input 
-                                            type="checkbox" 
+                                        <input
+                                            type="checkbox"
                                             checked={sendToMentor}
                                             onChange={(e) => setSendToMentor(e.target.checked)}
                                             className="w-5 h-5 rounded-lg border-zinc-300 dark:border-zinc-700 text-indigo-650 focus:ring-indigo-500"
@@ -535,8 +536,8 @@ const AdminMentorshipRequestDetail: React.FC = () => {
                                         </div>
                                     </label>
                                     <label className="flex items-center gap-3 bg-zinc-50 dark:bg-zinc-950 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800 cursor-pointer select-none hover:bg-zinc-100/50 dark:hover:bg-zinc-900 transition-colors flex-1 min-w-[200px]">
-                                        <input 
-                                            type="checkbox" 
+                                        <input
+                                            type="checkbox"
                                             checked={sendToMentee}
                                             onChange={(e) => setSendToMentee(e.target.checked)}
                                             className="w-5 h-5 rounded-lg border-zinc-300 dark:border-zinc-700 text-indigo-650 focus:ring-indigo-500"
@@ -568,7 +569,7 @@ const AdminMentorshipRequestDetail: React.FC = () => {
                                                 )}
                                                 <div>
                                                     <p className="text-[10px] font-black uppercase text-zinc-400">Message Body:</p>
-                                                    <div 
+                                                    <div
                                                         className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed whitespace-pre-wrap mt-1"
                                                         dangerouslySetInnerHTML={{ __html: selected.content || selected.message || selected.body || '' }}
                                                     />

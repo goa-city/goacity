@@ -255,14 +255,22 @@ const AdminStreams: React.FC = () => {
                                     <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Color</label>
                                     <div className="flex items-center gap-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-2">
                                         <input 
-                                            type="color" className="h-10 w-16 p-1 bg-white border border-zinc-200 dark:border-zinc-700 rounded-lg cursor-pointer" 
-                                            value={formData.color} onChange={e => setFormData({...formData, color: e.target.value})}
+                                            type="color" className="h-10 w-10 p-1 bg-white border border-zinc-200 dark:border-zinc-700 rounded-lg cursor-pointer shrink-0" 
+                                            value={formData.color.startsWith('#') && formData.color.length === 7 ? formData.color : '#6366f1'} 
+                                            onChange={e => setFormData({...formData, color: e.target.value})}
                                         />
-                                        <span className="text-xs text-zinc-500 font-black tracking-widest uppercase">{formData.color}</span>
+                                        <input 
+                                            type="text" 
+                                            className="w-full bg-transparent text-xs text-zinc-900 dark:text-white font-black tracking-widest uppercase focus:outline-none" 
+                                            value={formData.color} 
+                                            onChange={e => setFormData({...formData, color: e.target.value})}
+                                            maxLength={7}
+                                            placeholder="#6366f1"
+                                        />
                                     </div>
                                 </div>
                                 <div className="flex items-end pb-2">
-                                    <div className="w-full h-10 rounded-xl shadow-inner border border-zinc-200 dark:border-zinc-800" style={{ backgroundColor: formData.color }}></div>
+                                    <div className="w-full h-10 rounded-xl shadow-inner border border-zinc-200 dark:border-zinc-800 transition-colors" style={{ backgroundColor: formData.color }}></div>
                                 </div>
                             </div>
 

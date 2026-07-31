@@ -65,7 +65,7 @@ const IncubatorSubmit: React.FC = () => {
                         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[9px] font-black uppercase tracking-widest mb-2">
                             Accelerator
                         </div>
-                        <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight uppercase italic">Incubator Portal</h1>
+                        <h1 className="page-heading uppercase italic">Incubator Portal</h1>
                         <p className="text-zinc-500 dark:text-zinc-400 mt-1 font-medium italic">Transforming God-inspired visions into reality.</p>
                     </div>
                 </div>

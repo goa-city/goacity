@@ -164,6 +164,20 @@ const FormPreview: React.FC<FormPreviewProps> = ({ fields, fieldsPerPage, onClos
                                         />
                                     )}
 
+                                    {/* Number Field */}
+                                    {field.field_type === 'number_field' && (
+                                        <input 
+                                            type="number"
+                                            className="w-full bg-transparent border-b-3 border-zinc-100 dark:border-zinc-900 focus:border-indigo-600 outline-none text-xl sm:text-2xl font-bold py-4 transition-all placeholder:text-zinc-200 dark:placeholder:text-zinc-800"
+                                            placeholder={field.placeholder || "Type a number here..."}
+                                            value={responses[field.field_key] !== undefined && responses[field.field_key] !== null ? responses[field.field_key] : ''}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                handleChange(field.field_key, val === '' ? '' : Number(val));
+                                            }}
+                                        />
+                                    )}
+
                                     {/* Textarea */}
                                     {field.field_type === 'textarea' && (
                                         <textarea 

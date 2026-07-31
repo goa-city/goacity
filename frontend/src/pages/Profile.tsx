@@ -162,7 +162,7 @@ const Profile: React.FC = () => {
                             <ArrowLeftIcon className="h-6 w-6 group-hover:-translate-x-1 transition-transform stroke-[2px]" />
                         </button>
                         <div>
-                            <h1 className="text-xl font-black text-zinc-900 dark:text-white tracking-tight uppercase italic">My Profile</h1>
+                            <h1 className="page-heading uppercase italic">My Profile</h1>
                             <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest leading-none">Identity Management</p>
                         </div>
                     </div>

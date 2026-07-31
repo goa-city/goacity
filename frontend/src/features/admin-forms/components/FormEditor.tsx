@@ -150,6 +150,7 @@ const FormEditor: React.FC = () => {
     const fieldTypes = [
         { type: 'intro', label: '🌟 Intro Screen' },
         { type: 'text', label: '📝 Short Text' },
+        { type: 'number_field', label: '🔢 Number Field' },
         { type: 'textarea', label: '📄 Long Text' },
         { type: 'choice', label: '🔘 Single Choice' },
         { type: 'choice_bool', label: '✅ Yes / No' },

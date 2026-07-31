@@ -2,7 +2,7 @@ export interface OnboardingQuestion {
     id: number;
     field: string;
     field_key: string;
-    type: 'text' | 'textarea' | 'date' | 'choice' | 'choice_bool' | 'multiselect' | 'file' | 'dropdown_choice' | 'intro';
+    type: 'text' | 'textarea' | 'date' | 'choice' | 'choice_bool' | 'multiselect' | 'file' | 'dropdown_choice' | 'intro' | 'number_field';
     title: string;
     subtitle?: string;
     description?: string;

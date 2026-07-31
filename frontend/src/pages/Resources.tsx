@@ -150,8 +150,8 @@ const Resources: React.FC = () => {
                 {/* Header */}
                 <div className="flex flex-wrap gap-6 justify-between items-start mb-12">
                     <div>
-                        <h1 className="text-5xl font-black text-zinc-900 dark:text-white tracking-tighter">Resources</h1>
-                        <p className="text-zinc-400 font-black mt-2 uppercase tracking-[0.1em] text-[10px]">Discover and share curated content for the kingdom.</p>
+                        <h1 className="page-heading">Resources</h1>
+                        <p className="page-description">Discover and share curated content for the kingdom.</p>
                     </div>
                     <button
                         onClick={() => navigate('/resources/add')}

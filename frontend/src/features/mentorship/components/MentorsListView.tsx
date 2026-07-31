@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMentorship } from '../hooks/useMentorship';
 import MentorCard from './MentorCard';
 import Input from '../../../shared/components/ui/Input';
@@ -12,9 +13,13 @@ interface MentorListItem {
     profile_photo?: string;
     business_name?: string;
     bio?: string;
+    at_capacity?: boolean;
+    capacity?: number;
+    active_count?: number;
 }
 
 const MentorsListView: React.FC = () => {
+    const navigate = useNavigate();
     const [search, setSearch] = useState('');
     const [area, setArea] = useState('');
     
@@ -26,11 +31,10 @@ const MentorsListView: React.FC = () => {
         <DashboardLayout>
             <div className="flex flex-col md:flex-row justify-between items-start gap-6 mb-12">
                 <div className="max-w-2xl">
-                    <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight flex items-center gap-3">
+                    <h1 className="page-heading">
                         Kingdom Mentors
-                        <UserGroupIcon className="w-8 h-8 text-indigo-600" />
                     </h1>
-                    <p className="text-zinc-500 dark:text-zinc-400 mt-2 text-lg font-medium leading-relaxed">
+                    <p className="page-description">
                         Find and connect with leaders who are dedicated to mentoring the next generation of kingdom-minded professionals.
                     </p>
                 </div>
@@ -67,7 +71,7 @@ const MentorsListView: React.FC = () => {
                         <MentorCard 
                             key={mentor.id} 
                             mentor={mentor} 
-                            onRequest={(m: MentorListItem) => console.log('Requesting mentor:', m.id)} 
+                            onRequest={(m: MentorListItem) => navigate(`/profile/${m.id}`)} 
                         />
                     ))}
                     

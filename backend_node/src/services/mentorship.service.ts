@@ -74,6 +74,7 @@ export class MentorshipService {
                 mentor_id: Number(data.mentor_id),
                 mentee_id: menteeId,
                 type: data.type,
+                original_type: data.type,
                 focus_area: data.focus_area,
                 status: 'Requested',
                 current_phase: 'Foundations'
@@ -82,7 +83,7 @@ export class MentorshipService {
     }
 
     static async getMyMentorships(userId: number) {
-        return prisma.mentorshipRelation.findMany({
+        const relations = await prisma.mentorshipRelation.findMany({
             where: {
                 OR: [
                     { mentor_id: userId },
@@ -91,7 +92,19 @@ export class MentorshipService {
             },
             include: {
                 mentor: {
-                    select: { id: true, first_name: true, last_name: true, profile_photo: true }
+                    select: { 
+                        id: true, 
+                        first_name: true, 
+                        last_name: true, 
+                        profile_photo: true,
+                        mentorProfile: {
+                            select: {
+                                default_session_price: true,
+                                payment_qr_image: true,
+                                capacity: true
+                            }
+                        }
+                    }
                 },
                 mentee: {
                     select: { id: true, first_name: true, last_name: true, profile_photo: true }
@@ -99,6 +112,48 @@ export class MentorshipService {
             },
             orderBy: { created_at: 'desc' }
         });
+
+        const resultRelations: any[] = [];
+
+        for (const rel of relations) {
+            const relData = { ...rel } as any;
+
+            if (!rel.original_type) {
+                let orig = rel.type;
+                if (rel.response_id) {
+                    const answer = await prisma.formAnswer.findFirst({
+                        where: {
+                            response_id: rel.response_id,
+                            field_key: 'q_1778518472632'
+                        }
+                    });
+                    if (answer && answer.answer_value) {
+                        orig = answer.answer_value;
+                    }
+                }
+                relData.original_type = orig;
+                prisma.mentorshipRelation.update({
+                    where: { id: rel.id },
+                    data: { original_type: orig }
+                }).catch(console.error);
+            }
+
+            if (rel.response_id) {
+                const response = await prisma.formResponse.findUnique({
+                    where: { id: rel.response_id },
+                    include: {
+                        answers: true
+                    }
+                });
+                if (response) {
+                    relData.response = response;
+                }
+            }
+
+            resultRelations.push(relData);
+        }
+
+        return resultRelations;
     }
 
     static async getById(id: string) {
@@ -129,6 +184,27 @@ export class MentorshipService {
             }
         });
         if (!relation) throw new AppError('Mentorship relation not found', 404);
+
+        if (!relation.original_type) {
+            let orig = relation.type;
+            if (relation.response_id) {
+                const answer = await prisma.formAnswer.findFirst({
+                    where: {
+                        response_id: relation.response_id,
+                        field_key: 'q_1778518472632'
+                    }
+                });
+                if (answer && answer.answer_value) {
+                    orig = answer.answer_value;
+                }
+            }
+            relation.original_type = orig;
+            prisma.mentorshipRelation.update({
+                where: { id: relation.id },
+                data: { original_type: orig }
+            }).catch(console.error);
+        }
+
         return relation;
     }
 
@@ -234,10 +310,50 @@ export class MentorshipService {
         });
     }
 
-    static async updateStatus(id: string, status: string) {
+    static async updateStatus(id: string, status: string, details?: {
+        meeting_schedule?: string;
+        session_price?: number;
+        payment_qr_image?: string;
+        started_at?: Date | string;
+        ended_at?: Date | string;
+    }) {
+        const relation = await prisma.mentorshipRelation.findUnique({
+            where: { id },
+            include: {
+                mentor: {
+                    include: { mentorProfile: true }
+                }
+            }
+        });
+        if (!relation) throw new AppError('Mentorship relation not found', 404);
+
         const data: any = { status };
-        if (status === 'Active') data.started_at = new Date();
-        if (status === 'Completed' || status === 'Archived') data.ended_at = new Date();
+
+        if (status === 'Active') {
+            const mentorId = relation.mentor_id;
+            const capacity = relation.mentor.mentorProfile?.capacity ?? 2;
+            const activeCount = await prisma.mentorshipRelation.count({
+                where: {
+                    mentor_id: mentorId,
+                    status: 'Active',
+                    NOT: { id }
+                }
+            });
+
+            if (activeCount >= capacity) {
+                throw new AppError(`Mentor is at full capacity (max ${capacity} active slots).`, 400);
+            }
+
+            data.started_at = details?.started_at ? new Date(details.started_at) : new Date();
+            if (details?.ended_at) data.ended_at = new Date(details.ended_at);
+            if (details?.meeting_schedule !== undefined) data.meeting_schedule = details.meeting_schedule;
+            if (details?.session_price !== undefined) data.session_price = details.session_price;
+            if (details?.payment_qr_image !== undefined) data.payment_qr_image = details.payment_qr_image;
+        }
+
+        if (status === 'Completed' || status === 'Archived') {
+            data.ended_at = new Date();
+        }
 
         return prisma.mentorshipRelation.update({
             where: { id },
@@ -253,9 +369,24 @@ export class MentorshipService {
     }
 
     static async deleteRelation(id: string) {
-        return prisma.mentorshipRelation.delete({
+        const relation = await prisma.mentorshipRelation.findUnique({
+            where: { id },
+            select: { response_id: true }
+        });
+
+        const deleted = await prisma.mentorshipRelation.delete({
             where: { id }
         });
+
+        if (relation?.response_id) {
+            await prisma.formResponse.delete({
+                where: { id: relation.response_id }
+            }).catch(err => {
+                console.error(`Failed to delete linked form response ${relation.response_id}:`, err);
+            });
+        }
+
+        return deleted;
     }
 
     static async updateDetails(id: string, data: { type: string, focus_area: string }) {
@@ -369,7 +500,7 @@ export class MentorshipService {
         });
     }
 
-    static async getMentorshipRequests() {
+    static async getMentorshipRequests(userId?: number) {
         // Find form responses for 'mentorship-mentee-assessment'
         const form = await prisma.forms.findUnique({ 
             where: { code: 'mentorship-mentee-assessment' },
@@ -381,11 +512,16 @@ export class MentorshipService {
             return [];
         }
 
+        const whereClause: any = {
+            form_id: form.id,
+            status: 'completed'
+        };
+        if (userId) {
+            whereClause.user_id = userId;
+        }
+
         const responses = await prisma.formResponse.findMany({
-            where: { 
-                form_id: form.id,
-                status: 'completed'
-            },
+            where: whereClause,
             include: {
                 user: {
                     select: { id: true, first_name: true, last_name: true, profile_photo: true, email: true }
@@ -408,23 +544,26 @@ export class MentorshipService {
 
         console.log(`[MENTORSHIP] Found ${responses.length} responses for form ${form.id}`);
 
-        // Filter out those responses that have already been matched to a relation.
-        // A response is considered matched if there is any relationship linked to it via response_id.
-        const relations = await prisma.mentorshipRelation.findMany({
-            select: { response_id: true }
-        });
-        const matchedResponseIds = new Set(relations.map(rel => rel.response_id).filter(Boolean));
+        let filtered = responses;
+        if (!userId) {
+            // Filter out those responses that have already been matched to a relation.
+            // A response is considered matched if there is any relationship linked to it via response_id.
+            const relations = await prisma.mentorshipRelation.findMany({
+                select: { response_id: true }
+            });
+            const matchedResponseIds = new Set(relations.map(rel => rel.response_id).filter(Boolean));
 
-        const filtered = responses.filter(r => {
-            if (!r.user_id) return false;
+            filtered = responses.filter(r => {
+                if (!r.user_id) return false;
 
-            // If this response is linked to a relation, it is matched (used)
-            if (matchedResponseIds.has(r.id)) {
-                return false;
-            }
+                // If this response is linked to a relation, it is matched (used)
+                if (matchedResponseIds.has(r.id)) {
+                    return false;
+                }
 
-            return true;
-        });
+                return true;
+            });
+        }
         
         // Final mapping to include form fields for each request
         const finalResults = filtered.map(r => ({
@@ -506,6 +645,7 @@ export class MentorshipService {
                 mentor_id: data.mentor_id,
                 focus_area: data.focus_area,
                 type: data.type,
+                original_type: data.type,
                 status: 'Active',
                 started_at: new Date(),
                 current_phase: 'Foundations',

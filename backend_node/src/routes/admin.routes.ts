@@ -99,7 +99,9 @@ router.delete('/posts', deletePost);
 // Streams
 router.get('/streams', getStreams);
 router.post('/streams', validate(createStreamSchema), createStream);
+router.put('/streams', validate(updateStreamSchema), updateStream);
 router.put('/streams/:id', validate(updateStreamSchema), updateStream);
+router.delete('/streams', deleteStream);
 router.delete('/streams/:id', deleteStream);
 
 // Forms

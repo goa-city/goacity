@@ -103,8 +103,10 @@ export const updateMentorshipPhase = async (id: string, phase: string) => {
     return data;
 };
 
-export const updateMentorshipStatus = async (id: string, status: string) => {
-    const { data } = await api.put(`/member/mentorship/${id}/status`, { status });
+export const updateMentorshipStatus = async (id: string, statusData: any) => {
+    const headers = statusData instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : undefined;
+    const body = statusData instanceof FormData ? statusData : { status: statusData };
+    const { data } = await api.put(`/member/mentorship/${id}/status`, body, { headers });
     return data;
 };
 

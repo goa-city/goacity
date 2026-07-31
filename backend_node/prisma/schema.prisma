@@ -464,13 +464,17 @@ model MentorshipRelation {
   status        String    @default("Requested") @db.VarChar(50) // Requested, Active, Completed, Declined, Archived
   current_phase String    @default("Foundations") @db.VarChar(50) // Foundations, Strategy, Impact
   type          String    @db.VarChar(50)
+  original_type String?   @db.VarChar(50)
   focus_area    String?   @db.VarChar(255)
-  goals_json    Json?     // Legacy compatibility
-  created_at    DateTime? @default(now()) @db.Timestamp(6)
-  updated_at    DateTime? @default(now()) @db.Timestamp(6)
-  started_at    DateTime? @db.Timestamp(6)
-  ended_at      DateTime? @db.Timestamp(6)
-  response_id   Int?      @unique
+  goals_json        Json?     // Legacy compatibility
+  created_at        DateTime? @default(now()) @db.Timestamp(6)
+  updated_at        DateTime? @default(now()) @db.Timestamp(6)
+  started_at        DateTime? @db.Timestamp(6)
+  ended_at          DateTime? @db.Timestamp(6)
+  response_id       Int?      @unique
+  meeting_schedule  String?
+  session_price     Decimal?  @db.Decimal(10, 2)
+  payment_qr_image  String?
 
   mentee   Member @relation("MentorshipMentee", fields: [mentee_id], references: [id], onDelete: Cascade)
   mentor   Member @relation("MentorshipMentor", fields: [mentor_id], references: [id], onDelete: Cascade)

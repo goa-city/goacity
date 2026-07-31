@@ -21,8 +21,8 @@ const StewardshipDashboard: React.FC = () => {
         <DashboardLayout>
             <div className="flex flex-col md:flex-row justify-between items-start gap-6 mb-12">
                 <div>
-                    <h1 className="text-5xl font-black text-zinc-900 dark:text-white tracking-tighter">Stewardship</h1>
-                    <p className="text-zinc-400 font-black mt-2 uppercase tracking-[0.1em] text-[10px]">Track your kingdom impact through finances and skills.</p>
+                    <h1 className="page-heading">Stewardship</h1>
+                    <p className="page-description">Track your kingdom impact through finances and skills.</p>
                 </div>
                 <Button 
                     onClick={() => setIsModalOpen(true)}

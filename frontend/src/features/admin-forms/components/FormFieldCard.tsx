@@ -200,6 +200,10 @@ const FormFieldCard: React.FC<FormFieldCardProps> = ({ field, index, totalFields
                                         <option value="neq">Does not equal</option>
                                         <option value="contains">Contains</option>
                                         <option value="not_empty">Is not empty</option>
+                                        <option value="gt">Greater than (&gt;)</option>
+                                        <option value="lt">Less than (&lt;)</option>
+                                        <option value="gte">Greater than or equal (&gt;=)</option>
+                                        <option value="lte">Less than or equal (&lt;=)</option>
                                     </select>
                                 </div>
                                 <div className="space-y-1.5">

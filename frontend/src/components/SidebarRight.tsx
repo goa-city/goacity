@@ -54,66 +54,104 @@ const SidebarRight: React.FC = () => {
         return acc;
     }, {});
 
+    // Helper: Get month short string (e.g. "JUL") and day number (e.g. "20")
+    const getFormattedDateParts = (dateInput: any) => {
+        const d = new Date(dateInput);
+        const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+        return {
+            month: months[d.getMonth()] || 'MEET',
+            day: String(d.getDate()).padStart(2, '0')
+        };
+    };
+
+    // Helper to format full date string like "Wed, 9:00 AM"
+    const getFriendlyDateTime = (meeting: any) => {
+        const d = new Date(meeting.meeting_date);
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const dayName = days[d.getDay()];
+        
+        let timeStr = '';
+        if (meeting.start_time) {
+            timeStr += `, ${meeting.start_time}`;
+        }
+        if (meeting.end_time) {
+            timeStr += ` - ${meeting.end_time}`;
+        }
+        return `${dayName}${timeStr}`;
+    };
+
+    const isDashboard = window.location.pathname === '/dashboard';
+
     return (
-        <div className="flex flex-col bg-white dark:bg-zinc-950 p-6 
-            w-full xl:w-80
-            xl:fixed xl:right-0 xl:top-0 xl:h-screen xl:border-l border-zinc-100 dark:border-zinc-800 xl:overflow-y-auto
-            border-t xl:border-t-0 mt-8 xl:mt-0 pb-20
-        ">
-            {/* Header */}
-            <div className="flex justify-between items-center mb-8">
-                <h2 className="text-lg font-black text-zinc-900 dark:text-white uppercase tracking-tighter italic">Meetings</h2>
+        <div className={isDashboard 
+            ? "flex flex-col w-full pb-4" 
+            : "flex flex-col bg-white dark:bg-zinc-950 p-6 w-full xl:w-80 xl:fixed xl:right-0 xl:top-0 xl:h-screen xl:border-l border-zinc-100 dark:border-zinc-800 xl:overflow-y-auto border-t xl:border-t-0 mt-8 xl:mt-0 pb-20"
+        }>
+            {/* Header outside Card */}
+            <div className="flex justify-between items-center mb-6 px-1">
+                <h2 className="text-xs font-black text-zinc-900 dark:text-white uppercase tracking-[0.2em]">Meetings</h2>
+                {isDashboard && (
+                    <button onClick={() => window.location.href = '/meetings'} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 uppercase tracking-wider">
+                        View all
+                    </button>
+                )}
             </div>
+
             {/* Meetings List */}
             {meetings.length > 0 ? (
-                <div className="flex flex-col gap-8">
-                    {Object.keys(groupedMeetings).map((date) => (
-                        <div key={date}>
-                            <div className="flex justify-between items-center mb-4">
-                                <span className={`text-[10px] font-black uppercase tracking-widest ${date === todayStr ? 'text-indigo-600' : 'text-zinc-400'}`}>
-                                    {date === todayStr ? 'TODAY' : date.split('-').reverse().join('/')}
-                                </span>
-                            </div>
+                <div className="flex flex-col gap-4">
+                    {meetings.map((meeting: any) => {
+                        const { month, day } = getFormattedDateParts(meeting.meeting_date);
+                        const isUpcoming = new Date(meeting.meeting_date) > new Date();
 
-                            <div className="space-y-6">
-                                {groupedMeetings[date].map((meeting: any) => (
-                                    <div key={meeting.id} className="flex flex-col gap-2">
-                                        <div className="flex gap-4">
-                                            <div className="text-xs font-black text-zinc-900 dark:text-zinc-100 w-12 pt-0.5">{formatTime(meeting.start_time)}</div>
-                                            <div className="pl-4 border-l-2 flex-1 pb-1" style={getBorderColor(meeting)}>
-                                                <h4 className="text-sm font-black text-zinc-900 dark:text-white leading-tight">{meeting.title}</h4>
-                                                <div className="flex items-center text-[10px] text-zinc-400 dark:text-zinc-500 mt-1 font-bold uppercase tracking-widest">
-                                                    <MapPinIcon className="w-3 h-3 mr-1" />
-                                                    {meeting.location_name}
-                                                </div>
+                        return (
+                            <div key={meeting.id} className="bg-white/40 dark:bg-zinc-900/30 p-4 rounded-[1.5rem] border border-white/50 dark:border-zinc-800/30 shadow-sm flex gap-4 hover:shadow-md transition-all duration-300">
+                                {/* Left Side Date Box */}
+                                <div className="w-16 h-16 bg-white/70 dark:bg-zinc-850 border border-zinc-100/50 dark:border-zinc-750 rounded-2xl flex flex-col items-center justify-center shrink-0 shadow-sm">
+                                        <span className="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">{month}</span>
+                                        <span className="text-xl font-black text-zinc-800 dark:text-zinc-100 leading-none mt-0.5">{day}</span>
+                                    </div>
+
+                                    {/* Right Side Info */}
+                                    <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+                                        <div>
+                                            <h4 className="font-bold text-sm text-zinc-850 dark:text-zinc-150 leading-snug truncate">{meeting.title}</h4>
+                                            <p className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 mt-1">
+                                                {getFriendlyDateTime(meeting)}
+                                            </p>
+                                            <div className="flex items-center text-[10px] text-zinc-400 dark:text-zinc-500 mt-1.5 font-bold uppercase tracking-wider truncate">
+                                                <MapPinIcon className="w-3.5 h-3.5 mr-1" />
+                                                {meeting.location_name || 'Online'}
                                             </div>
                                         </div>
 
-                                        {/* Actions Area */}
-                                        <div className="pl-16">
-                                            {date > todayStr ? (
-                                                <div className="flex flex-wrap gap-2">
-                                                    <button onClick={() => handleRSVP(meeting.id, 'going')}
-                                                        className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'going' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' : 'bg-zinc-50 dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 border border-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}>
-                                                        <CheckCircleIcon className="w-4 h-4" />
-                                                        <span>Going</span>
-                                                    </button>
-                                                    <button onClick={() => handleRSVP(meeting.id, 'not_sure')}
-                                                        className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'not_sure' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800' : 'bg-zinc-50 dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 border border-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}>
-                                                        <QuestionMarkCircleIcon className="w-4 h-4" />
-                                                        <span>Maybe</span>
-                                                    </button>
-                                                    <button onClick={() => handleRSVP(meeting.id, 'cant_go')}
-                                                        className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'cant_go' ? 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800' : 'bg-zinc-50 dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 border border-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}>
-                                                        <XCircleIcon className="w-4 h-4" />
-                                                        <span>No</span>
-                                                    </button>
+                                        {/* Action States */}
+                                        <div className="mt-4">
+                                            {isUpcoming ? (
+                                                <div className="flex flex-col gap-2">
+                                                     <div className="flex flex-wrap gap-1.5">
+                                                         <button onClick={() => handleRSVP(meeting.id, 'going')}
+                                                             className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'going' ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20' : 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-755 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-900/50'}`}>
+                                                             <CheckCircleIcon className="w-3.5 h-3.5" />
+                                                             <span>Going</span>
+                                                         </button>
+                                                         <button onClick={() => handleRSVP(meeting.id, 'not_sure')}
+                                                             className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'not_sure' ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20' : 'bg-orange-100 dark:bg-orange-950/30 text-orange-755 dark:text-orange-400 hover:bg-orange-200 dark:hover:bg-orange-900/50'}`}>
+                                                             <QuestionMarkCircleIcon className="w-3.5 h-3.5" />
+                                                             <span>Maybe</span>
+                                                         </button>
+                                                         <button onClick={() => handleRSVP(meeting.id, 'cant_go')}
+                                                             className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'cant_go' ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20' : 'bg-rose-100 dark:bg-rose-950/30 text-rose-755 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-900/50'}`}>
+                                                             <XCircleIcon className="w-3.5 h-3.5" />
+                                                             <span>No</span>
+                                                         </button>
+                                                     </div>
                                                 </div>
                                             ) : (
                                                 <div className="mt-1">
                                                     {meeting.my_checkin == 1 || meeting.checked_in == 1 ? (
                                                         <div className="flex flex-col items-start gap-1">
-                                                            <span className="inline-flex items-center px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50">
+                                                            <span className="inline-flex items-center px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50">
                                                                 <CheckIcon className="w-3 h-3 mr-1" /> Checked In
                                                             </span>
                                                             {(meeting.is_paid == 1 || meeting.is_paid === true) && (meeting.my_payment_status || meeting.payment_status) && (
@@ -125,7 +163,7 @@ const SidebarRight: React.FC = () => {
                                                     ) : (
                                                         <button
                                                             onClick={() => handleCheckInClick(meeting)}
-                                                            className="inline-flex items-center px-4 py-1.5 border border-transparent text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-indigo-600/20 text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none transition-all"
+                                                            className="inline-flex items-center px-4 py-1.5 border border-transparent text-[9px] font-black uppercase tracking-widest rounded-xl shadow-md text-white bg-zinc-900 hover:bg-zinc-850 focus:outline-none transition-all"
                                                         >
                                                             Check In {meeting.is_paid == 1 ? '(Pay)' : ''}
                                                         </button>
@@ -134,14 +172,13 @@ const SidebarRight: React.FC = () => {
                                             )}
                                         </div>
                                     </div>
-                                ))}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            ) : (
-                <p className="text-zinc-400 dark:text-zinc-500 text-[10px] font-black uppercase tracking-widest italic">No upcoming meetings.</p>
-            )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                ) : (
+                    <p className="text-zinc-400 dark:text-zinc-500 text-[10px] font-black uppercase tracking-widest italic">No upcoming meetings.</p>
+                )}
 
             {/* Payment / Check-in Modal */}
             {paymentModalOpen && selectedMeeting && (

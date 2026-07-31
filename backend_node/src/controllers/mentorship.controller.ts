@@ -147,8 +147,19 @@ export const updateMentorshipPhase = async (req: Request, res: Response, next: N
 export const updateMentorshipStatus = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params;
-        const { status } = req.body;
-        const result = await MentorshipService.updateStatus(id as string, status);
+        const { status, meeting_schedule, session_price, started_at, ended_at } = req.body;
+        const file = req.file;
+        const payment_qr_image = file ? file.filename : undefined;
+
+        const details = {
+            meeting_schedule,
+            session_price: session_price !== undefined && session_price !== '' && session_price !== null ? Number(session_price) : undefined,
+            payment_qr_image,
+            started_at,
+            ended_at
+        };
+
+        const result = await MentorshipService.updateStatus(id as string, status, details);
         res.json({ success: true, data: result });
     } catch (error) {
         next(error);
@@ -224,7 +235,8 @@ export const exportMentorshipReport = async (req: Request, res: Response, next: 
 
 export const getAdminMentorshipRequests = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const result = await MentorshipService.getMentorshipRequests();
+        const { userId } = req.query;
+        const result = await MentorshipService.getMentorshipRequests(userId ? Number(userId) : undefined);
         res.json({ success: true, data: result });
     } catch (error) {
         next(error);
@@ -459,6 +471,47 @@ export const notifyMentorshipRelation = async (req: Request, res: Response, next
         }
 
         return res.status(400).json({ message: 'Invalid notification type' });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getMemberMentorshipRequestById = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const userId = (req as any).userId;
+        const { id } = req.params;
+
+        const response = await prisma.formResponse.findUnique({
+            where: { id: Number(id) }
+        });
+
+        if (!response) {
+            return res.status(404).json({ error: 'Mentorship request not found' });
+        }
+
+        let isAuthorized = response.user_id === userId;
+
+        if (!isAuthorized) {
+            const relation = await prisma.mentorshipRelation.findFirst({
+                where: {
+                    response_id: Number(id),
+                    OR: [
+                        { mentor_id: userId },
+                        { mentee_id: userId }
+                    ]
+                }
+            });
+            if (relation) {
+                isAuthorized = true;
+            }
+        }
+
+        if (!isAuthorized) {
+            return res.status(403).json({ error: 'Unauthorized to view this mentorship request' });
+        }
+
+        const result = await MentorshipService.getMentorshipRequestById(Number(id));
+        res.json({ success: true, data: result });
     } catch (error) {
         next(error);
     }

@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../features/auth/context/AuthContext';
 import { getProfilePhotoUrl } from '../utils/image';
+import logo from '../assets/Goa.City.Logo.svg';
 import {
     HomeIcon,
     NewspaperIcon,
@@ -76,15 +77,19 @@ const SidebarLeft: React.FC<SidebarLeftProps> = ({ mobileOpen, setMobileOpen }) 
                 lg:translate-x-0
                 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
             `}>
+                {/* Close Button for Mobile */}
+                <button
+                    onClick={() => setMobileOpen(false)}
+                    className="lg:hidden absolute top-4 right-4 p-2 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white z-50 transition-colors"
+                >
+                    <XMarkIcon className="w-7 h-7" strokeWidth={2.5} />
+                </button>
+
                 {/* Logo Area */}
-                <div className="p-6 flex justify-between items-center">
-                    <span className="text-xl font-black tracking-widest text-zinc-900 dark:text-white">Goa.City</span>
-                    <button
-                        onClick={() => setMobileOpen(false)}
-                        className="lg:hidden p-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-                    >
-                        <XMarkIcon className="w-6 h-6" />
-                    </button>
+                <div className="px-6 py-6 flex items-center justify-center">
+                    <div className="flex items-center justify-center cursor-pointer" onClick={() => navigate('/dashboard')}>
+                        <img src={logo} alt="Goa.City Logo" className="w-44 h-auto object-contain dark:invert" />
+                    </div>
                 </div>
 
                 {/* Profile Section */}

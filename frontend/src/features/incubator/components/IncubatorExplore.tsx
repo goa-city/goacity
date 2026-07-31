@@ -16,11 +16,10 @@ const IncubatorExplore: React.FC = () => {
         <DashboardLayout>
             <div className="flex flex-col md:flex-row justify-between items-start gap-6 mb-12">
                 <div className="max-w-2xl">
-                    <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight flex items-center gap-3">
+                    <h1 className="page-heading">
                         Kingdom Incubator
-                        <RocketLaunchIcon className="w-8 h-8 text-indigo-600" />
                     </h1>
-                    <p className="text-zinc-500 dark:text-zinc-400 mt-2 text-lg font-medium leading-relaxed">
+                    <p className="page-description">
                         Discover and support ventures designed to transform Goa. Connect with founders, provide feedback, or offer your skills.
                     </p>
                 </div>

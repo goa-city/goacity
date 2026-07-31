@@ -35,7 +35,8 @@ export class FormService {
         
         if (userId) {
             response = await prisma.formResponse.findFirst({
-                where: { user_id: userId, form_id: form.id, status: 'draft' },
+                where: { user_id: userId, form_id: form.id },
+                orderBy: { id: 'desc' },
                 include: { answers: true }
             });
 
@@ -53,7 +54,7 @@ export class FormService {
         return {
             ...form,
             answers,
-            last_step_index: response?.last_step_index || 0
+            last_step_index: response?.status === 'draft' ? (response?.last_step_index || 0) : 0
         };
     }
 
@@ -71,14 +72,19 @@ export class FormService {
                 // Find standard form responses for this user and form
                 const responses = await tx.formResponse.findMany({
                     where: { user_id: userId, form_id: formId },
-                    orderBy: { submitted_at: 'desc' }
+                    orderBy: { id: 'desc' }
                 });
 
                 if (responses && responses.length > 0) {
                     const mostRecent = responses[0];
                     
+                    // Fetch form code to check if it's the onboarding form
+                    const formObj = await tx.forms.findUnique({ where: { id: formId } });
+                    const isOnboarding = formObj?.code === 'mp-onboarding';
+                    
                     // If the latest response is completed, we treat a new submission attempt as a brand new response
-                    if (mostRecent && mostRecent.status === 'completed') {
+                    // EXCEPT for the onboarding form, which we always update/overwrite in place
+                    if (mostRecent && mostRecent.status === 'completed' && !isOnboarding) {
                         response = null; // Forces creation of a new response record below
                     } else {
                         response = mostRecent;
@@ -234,15 +240,81 @@ export class FormService {
                         where: { member_id: userId }
                     });
 
-                    // Parse bio and expertise from submitted answers if present
-                    const bioVal = answers['mentor_bio'] || answers['bio'] || null;
-                    let expertiseVal: any = [];
-                    const expAnswer = answers['mentor_expertise'] || answers['expertise'];
-                    if (expAnswer) {
-                        try {
-                            expertiseVal = typeof expAnswer === 'string' ? JSON.parse(expAnswer) : expAnswer;
-                        } catch (e) {
-                            expertiseVal = String(expAnswer).split(',').map(s => s.trim()).filter(Boolean);
+                    // Fetch all fields for this form dynamically to resolve dynamic keys
+                    const formFields = await tx.formField.findMany({
+                        where: { form_id: formId }
+                    });
+
+                    // 1. Resolve Bio: Look for labels containing "why do you" or keys containing "why" or "bio"
+                    let bioVal = answers['mentor_bio'] || answers['bio'] || null;
+                    if (!bioVal) {
+                        const bioField = formFields.find(f => 
+                            f.field_key.includes('bio') || 
+                            f.field_key.includes('why') || 
+                            f.label?.toLowerCase().includes('why do you')
+                        );
+                        if (bioField && answers[bioField.field_key]) {
+                            bioVal = answers[bioField.field_key];
+                        }
+                    }
+
+                    // 2. Resolve Expertise: Look for keys or labels containing "skills", "expertise", or "areas"
+                    let expertiseVal: any[] = [];
+                    const expFields = formFields.filter(f => 
+                        f.field_key.includes('expertise') || 
+                        f.field_key.includes('skills') || 
+                        f.field_key.includes('areas') ||
+                        f.label?.toLowerCase().includes('skills') || 
+                        f.label?.toLowerCase().includes('expertise') || 
+                        f.label?.toLowerCase().includes('areas do you feel')
+                    );
+
+                    for (const f of expFields) {
+                        const val = answers[f.field_key];
+                        if (val) {
+                            try {
+                                const parsed = typeof val === 'string' ? JSON.parse(val) : val;
+                                if (Array.isArray(parsed)) {
+                                    expertiseVal.push(...parsed);
+                                } else {
+                                    expertiseVal.push(parsed);
+                                }
+                            } catch (_) {
+                                if (typeof val === 'string') {
+                                    expertiseVal.push(...val.split(',').map(s => s.trim()).filter(Boolean));
+                                } else {
+                                    expertiseVal.push(val);
+                                }
+                            }
+                        }
+                    }
+
+                    // Fallback to static keys if still empty
+                    if (expertiseVal.length === 0) {
+                        const expAnswer = answers['mentor_expertise'] || answers['expertise'];
+                        if (expAnswer) {
+                            try {
+                                expertiseVal = typeof expAnswer === 'string' ? JSON.parse(expAnswer) : expAnswer;
+                            } catch (e) {
+                                expertiseVal = String(expAnswer).split(',').map(s => s.trim()).filter(Boolean);
+                            }
+                        }
+                    }
+                    expertiseVal = Array.from(new Set(expertiseVal.map(String).filter(Boolean)));
+
+                    // 3. Resolve Cost: Look for label containing "cost" or "price" or keys containing "price" / "cost"
+                    let costVal = answers['q_1784533377205'] !== undefined && answers['q_1784533377205'] !== null && answers['q_1784533377205'] !== '' 
+                        ? Number(answers['q_1784533377205']) 
+                        : null;
+                    if (costVal === null) {
+                        const costField = formFields.find(f => 
+                            f.field_key.includes('price') || 
+                            f.field_key.includes('cost') || 
+                            f.label?.toLowerCase().includes('cost') || 
+                            f.label?.toLowerCase().includes('price')
+                        );
+                        if (costField && answers[costField.field_key] !== undefined && answers[costField.field_key] !== null && answers[costField.field_key] !== '') {
+                            costVal = Number(answers[costField.field_key]);
                         }
                     }
 
@@ -251,11 +323,22 @@ export class FormService {
                             data: {
                                 member_id: userId,
                                 bio: bioVal,
-                                expertise: expertiseVal,
+                                expertise: expertiseVal as any,
+                                default_session_price: costVal,
                                 is_approved: false
                             }
                         });
                         console.log(`[FORM SERVICE] Created MentorProfile for user ${userId} on Form 20 submission.`);
+                    } else {
+                        await tx.mentorProfile.update({
+                            where: { member_id: userId },
+                            data: {
+                                bio: bioVal || existingProfile.bio,
+                                expertise: (expertiseVal.length > 0 ? expertiseVal : existingProfile.expertise) as any,
+                                default_session_price: costVal !== null ? costVal : existingProfile.default_session_price
+                            }
+                        });
+                        console.log(`[FORM SERVICE] Updated MentorProfile for user ${userId} on Form 20 submission.`);
                     }
                 }
             }

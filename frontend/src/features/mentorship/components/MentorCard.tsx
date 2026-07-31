@@ -10,6 +10,9 @@ interface MentorCardProps {
         profile_photo?: string;
         business_name?: string;
         bio?: string;
+        at_capacity?: boolean;
+        capacity?: number;
+        active_count?: number;
     };
     onRequest: (mentor: MentorCardProps['mentor']) => void;
 }
@@ -33,9 +36,15 @@ const MentorCard: React.FC<MentorCardProps> = ({ mentor, onRequest }) => {
             </p>
 
             <div className="flex flex-wrap justify-center gap-2 mt-4">
-                <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-1 rounded-md uppercase tracking-wider border border-indigo-100 dark:border-indigo-800">
-                    Willing to Mentor
-                </span>
+                {mentor.at_capacity ? (
+                    <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2 py-1 rounded-md uppercase tracking-wider border border-amber-100 dark:border-amber-800">
+                        At Capacity (Waitlist)
+                    </span>
+                ) : (
+                    <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-1 rounded-md uppercase tracking-wider border border-emerald-100 dark:border-emerald-800">
+                        Available ({mentor.active_count ?? 0}/{mentor.capacity ?? 2} slots)
+                    </span>
+                )}
             </div>
 
             <CardContent className="mt-6 w-full px-0 flex-1">

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
-import { 
-    MagnifyingGlassIcon, 
+import {
+    MagnifyingGlassIcon,
     XMarkIcon,
     UserCircleIcon,
     CalendarDaysIcon,
@@ -23,7 +23,7 @@ const GlobalSearch: React.FC = () => {
     const [results, setResults] = useState<SearchResults | null>(null);
     const [loading, setLoading] = useState(false);
     const [showDropdown, setShowDropdown] = useState(false);
-    
+
     const navigate = useNavigate();
     const dropdownRef = useRef<HTMLDivElement>(null);
     const debounceTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -61,9 +61,9 @@ const GlobalSearch: React.FC = () => {
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = e.target.value;
         setQuery(val);
-        
+
         if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
-        
+
         if (val.trim().length >= 2) {
             setShowDropdown(true);
             setLoading(true);
@@ -89,27 +89,24 @@ const GlobalSearch: React.FC = () => {
     };
 
     const hasResults = results && (
-        (results.members?.length ?? 0) > 0 || 
-        (results.meetings?.length ?? 0) > 0 || 
-        (results.pages?.length ?? 0) > 0 || 
+        (results.members?.length ?? 0) > 0 ||
+        (results.meetings?.length ?? 0) > 0 ||
+        (results.pages?.length ?? 0) > 0 ||
         (results.jobs?.length ?? 0) > 0
     );
 
     return (
         <div className="relative w-full max-w-lg z-50 text-left" ref={dropdownRef}>
             <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <MagnifyingGlassIcon className={`h-5 w-5 ${showDropdown ? 'text-sky-500' : 'text-gray-400'}`} aria-hidden="true" />
-                </div>
                 <input
                     type="text"
                     value={query}
                     onChange={handleInputChange}
                     onFocus={() => { if (query.trim().length >= 2) setShowDropdown(true); }}
-                    className={`block w-full pl-10 pr-10 py-3 border-none bg-zinc-100 dark:bg-zinc-900 text-zinc-900 dark:text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:text-sm transition-all duration-200 ${showDropdown ? 'rounded-t-xl rounded-b-none' : 'rounded-xl'}`}
-                    placeholder="Search people, meetings, pages..."
+                    className={`block w-full pl-4 pr-10 py-3 border-none bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:text-sm transition-all duration-200 ${showDropdown ? 'rounded-t-xl rounded-b-none' : 'rounded-xl'}`}
+                    placeholder="Search people, meetings,..."
                 />
-                
+
                 {/* Clear Button or Loading Spinner */}
                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
                     {loading ? (
@@ -125,7 +122,7 @@ const GlobalSearch: React.FC = () => {
             {/* Dropdown Results */}
             {showDropdown && query.trim().length >= 2 && (
                 <div className="absolute top-full left-0 right-0 bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 shadow-2xl rounded-b-xl overflow-hidden max-h-[70vh] overflow-y-auto">
-                    
+
                     {!loading && !hasResults && results && (
                         <div className="p-6 text-center text-zinc-500 dark:text-zinc-400 text-sm">
                             <p>No results found for "{query}"</p>
@@ -134,14 +131,14 @@ const GlobalSearch: React.FC = () => {
 
                     {results && hasResults && (
                         <div className="py-2 divide-y divide-zinc-50 dark:divide-zinc-800">
-                            
+
                             {/* PEOPLE / MEMBERS */}
                             {results.members && results.members.length > 0 && (
                                 <div className="py-2">
                                     <h3 className="px-4 text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-2">People</h3>
                                     {results.members.map(member => (
-                                        <div 
-                                            key={member.id} 
+                                        <div
+                                            key={member.id}
                                             onClick={() => handleNavigate(`/profile/${member.slug || member.id}`)}
                                             className="px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer flex items-center gap-3 transition-colors"
                                         >
@@ -168,8 +165,8 @@ const GlobalSearch: React.FC = () => {
                                 <div className="py-2">
                                     <h3 className="px-4 text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-2">Meetings</h3>
                                     {results.meetings.map(meeting => (
-                                        <div 
-                                            key={meeting.id} 
+                                        <div
+                                            key={meeting.id}
                                             onClick={() => handleNavigate(`/meetings`)}
                                             className="px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer flex items-center gap-3 transition-colors"
                                         >
@@ -179,7 +176,7 @@ const GlobalSearch: React.FC = () => {
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-black text-zinc-900 dark:text-white truncate">{meeting.title}</p>
                                                 <p className="text-xs text-zinc-500 truncate">
-                                                    {formatDate(meeting.meeting_date)} 
+                                                    {formatDate(meeting.meeting_date)}
                                                     {meeting.location_name ? ` • ${meeting.location_name}` : ''}
                                                 </p>
                                             </div>
@@ -193,8 +190,8 @@ const GlobalSearch: React.FC = () => {
                                 <div className="py-2">
                                     <h3 className="px-4 text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-2">Pages & Resources</h3>
                                     {results.pages.map(page => (
-                                        <div 
-                                            key={page.id} 
+                                        <div
+                                            key={page.id}
                                             onClick={() => handleNavigate(`/${page.slug}`)}
                                             className="px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer flex items-center gap-3 transition-colors"
                                         >
@@ -209,13 +206,13 @@ const GlobalSearch: React.FC = () => {
                                 </div>
                             )}
 
-                             {/* JOBS */}
-                             {results.jobs && results.jobs.length > 0 && (
+                            {/* JOBS */}
+                            {results.jobs && results.jobs.length > 0 && (
                                 <div className="py-2">
                                     <h3 className="px-4 text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-2">Jobs</h3>
                                     {results.jobs.map(job => (
-                                        <div 
-                                            key={job.id} 
+                                        <div
+                                            key={job.id}
                                             onClick={() => job.url ? window.open(job.url, '_blank') : handleNavigate(`/jobs`)}
                                             className="px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer flex items-center gap-3 transition-colors"
                                         >

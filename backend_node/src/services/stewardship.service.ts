@@ -122,18 +122,86 @@ export class StewardshipService {
         });
     }
 
-    static async getMemberDirectory() {
-        return prisma.member.findMany({
-            // where: { is_onboarded: 1 },
+    static async getMemberDirectory(filters?: { willing_to_mentor?: boolean; search?: string; area?: string }) {
+        const whereClause: any = {};
+
+        if (filters?.willing_to_mentor) {
+            whereClause.OR = [
+                { willing_to_mentor: true },
+                { is_mentor: true }
+            ];
+            whereClause.mentorProfile = {
+                is_approved: true
+            };
+        }
+
+        if (filters?.search) {
+            const searchLower = filters.search.toLowerCase();
+            whereClause.AND = whereClause.AND || [];
+            whereClause.AND.push({
+                OR: [
+                    { first_name: { contains: searchLower, mode: 'insensitive' } },
+                    { last_name: { contains: searchLower, mode: 'insensitive' } },
+                    { bio: { contains: searchLower, mode: 'insensitive' } }
+                ]
+            });
+        }
+
+        const members = await prisma.member.findMany({
+            where: whereClause,
             select: {
                 id: true,
                 first_name: true,
                 last_name: true,
                 profile_photo: true,
                 location: true,
-                role: true
+                role: true,
+                bio: true,
+                willing_to_mentor: true,
+                is_mentor: true,
+                mentorProfile: {
+                    select: {
+                        expertise: true,
+                        bio: true,
+                        capacity: true
+                    }
+                },
+                mentorshipsAsMentor: {
+                    where: { status: 'Active' },
+                    select: { id: true }
+                }
             },
             orderBy: { first_name: 'asc' }
         });
+
+        let results = members.map(m => {
+            const activeCount = m.mentorshipsAsMentor.length;
+            const capacity = m.mentorProfile?.capacity ?? 2;
+            const expertise = Array.isArray(m.mentorProfile?.expertise) ? (m.mentorProfile.expertise as string[]) : [];
+            return {
+                id: m.id,
+                first_name: m.first_name,
+                last_name: m.last_name,
+                profile_photo: m.profile_photo,
+                location: m.location,
+                role: m.role,
+                willing_to_mentor: m.willing_to_mentor,
+                is_mentor: m.is_mentor,
+                bio: m.mentorProfile?.bio || m.bio,
+                expertise,
+                active_count: activeCount,
+                capacity,
+                at_capacity: activeCount >= capacity
+            };
+        });
+
+        if (filters?.area) {
+            const areaLower = filters.area.toLowerCase();
+            results = results.filter(r => 
+                r.expertise.some((e: string) => e.toLowerCase().includes(areaLower))
+            );
+        }
+
+        return results;
     }
 }

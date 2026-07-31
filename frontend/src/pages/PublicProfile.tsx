@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import DashboardLayout from '../layouts/DashboardLayout';
+import { useAuth } from '../features/auth/context/AuthContext';
 import {
     HandRaisedIcon,
     XMarkIcon,
     NewspaperIcon,
     ChevronLeftIcon,
     HeartIcon,
-    ChatBubbleLeftIcon
+    ChatBubbleLeftIcon,
+    PencilSquareIcon
 } from '@heroicons/react/24/outline';
 import { Card, CardContent } from '../shared/components/ui/Card';
 import Button from '../shared/components/ui/Button';
@@ -33,19 +35,39 @@ interface Member {
     }>;
     profile_attributes?: Array<{ label: string; value: any }>;
     services?: Array<{ id: number; title: string; type: string; description: string }>;
-    posts?: any[];
+    is_mentor?: boolean;
+    willing_to_mentor?: boolean;
+    mentorProfile?: {
+        bio?: string;
+        expertise?: any;
+        capacity?: number;
+        default_session_price?: string;
+        payment_qr_image?: string;
+        is_approved?: boolean;
+    };
+    mentorshipsAsMentor?: Array<{ id: string }>;
 }
 
 const PublicProfile: React.FC = () => {
     const { slug } = useParams<{ slug: string }>();
+    const navigate = useNavigate();
+    const { user: currentUser } = useAuth();
     const [member, setMember] = useState<Member | null>(null);
     const [loading, setLoading] = useState(true);
+
+    const isOwnProfile = currentUser && member && (currentUser.id === member.id || (currentUser.slug && currentUser.slug === slug));
 
     // Collaboration Request Modal State
     const [isCollabModalOpen, setIsCollabModalOpen] = useState(false);
     const [collabType, setCollabType] = useState('Paid');
     const [collabDesc, setCollabDesc] = useState('');
     const [submitting, setSubmitting] = useState(false);
+
+    // Mentorship Request Modal State
+    const [isMentorshipModalOpen, setIsMentorshipModalOpen] = useState(false);
+    const [mentorshipType, setMentorshipType] = useState('long-term');
+    const [focusArea, setFocusArea] = useState('');
+    const [submittingMentorship, setSubmittingMentorship] = useState(false);
 
     useEffect(() => {
         fetchProfile();
@@ -80,6 +102,27 @@ const PublicProfile: React.FC = () => {
         } finally {
             setSubmitting(false);
             setCollabDesc('');
+        }
+    };
+
+    const handleMentorshipRequest = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!member) return;
+        setSubmittingMentorship(true);
+        try {
+            await api.post('/member/mentorship/request', {
+                mentor_id: member.id,
+                type: mentorshipType,
+                focus_area: focusArea
+            });
+            alert('Mentorship request submitted successfully! Pending mentor review.');
+            setIsMentorshipModalOpen(false);
+        } catch (error: any) {
+            console.error('Request failed:', error);
+            alert(error.response?.data?.message || 'Failed to request mentorship.');
+        } finally {
+            setSubmittingMentorship(false);
+            setFocusArea('');
         }
     };
 
@@ -200,13 +243,38 @@ const PublicProfile: React.FC = () => {
                             </div>
                         </div>
                     </div>
-                    <Button
-                        onClick={() => setIsCollabModalOpen(true)}
-                        className="w-full md:w-auto rounded-xl px-8 py-3.5 shadow-lg shadow-indigo-600/10 font-black uppercase tracking-widest text-[10px]"
-                    >
-                        <HandRaisedIcon className="w-4 h-4 mr-2" />
-                        Propose Collaboration
-                    </Button>
+                    <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                        {isOwnProfile ? (
+                            <Button
+                                onClick={() => navigate('/onboarding/form/mp-onboarding')}
+                                className="w-full md:w-auto rounded-xl px-8 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-600/20 font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2"
+                            >
+                                <PencilSquareIcon className="w-4 h-4" />
+                                Edit Onboarding Form
+                            </Button>
+                        ) : (
+                            <>
+                                <Button
+                                    onClick={() => setIsCollabModalOpen(true)}
+                                    className="w-full md:w-auto rounded-xl px-8 py-3.5 shadow-lg shadow-indigo-600/10 font-black uppercase tracking-widest text-[10px]"
+                                >
+                                    <HandRaisedIcon className="w-4 h-4 mr-2" />
+                                    Propose Collaboration
+                                </Button>
+                                {(member.is_mentor || member.willing_to_mentor) && (
+                                    <Button
+                                        onClick={() => setIsMentorshipModalOpen(true)}
+                                        className="w-full md:w-auto rounded-xl px-8 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/10 font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                                        </svg>
+                                        Request Mentorship
+                                    </Button>
+                                )}
+                            </>
+                        )}
+                    </div>
                 </div>
 
                 {/* Member Profile - Identity Matrix */}
@@ -214,24 +282,32 @@ const PublicProfile: React.FC = () => {
                     <h2 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Member Profile</h2>
                 </div>
 
-                <Card className="rounded-2xl border-none shadow-2xl shadow-zinc-200/40 dark:shadow-none bg-white dark:bg-zinc-900 overflow-hidden mb-20">
-                    <CardContent className="p-10 md:p-14">
+                <Card className="rounded-2xl border-none shadow-2xl shadow-zinc-200/40 dark:shadow-none bg-white dark:bg-zinc-900 overflow-hidden mb-12">
+                    <CardContent className="p-6 md:p-8">
                         {validAttributes.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8">
-                                {validAttributes.map((attr, i) => (
-                                    <div key={i} className="group border-b border-zinc-50 dark:border-zinc-800/50 pb-3 last:border-0 md:[&:nth-last-child(2)]:border-0 md:last:border-0">
-                                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1 block group-hover:text-indigo-500 transition-colors">
-                                            {attr.label}
-                                        </label>
-                                        <div className="text-base font-bold text-zinc-800 dark:text-zinc-200">
-                                            {renderAttributeValue(attr.value)}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                                {validAttributes.map((attr, i) => {
+                                    const isLongText = String(attr.value || '').length > 100 || attr.label.toLowerCase().includes('summary') || attr.label.toLowerCase().includes('bio') || attr.label.toLowerCase().includes('description');
+                                    return (
+                                        <div
+                                            key={i}
+                                            className={`group border-b border-zinc-50 dark:border-zinc-800/50 pb-2.5 last:border-0 md:[&:nth-last-child(2)]:border-0 md:last:border-0 ${
+                                                isLongText ? 'col-span-1 md:col-span-2' : ''
+                                            }`}
+                                        >
+                                            <label className="text-[9px] font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-0.5 block group-hover:text-indigo-500 transition-colors">
+                                                {attr.label}
+                                            </label>
+                                            <div className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                                                {renderAttributeValue(attr.value)}
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         ) : (
-                            <div className="text-center py-6">
-                                <p className="text-zinc-400 font-black uppercase text-[10px] tracking-[0.2em] italic">No updates are shared</p>
+                            <div className="text-center py-4">
+                                <p className="text-zinc-400 font-medium uppercase text-[10px] tracking-widest italic">No updates are shared</p>
                             </div>
                         )}
                     </CardContent>
@@ -402,6 +478,86 @@ const PublicProfile: React.FC = () => {
                                     className="w-full py-5 bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 font-black uppercase tracking-[0.3em] text-[11px] rounded-2xl shadow-2xl hover:bg-indigo-600 dark:hover:bg-zinc-100 transition-all active:scale-[0.98] disabled:opacity-50"
                                 >
                                     {submitting ? 'Transmitting Proposal...' : 'Commit Request'}
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {isMentorshipModalOpen && member && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-md animate-fadeIn">
+                    <div className="relative bg-white dark:bg-zinc-900 w-full max-w-lg rounded-[2.5rem] shadow-3xl overflow-hidden border border-zinc-100 dark:border-zinc-800">
+                        <button
+                            onClick={() => setIsMentorshipModalOpen(false)}
+                            className="absolute right-6 top-6 w-10 h-10 rounded-full bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
+                        >
+                            <XMarkIcon className="w-6 h-6" />
+                        </button>
+
+                        <div className="p-10 md:p-12">
+                            <div className="mb-10">
+                                <h3 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tight italic">Request Mentorship</h3>
+                                <p className="text-zinc-500 dark:text-zinc-400 font-medium italic mt-1 font-sans">
+                                    Initiate your growth journey with <span className="text-zinc-900 dark:text-white font-bold">{member.first_name}</span>.
+                                </p>
+                            </div>
+
+                            {/* Waitlist / Capacity warning */}
+                            {((member.mentorshipsAsMentor?.length ?? 0) >= (member.mentorProfile?.capacity ?? 2)) && (
+                                <div className="mb-6 p-5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-2xl">
+                                    <p className="text-xs font-bold text-amber-800 dark:text-amber-300 leading-relaxed italic">
+                                        ⚠️ Note: This mentor is currently at full capacity ({member.mentorshipsAsMentor?.length}/{member.mentorProfile?.capacity} slots). Your request will be waitlisted.
+                                    </p>
+                                </div>
+                            )}
+
+                            <form onSubmit={handleMentorshipRequest} className="space-y-8">
+                                <div className="bg-zinc-50 dark:bg-zinc-800/30 p-6 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+                                    <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-4 ml-1">Mentorship Format</label>
+                                    <div className="flex flex-wrap gap-8">
+                                        <label className="flex items-center gap-3 cursor-pointer group">
+                                            <input
+                                                type="radio"
+                                                name="mentorshipType"
+                                                value="long-term"
+                                                checked={mentorshipType === 'long-term'}
+                                                onChange={e => setMentorshipType(e.target.value)}
+                                                className="appearance-none w-5 h-5 rounded-full border-2 border-zinc-200 dark:border-zinc-700 checked:border-emerald-500 checked:border-[6px] transition-all cursor-pointer"
+                                            />
+                                            <span className="text-[11px] font-black uppercase tracking-widest text-zinc-600 dark:text-zinc-400 group-hover:text-emerald-500 transition-colors">Long-term (Ongoing)</span>
+                                        </label>
+                                        <label className="flex items-center gap-3 cursor-pointer group">
+                                            <input
+                                                type="radio"
+                                                name="mentorshipType"
+                                                value="micro"
+                                                checked={mentorshipType === 'micro'}
+                                                onChange={e => setMentorshipType(e.target.value)}
+                                                className="appearance-none w-5 h-5 rounded-full border-2 border-zinc-200 dark:border-zinc-700 checked:border-emerald-500 checked:border-[6px] transition-all cursor-pointer"
+                                            />
+                                            <span className="text-[11px] font-black uppercase tracking-widest text-zinc-600 dark:text-zinc-400 group-hover:text-emerald-500 transition-colors">Micro (One-off)</span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-3 ml-2">Focus Areas & Personal Goals</label>
+                                    <textarea
+                                        className="w-full bg-zinc-50 dark:bg-zinc-800/50 border-0 rounded-2xl p-6 focus:ring-2 focus:ring-emerald-500 outline-none resize-none text-zinc-900 dark:text-white font-medium leading-relaxed min-h-[140px] shadow-inner"
+                                        required
+                                        placeholder="What primary areas or challenges do you hope to tackle together?"
+                                        value={focusArea}
+                                        onChange={e => setFocusArea(e.target.value)}
+                                    ></textarea>
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={submittingMentorship}
+                                    className="w-full py-5 bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-[0.3em] text-[11px] rounded-2xl shadow-2xl transition-all active:scale-[0.98] disabled:opacity-50 animate-pulse-slow"
+                                >
+                                    {submittingMentorship ? 'Submitting Request...' : 'Send Mentorship Request'}
                                 </button>
                             </form>
                         </div>

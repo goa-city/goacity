@@ -106,6 +106,22 @@ export const getMemberProfile = async (req: Request, res: Response) => {
                     where: { status: 'Active' }
                 },
                 profiles: true,
+                willing_to_mentor: true,
+                is_mentor: true,
+                mentorProfile: {
+                    select: {
+                        bio: true,
+                        expertise: true,
+                        capacity: true,
+                        default_session_price: true,
+                        payment_qr_image: true,
+                        is_approved: true
+                    }
+                },
+                mentorshipsAsMentor: {
+                    where: { status: 'Active' },
+                    select: { id: true }
+                },
                 responses: {
                     include: { answers: true },
                     orderBy: { submitted_at: 'desc' as const },

@@ -22,7 +22,8 @@ import {
     updateMentorProfile, getMenteeRecommendations,
     updateMentorshipSession, deleteMentorshipSession, deleteMentorshipGoal,
     addMentorshipMaterial, submitMentorshipMaterialResponse, deleteMentorshipMaterial,
-    submitMentorshipSessionPayment, verifyMentorshipSessionPayment
+    submitMentorshipSessionPayment, verifyMentorshipSessionPayment,
+    getMemberMentorshipRequestById
 } from '../controllers/mentorship.controller.js';
 import { 
     submitIdea, getActiveIdeas, submitFeedback 
@@ -75,13 +76,14 @@ router.get('/mentorship/recommendations', getMenteeRecommendations);
 router.post('/mentorship/request', requestMentorship);
 router.get('/mentorship', getMyMentorships);
 router.get('/mentorship/:id', getMentorshipById);
+router.get('/mentorship/requests/:id', getMemberMentorshipRequestById);
 router.post('/mentorship/:id/goals', addMentorshipGoal);
 router.put('/mentorship/goals/:goalId', updateMentorshipGoal);
 router.post('/mentorship/:id/sessions', upload.single('payment_qr_image'), logMentorshipSession);
 router.post('/mentorship/:id/tasks', addMentorshipTask);
 router.put('/mentorship/tasks/:taskId', updateMentorshipTask);
 router.put('/mentorship/:id/phase', updateMentorshipPhase);
-router.put('/mentorship/:id/status', updateMentorshipStatus);
+router.put('/mentorship/:id/status', upload.single('payment_qr_image'), updateMentorshipStatus);
 
 router.put('/mentorship/sessions/:sessionId', upload.single('payment_qr_image'), updateMentorshipSession);
 router.delete('/mentorship/sessions/:sessionId', deleteMentorshipSession);

@@ -4,7 +4,6 @@ import { useMeetings } from '../hooks/useMeetings';
 import MeetingCard from './MeetingCard';
 import CheckInModal from './CheckInModal';
 import DashboardLayout from '../../../layouts/DashboardLayout';
-import { CalendarIcon } from '@heroicons/react/24/solid';
 import type { Meeting } from '../hooks/useSingleMeeting';
 
 const MeetingsView = () => {
@@ -46,16 +45,16 @@ const MeetingsView = () => {
 
     return (
         <DashboardLayout>
-            <div className="max-w-4xl mx-auto py-8">
-                <div className="mb-12">
-                    <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight flex items-center gap-3">
-                        Meetings
-                        <CalendarIcon className="w-8 h-8 text-indigo-600" />
-                    </h1>
-                    <p className="text-zinc-500 dark:text-zinc-400 mt-2 text-lg font-medium leading-relaxed">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+                <div>
+                    <h1 className="page-heading">Meetings</h1>
+                    <p className="page-description">
                         Upcoming meetings
                     </p>
                 </div>
+            </div>
+
+            <div className="max-w-4xl mx-auto">
 
                 {/* Upcoming */}
                 <section className="mb-16">

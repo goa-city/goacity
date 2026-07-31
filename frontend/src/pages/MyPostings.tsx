@@ -37,8 +37,8 @@ const MyPostings: React.FC = () => {
                 {/* Header */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
                     <div>
-                        <h1 className="text-3xl font-extrabold text-[#2D2D46]">My Job Postings</h1>
-                        <p className="text-gray-500 mt-2 text-sm">Manage job openings you have posted and track applications.</p>
+                        <h1 className="page-heading">My Job Postings</h1>
+                        <p className="page-description">Manage job openings you have posted and track applications.</p>
                     </div>
                     <div className="flex items-center gap-4">
                         <Button

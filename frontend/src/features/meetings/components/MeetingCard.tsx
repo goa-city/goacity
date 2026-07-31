@@ -135,15 +135,15 @@ const MeetingCard: React.FC<MeetingCardProps> = ({ meeting, onRSVP, onCheckIn, o
                                 </div>
                             ) : (
                                 <div className="flex gap-2">
-                                    <button onClick={() => onRSVP(meeting.id, 'going')} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'going' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}>
-                                        <CheckCircleIcon className="w-4 h-4" /> Going
-                                    </button>
-                                    <button onClick={() => onRSVP(meeting.id, 'not_sure')} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'not_sure' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}>
-                                        <QuestionMarkCircleIcon className="w-4 h-4" /> Maybe
-                                    </button>
-                                    <button onClick={() => onRSVP(meeting.id, 'cant_go')} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'cant_go' ? 'bg-red-500 text-white shadow-lg shadow-red-500/20' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}>
-                                        <XCircleIcon className="w-4 h-4" /> No
-                                    </button>
+                                     <button onClick={() => onRSVP(meeting.id, 'going')} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'going' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-900/50'}`}>
+                                         <CheckCircleIcon className="w-4 h-4" /> Going
+                                     </button>
+                                     <button onClick={() => onRSVP(meeting.id, 'not_sure')} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'not_sure' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'bg-orange-100 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 hover:bg-orange-200 dark:hover:bg-orange-900/50'}`}>
+                                         <QuestionMarkCircleIcon className="w-4 h-4" /> Maybe
+                                     </button>
+                                     <button onClick={() => onRSVP(meeting.id, 'cant_go')} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'cant_go' ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/20' : 'bg-rose-100 dark:bg-rose-950/30 text-rose-750 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-900/50'}`}>
+                                         <XCircleIcon className="w-4 h-4" /> No
+                                     </button>
                                 </div>
                             )}
                         </div>

@@ -8,12 +8,13 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../..
 import Button from '../../../shared/components/ui/Button';
 import StreamCard from './StreamCard';
 import DashboardLayout from '../../../layouts/DashboardLayout';
+import SidebarRight from '../../../components/SidebarRight';
 import GlobalSearch from '../../../components/GlobalSearch';
 import PullToRefresh from '../../../components/mobile/PullToRefresh';
-import { 
-    PlusIcon, 
-    SparklesIcon, 
-    ArrowPathIcon 
+import {
+    PlusIcon,
+    SparklesIcon,
+    ArrowPathIcon
 } from '@heroicons/react/24/solid';
 
 import { formatDate } from '../../../utils/date';
@@ -40,130 +41,140 @@ const DashboardView: React.FC = () => {
     return (
         <DashboardLayout>
             <PullToRefresh onRefresh={refetch}>
-                {/* Header */}
-                <div className="flex flex-col md:flex-row justify-between items-start gap-6 mb-12">
-                    <div>
-                        <h1 className="text-5xl font-black text-zinc-900 dark:text-white tracking-tighter">
-                            Hello, {data?.user?.first_name || user?.first_name || 'Member'}
-                        </h1>
-                        <p className="text-zinc-400 font-black mt-2 uppercase tracking-[0.1em] text-[10px]">
-                            {dateString}
-                        </p>
-                    </div>
-                    
-                    <div className="flex items-center gap-3 w-full md:w-auto pt-2">
-                        <div className="flex-1 md:flex-none">
-                            <GlobalSearch />
+                <div className="min-h-screen bg-gradient-to-br from-[#fbfbfb] to-[#f9f6e8] text-zinc-900 p-6 sm:p-8">
+                    {/* Header */}
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
+                        <div>
+                            <h1 className="page-heading">
+                                Hello, {data?.member?.first_name || user?.first_name || 'there'}
+                            </h1>
+                            <p className="text-zinc-400 font-bold mt-2 uppercase tracking-[0.15em] text-[10px]">
+                                {dateString}
+                            </p>
                         </div>
-                        <Button onClick={() => navigate('/stewardship')} className="shadow-xl shadow-indigo-600/20 px-8 hidden md:flex">
-                            <PlusIcon className="w-5 h-5 mr-2" />
-                            Log Gift
-                        </Button>
-                    </div>
-                </div>
 
-                {/* Grid Sections */}
-                <div className="grid grid-cols-1 xl:grid-cols-3 gap-10">
-                    
-                    {/* Main Content Area (Full Width) */}
-                    <div className="xl:col-span-3 space-y-16">
-                        
-                        {/* Streams Grid */}
-                        <section>
-                            <div className="mb-6 px-2">
-                                <h2 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Joined Streams</h2>
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
-                                {data?.streams.map((stream: any) => (
-                                    <StreamCard key={stream.id} stream={stream} />
-                                ))}
-                                {(!data?.streams || data.streams.length === 0) && !isLoading && (
-                                    <Card className="col-span-full border-dashed border-2 border-zinc-100 dark:border-zinc-800 p-12 text-center bg-transparent rounded-2xl">
-                                        <p className="text-zinc-400 font-bold uppercase text-[10px] tracking-widest italic">No streams joined yet. Contact an admin to get plugged in.</p>
-                                    </Card>
-                                )}
-                            </div>
-                        </section>
-
-                        {/* Action Items / Impact */}
-                        <section className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                            <div>
-                                <h2 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-6 px-2">Action Items</h2>
-                                <div className="space-y-4">
-                                    {data?.pending_actions?.length > 0 ? (
-                                        data.pending_actions.map((action: any, idx: number) => (
-                                            <Card 
-                                                key={action.id || idx} 
-                                                onClick={() => {
-                                                    if (action.type === 'onboarding') navigate(`/onboarding/form/${action.form_id}`);
-                                                    if (action.type === 'checkin') setCheckInMeeting({
-                                                        id: action.meeting_id,
-                                                        title: action.title || action.message.replace('Check-in for ', ''),
-                                                        is_paid: action.is_paid,
-                                                        payment_amount: action.payment_amount,
-                                                        payment_qr_image: action.payment_qr_image
-                                                    });
-                                                }} 
-                                                className="p-5 cursor-pointer hover:shadow-2xl hover:shadow-indigo-600/10 hover:-translate-y-0.5 transition-all flex items-center justify-between gap-5 group rounded-2xl border-none bg-white dark:bg-zinc-900/30"
-                                            >
-                                                <div className="flex items-center gap-5">
-                                                    <div className="w-1.5 h-10 rounded-full shrink-0 group-hover:scale-y-110 transition-transform" style={{ backgroundColor: action.stream_color || '#6366f1' }} />
-                                                    <div>
-                                                        <h4 className="font-black text-sm text-zinc-900 dark:text-white leading-tight">{action.message}</h4>
-                                                        <p className="text-[10px] text-zinc-400 font-black uppercase tracking-[0.1em] mt-1">
-                                                            {action.type === 'onboarding' ? 'Pending Onboarding' : 'Meeting Check-in'}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                {action.type === 'checkin' && (
-                                                    <Button size="sm" className="rounded-xl px-4 py-2 text-[10px] uppercase font-black tracking-widest h-auto">
-                                                        Check In
-                                                    </Button>
-                                                )}
-                                            </Card>
-                                        ))
-                                    ) : (
-                                        <Card className="p-10 text-center bg-zinc-50 dark:bg-zinc-900/50 border-none shadow-none rounded-2xl">
-                                            <p className="text-zinc-400 text-[10px] font-black uppercase tracking-widest">No actions pending. You're all caught up!</p>
-                                        </Card>
-                                    )}
+                        <div className="flex items-center gap-3 w-full md:w-auto">
+                            <div className="flex items-center gap-2 flex-1 md:flex-none">
+                                <div className="flex-1 md:flex-none bg-white/80 rounded-2xl border border-zinc-200/50 shadow-sm">
+                                    <GlobalSearch />
                                 </div>
+                                <Button className="bg-zinc-900 hover:bg-zinc-800 text-white rounded-2xl p-3 shadow-md border-none flex items-center justify-center h-[46px] w-[46px]">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.637 10.637Z" />
+                                    </svg>
+                                </Button>
                             </div>
-
-                            <div>
-                                <h2 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-6 px-2">Kingdom Impact</h2>
-                                <Card onClick={() => navigate('/stewardship')} className="bg-indigo-600 text-white p-10 cursor-pointer hover:shadow-2xl hover:shadow-indigo-600/30 hover:-translate-y-1 transition-all border-none rounded-2xl relative overflow-hidden group">
-                                    <SparklesIcon className="w-20 h-20 mb-6 opacity-20 absolute -right-4 -bottom-4 group-hover:scale-125 transition-transform" />
-                                    <h3 className="text-2xl font-black leading-tight relative z-10">Every gift tells a story of the kingdom.</h3>
-                                    <p className="text-white/70 text-sm mt-4 font-bold relative z-10">Log your time and resources to track collective impact across Goa.</p>
-                                </Card>
-                            </div>
-                        </section>
-
-                        {/* Collaborations Feed */}
-                        <section>
-                            <h2 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-6 px-2">Recent Collaborations</h2>
-                            <div className="space-y-4">
-                                {collabs?.map((collab: any) => (
-                                    <div key={collab.id} className="flex items-center gap-5 p-5 bg-zinc-50 dark:bg-zinc-900/30 rounded-xl border border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 transition-all">
-                                        <div className="w-12 h-12 bg-white dark:bg-zinc-800 text-primary font-black rounded-xl flex items-center justify-center shrink-0 shadow-sm border border-zinc-100 dark:border-zinc-800">
-                                            {collab.requester.first_name?.[0]}{collab.provider.first_name?.[0]}
-                                        </div>
-                                        <p className="text-sm font-bold text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                                            <span className="font-black text-zinc-900 dark:text-white">{collab.requester.first_name}</span> is collaborating with <span className="font-black text-zinc-900 dark:text-white">{collab.provider.first_name}</span> on a <span className="text-[10px] font-black bg-white dark:bg-zinc-800 px-3 py-1 rounded-full border dark:border-zinc-700 ml-1 uppercase tracking-widest text-primary">{collab.type} project</span>.
-                                        </p>
-                                    </div>
-                                ))}
-                            </div>
-                        </section>
-
+                        </div>
                     </div>
 
+                    {/* Grid Sections */}
+                    <div className="grid grid-cols-1 xl:grid-cols-12 gap-10">
+
+                        {/* Meetings Section */}
+                        <div className="order-first xl:order-last xl:col-span-4 h-fit">
+                            <SidebarRight />
+                        </div>
+
+                        {/* Main Content Area */}
+                        <div className="xl:col-span-8 space-y-12">
+                            {/* Streams Section */}
+                            <section>
+                                <div className="flex justify-between items-center mb-6 px-2">
+                                    <h2 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Streams</h2>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {data?.streams?.map((stream: any) => (
+                                        <StreamCard key={stream.id} stream={stream} />
+                                    ))}
+                                </div>
+                            </section>
+
+                            {/* Action Items / Impact */}
+                            <section className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="p-2 flex flex-col justify-between">
+                                    <div>
+                                        <div className="flex justify-between items-center mb-6 px-2">
+                                            <h2 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Action Items</h2>
+                                            {data?.pending_actions?.some((action: any) => action.type === 'onboarding') && (
+                                                <span className="text-[10px] bg-zinc-200 text-zinc-700 font-black px-2.5 py-1 rounded-full uppercase tracking-wider">
+                                                    {data.pending_actions.filter((action: any) => action.type === 'onboarding').length} Pending
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="space-y-3">
+                                            {data?.pending_actions?.length > 0 ? (
+                                                data.pending_actions.map((action: any, idx: number) => (
+                                                    <div
+                                                        key={action.id || idx}
+                                                        onClick={() => {
+                                                            if (action.type === 'onboarding') navigate(`/onboarding/form/${action.form_id}`);
+                                                            if (action.type === 'mentorship') navigate(`/dashboard/mentorship/${action.mentorship_id}`);
+                                                            if (action.type === 'checkin') setCheckInMeeting({
+                                                                id: action.meeting_id,
+                                                                title: action.title || action.message.replace('Check-in for ', ''),
+                                                                is_paid: action.is_paid,
+                                                                payment_amount: action.payment_amount,
+                                                                payment_qr_image: action.payment_qr_image
+                                                            });
+                                                        }}
+                                                        className="p-4 cursor-pointer hover:bg-white/80 transition-all flex items-center justify-between gap-4 group rounded-2xl border border-zinc-200/50 bg-white/40 shadow-sm"
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-1.5 h-8 rounded-full shrink-0" style={{ backgroundColor: action.stream_color || '#FBBF24' }} />
+                                                            <div>
+                                                                <h4 className="font-bold text-xs text-zinc-800 leading-tight">{action.message}</h4>
+                                                                <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-[0.1em] mt-1">
+                                                                    {action.type === 'onboarding' ? 'Onboarding' : action.type === 'mentorship' ? 'Mentorship' : 'Check-in'}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        {action.type === 'checkin' && (
+                                                            <Button size="sm" className="bg-amber-400 hover:bg-amber-500 text-zinc-950 rounded-xl px-3 py-1.5 text-[9px] uppercase font-black tracking-widest h-auto border-none shadow-md shadow-amber-400/10">
+                                                                Check In
+                                                            </Button>
+                                                        )}
+                                                        {action.type === 'mentorship' && (
+                                                            <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-purple-100 text-purple-700">
+                                                                View
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="p-8 text-center bg-white/20 border border-zinc-200/40 rounded-2xl">
+                                                    <p className="text-zinc-400 text-[9px] font-black uppercase tracking-widest">All caught up!</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-[#FEF8DE] text-zinc-800 p-6 sm:p-8 rounded-[2rem] border border-amber-900/5 shadow-sm flex flex-col justify-between min-h-[300px] relative overflow-hidden group">
+                                    <div className="absolute -right-10 -bottom-10 opacity-10 group-hover:scale-110 transition-transform duration-700">
+                                        <SparklesIcon className="w-48 h-48 text-zinc-900" />
+                                    </div>
+                                    <div className="relative z-10">
+                                        <h2 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-4">Kingdom Impact</h2>
+                                        <h3 className="text-2xl sm:text-3xl font-black text-zinc-800 leading-tight font-display mt-2">Every gift tells a story of the kingdom.</h3>
+                                        <p className="text-zinc-600 text-xs mt-4 font-semibold max-w-sm">Log your time and resources to track collective impact across Goa.</p>
+                                    </div>
+                                    <div className="relative z-10 pt-4">
+                                        <Button onClick={() => navigate('/stewardship')} className="bg-zinc-900 text-white hover:bg-zinc-850 transition-all font-bold rounded-2xl shadow-md px-6 py-2.5 text-[10px] uppercase tracking-widest border-none">
+                                            Log Impact
+                                        </Button>
+                                    </div>
+                                </div>
+                            </section>
+                        </div>
+
+
+
+                    </div>
                 </div>
             </PullToRefresh>
 
             {checkInMeeting && (
-                <CheckInModal 
+                <CheckInModal
                     meeting={checkInMeeting}
                     onClose={() => setCheckInMeeting(null)}
                     onSuccess={() => refetch()}
