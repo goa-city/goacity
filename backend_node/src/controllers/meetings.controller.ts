@@ -861,6 +861,7 @@ export const notifyMeetingMembers = async (req: Request, res: Response) => {
             ]);
 
             const rsvpOptionsBlock = `Going: ${goingUrl}\nMaybe: ${maybeUrl}\nNo: ${noUrl}`;
+            const payUrl = `${baseUrl}/pay/${meetingTarget}`;
 
             return {
                 '{first_name}': m.first_name || 'Member',
@@ -876,6 +877,8 @@ export const notifyMeetingMembers = async (req: Request, res: Response) => {
                 '{zoom_link}': meeting.zoom_link || '',
                 '{rsvp_link}': meetingUrl || '',
                 '{rsvp_options_link}': rsvpOptionsBlock,
+                '{upi_link}': payUrl,
+                '{pay_link}': payUrl,
                 '{recap_content}': meeting.recap_content || '',
                 '{description}': meeting.description || '',
                 // Legacy / Double Bracket Support
@@ -890,6 +893,8 @@ export const notifyMeetingMembers = async (req: Request, res: Response) => {
                 '{{meeting_url}}': meetingUrl || '',
                 '{{rsvp_link}}': meetingUrl || '',
                 '{{rsvp_options_link}}': rsvpOptionsBlock,
+                '{{upi_link}}': payUrl,
+                '{{pay_link}}': payUrl,
                 '{{recap_content}}': meeting.recap_content || '',
                 '{{description}}': meeting.description || ''
             };

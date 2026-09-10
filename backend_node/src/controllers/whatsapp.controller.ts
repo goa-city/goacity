@@ -200,6 +200,7 @@ export const sendMeetingAlert = async (req: Request, res: Response) => {
             ]);
 
             const rsvpOptionsBlock = `Going: ${goingUrl}\nMaybe: ${maybeUrl}\nNo: ${noUrl}`;
+            const payUrl = `${baseUrl}/pay/${meetingTarget}`;
 
             return {
                 '{first_name}': m.first_name || 'Member',
@@ -215,8 +216,12 @@ export const sendMeetingAlert = async (req: Request, res: Response) => {
                 '{zoom_link}': meeting.zoom_link || '',
                 '{rsvp_link}': meetingUrl || '',
                 '{rsvp_options_link}': rsvpOptionsBlock,
+                '{upi_link}': payUrl,
+                '{pay_link}': payUrl,
                 '{{rsvp_link}}': meetingUrl || '',
-                '{{rsvp_options_link}}': rsvpOptionsBlock
+                '{{rsvp_options_link}}': rsvpOptionsBlock,
+                '{{upi_link}}': payUrl,
+                '{{pay_link}}': payUrl
             };
         };
 

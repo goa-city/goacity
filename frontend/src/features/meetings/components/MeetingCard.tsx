@@ -167,7 +167,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({ meeting, onRSVP, onCheckIn, o
                                     )}
                                 </div>
                             ) : (
-                                <div className="flex gap-2">
+                                <div className="flex flex-wrap items-center gap-2">
                                      <button onClick={() => handleRsvpClick('going')} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'going' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-900/50'}`}>
                                          <CheckCircleIcon className="w-4 h-4" /> Going
                                      </button>
@@ -177,6 +177,17 @@ const MeetingCard: React.FC<MeetingCardProps> = ({ meeting, onRSVP, onCheckIn, o
                                      <button onClick={() => handleRsvpClick('cant_go')} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'cant_go' ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/20' : 'bg-rose-100 dark:bg-rose-950/30 text-rose-750 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-900/50'}`}>
                                          <XCircleIcon className="w-4 h-4" /> No
                                      </button>
+                                     {Boolean(meeting.is_paid) && (meeting.upi_link || meeting.payment_amount) && (
+                                         <a
+                                             href={`/pay/${meeting.slug || meeting.id}`}
+                                             target="_blank"
+                                             rel="noopener noreferrer"
+                                             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
+                                         >
+                                             <span>Pay ₹{meeting.payment_amount || ''}</span>
+                                             <ArrowTopRightOnSquareIcon className="w-3.5 h-3.5" />
+                                         </a>
+                                     )}
                                 </div>
                             )}
                         </div>

@@ -64,19 +64,23 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ meeting, onClose, onSuccess
                             <p className="text-2xl font-black text-zinc-900 dark:text-white">₹{meeting.payment_amount}</p>
                         </div>
 
-                        {qrUrl ? (
-                            <div className="flex flex-col items-center">
-                                <div className="p-4 bg-white  ">
-                                    {meeting.upi_link ? (
-                                        <a href={meeting.upi_link} target="_blank" rel="noopener noreferrer">
-                                            <img src={qrUrl} alt="Payment QR" className="w-64 h-64 object-contain cursor-pointer hover:opacity-90 transition-opacity" />
+                                {meeting.upi_link || qrUrl ? (
+                                    <div className="flex flex-col items-center">
+                                        <div className="p-4 bg-white rounded-2xl shadow-inner border border-zinc-200 dark:border-zinc-700">
+                                            <a href={`/pay/${meeting.slug || meeting.id}`} target="_blank" rel="noopener noreferrer" title="Click to pay via UPI app or open payment page">
+                                                <img src={qrUrl} alt="Payment QR" className="w-64 h-64 object-contain cursor-pointer hover:opacity-90 transition-opacity" />
+                                            </a>
+                                        </div>
+                                        <a 
+                                            href={`/pay/${meeting.slug || meeting.id}`} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="mt-2 text-[11px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 inline-flex items-center gap-1"
+                                        >
+                                            Open UPI Payment Page ↗
                                         </a>
-                                    ) : (
-                                        <img src={qrUrl} alt="Payment QR" className="w-64 h-64 object-contain" />
-                                    )}
-                                </div>
-                            </div>
-                        ) : (
+                                    </div>
+                                ) : (
                             <div className="text-center p-6 bg-amber-50 dark:bg-amber-900/20 rounded-2xl border border-amber-100 dark:border-amber-800">
                                 <p className="text-[10px] text-amber-700 dark:text-amber-400 font-black uppercase tracking-widest italic">
                                     No QR Code available. Please pay at the registration desk.

@@ -9,7 +9,7 @@ import {
     CurrencyRupeeIcon, BeakerIcon, SwatchIcon, ClockIcon,
     CloudArrowUpIcon, TrashIcon, DocumentIcon, DocumentTextIcon,
     VideoCameraIcon, EnvelopeIcon, ChevronDownIcon, ChatBubbleLeftRightIcon, EyeIcon, ArrowDownTrayIcon,
-    XMarkIcon, PhotoIcon, UsersIcon
+    XMarkIcon, PhotoIcon, UsersIcon, LinkIcon, ArrowTopRightOnSquareIcon
 } from '@heroicons/react/24/solid';
 import { ArrowLeftIcon as ArrowLeftOutline } from '@heroicons/react/24/outline';
 import { Card } from '../../shared/components/ui/Card';
@@ -506,10 +506,59 @@ const AdminMeetingEditor: React.FC = () => {
                                     />
                                 </div>
                             </div>
-                            <div className="border-t border-sky-100 dark:border-sky-900/50 pt-4">
-                                <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">UPI Link (Optional)</label>
-                                <input {...register('upi_link')} type="text" className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-4 font-medium" placeholder="e.g. upi://pay?pa=address@upi&pn=Name&am=500" />
-                                <p className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-2">If provided, members will be able to click the QR code to open their UPI app directly.</p>
+                            <div className="border-t border-sky-100 dark:border-sky-900/50 pt-4 space-y-3">
+                                <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <label className="block text-xs font-black uppercase tracking-widest text-zinc-500">UPI Link (Optional)</label>
+                                        <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400">Supports raw `upi://` or UPI ID</span>
+                                    </div>
+                                    <input 
+                                        {...register('upi_link')} 
+                                        type="text" 
+                                        className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-4 font-medium font-mono text-sm" 
+                                        placeholder="e.g. upi://pay?pa=address@okicici&pn=Name&am=500 or just yourname@upi" 
+                                    />
+                                    <p className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-1.5">
+                                        Paste a complete UPI URL or enter a UPI ID (e.g. <code className="text-zinc-600 dark:text-zinc-300 font-bold">username@okicici</code>). We automatically format and encode it for payments.
+                                    </p>
+                                </div>
+
+                                {/* Generated Public Web Payment Link Preview */}
+                                <div className="p-3.5 bg-white dark:bg-zinc-900 rounded-xl border border-sky-200/70 dark:border-sky-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        <div className="w-8 h-8 rounded-lg bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
+                                            <LinkIcon className="w-4 h-4" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Public Payment Page Link</p>
+                                            <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 truncate">
+                                                {baseUrl}/pay/{slug || (isEdit && id ? id : 'meeting-slug')}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const url = `${baseUrl}/pay/${slug || (isEdit && id ? id : '')}`;
+                                                navigator.clipboard.writeText(url);
+                                                showToast('Payment link copied to clipboard!');
+                                            }}
+                                            className="px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors"
+                                        >
+                                            Copy Link
+                                        </button>
+                                        <a
+                                            href={`/pay/${slug || (isEdit && id ? id : '')}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/50 rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors"
+                                        >
+                                            <span>Preview</span>
+                                            <ArrowTopRightOnSquareIcon className="w-3 h-3" />
+                                        </a>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     )}

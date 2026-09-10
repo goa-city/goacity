@@ -168,6 +168,17 @@ const SingleMeetingView: React.FC = () => {
                                 </div>
                             )
                         )}
+                        {Boolean(meeting.is_paid) && meeting.checked_in !== 1 && (meeting.upi_link || meeting.payment_amount) && (
+                            <a
+                                href={`/pay/${meeting.slug || meeting.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
+                            >
+                                <span>Pay ₹{meeting.payment_amount || ''} Online</span>
+                                <ArrowTopRightOnSquareIcon className="w-3.5 h-3.5" />
+                            </a>
+                        )}
                         {meeting.checked_in == 1 && (
                             <div className="flex flex-col items-start gap-1">
                                 <div className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 px-6 py-2 rounded-2xl font-black uppercase text-[10px] tracking-widest border border-emerald-100 dark:border-emerald-800">

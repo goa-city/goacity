@@ -52,6 +52,7 @@ const AdminWhatsAppTemplateEditor = lazy(() => import('./pages/admin/AdminWhatsA
 const AdminWhatsAppLogs = lazy(() => import('./pages/admin/AdminWhatsAppLogs'));
 const AdminWhatsAppBroadcastDetails = lazy(() => import('./pages/admin/AdminWhatsAppBroadcastDetails'));
 const PageView = lazy(() => import('./pages/PageView'));
+const PaymentView = lazy(() => import('./pages/PaymentView'));
 const SuperAdminLogin = lazy(() => import('./pages/superadmin/SuperAdminLogin'));
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -128,6 +129,8 @@ const App: React.FC = () => {
                                 <Routes>
                                     {/* ── Public ─────────────────────────── */}
                                     <Route path="/" element={<Login />} />
+                                    <Route path="/pay" element={<PaymentView />} />
+                                    <Route path="/pay/:slugOrId" element={<PaymentView />} />
                                     <Route path="/register" element={<Register />} />
                                     <Route path="/home" element={<Home />} />
                                     <Route path="/form/:formId" element={<Onboarding />} />

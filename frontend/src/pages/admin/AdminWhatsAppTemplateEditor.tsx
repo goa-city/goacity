@@ -331,7 +331,9 @@ const AdminWhatsAppTemplateEditor: React.FC = () => {
                                     { key: 'map_link', label: 'map_link' },
                                     { key: 'zoom_link', label: 'zoom_link' },
                                     { key: 'rsvp_link', label: 'rsvp_link (single URL)' },
-                                    { key: 'rsvp_options_link', label: 'rsvp_options_link (3 options)' }
+                                    { key: 'rsvp_options_link', label: 'rsvp_options_link (3 options)' },
+                                    { key: 'upi_link', label: 'upi_link (Payment Page)' },
+                                    { key: 'pay_link', label: 'pay_link (Payment Page)' }
                                 ].map(v => (
                                     <button 
                                         key={v.key}
