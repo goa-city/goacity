@@ -820,28 +820,30 @@ const AdminMeetingEditor: React.FC = () => {
 
             {/* Notification Modal */}
             {showNotifyModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm animate-in fade-in duration-300">
-                    <div className="bg-white dark:bg-zinc-900 rounded-[2.5rem] shadow-2xl w-full max-w-2xl p-8 relative border border-zinc-100 dark:border-zinc-800 animate-in zoom-in-95 duration-300">
-                        <button 
-                            onClick={() => setShowNotifyModal(false)} 
-                            className="absolute top-8 right-8 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors"
-                        >
-                            <XMarkIcon className="w-6 h-6" />
-                        </button>
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-zinc-950/60 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-white dark:bg-zinc-900 rounded-[2.5rem] shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col relative border border-zinc-100 dark:border-zinc-800 animate-in zoom-in-95 duration-300 overflow-hidden">
+                        {/* Header */}
+                        <div className="p-8 pb-4 relative shrink-0 border-b border-zinc-100 dark:border-zinc-800/60">
+                            <button 
+                                onClick={() => setShowNotifyModal(false)} 
+                                className="absolute top-8 right-8 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors p-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                            >
+                                <XMarkIcon className="w-6 h-6" />
+                            </button>
 
-                        <div className="mb-8">
-                            <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest mb-4 ${notifyType === 'email' ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-600' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600'}`}>
+                            <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest mb-3 ${notifyType === 'email' ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-600' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600'}`}>
                                 {notifyType === 'email' ? 'Email Broadcaster' : 'WhatsApp Broadcaster'}
                             </div>
                             <h3 className="text-3xl font-black text-zinc-900 dark:text-white leading-tight tracking-tighter uppercase italic">
                                 Select <span className={notifyType === 'email' ? 'text-indigo-600' : 'text-emerald-600'}>Template</span>
                             </h3>
-                            <p className="text-zinc-500 dark:text-zinc-400 text-sm font-medium mt-2">
-                                Choose a notification template to send to all participants.
+                            <p className="text-zinc-500 dark:text-zinc-400 text-sm font-medium mt-1">
+                                Choose a notification template and target audience to send to participants.
                             </p>
                         </div>
 
-                        <div className="space-y-6">
+                        {/* Scrollable Body */}
+                        <div className="p-8 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
                             {/* Target Audience Selector */}
                             <div>
                                 <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2 flex items-center justify-between">
@@ -935,7 +937,7 @@ const AdminMeetingEditor: React.FC = () => {
 
                             <div className="bg-zinc-50 dark:bg-zinc-950 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800">
                                 <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-black uppercase tracking-widest mb-3">Content Preview</p>
-                                <div className="max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                                <div className="max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
                                     {(() => {
                                         const templates = notifyType === 'email' ? emailTemplates : whatsappTemplates;
                                         const selected = templates.find(t => String(t.id) === String(selectedTemplateId));
@@ -960,23 +962,24 @@ const AdminMeetingEditor: React.FC = () => {
                                     })()}
                                 </div>
                             </div>
+                        </div>
 
-                            <div className="flex gap-3 pt-4">
-                                <Button
-                                    onClick={executeNotify}
-                                    loading={notifying}
-                                    className={`flex-1 justify-center py-4 rounded-2xl shadow-xl ${notifyType === 'email' ? 'shadow-indigo-600/20' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'}`}
-                                >
-                                    Confirm & Send {notifyType === 'email' ? 'Email' : 'WhatsApp'}
-                                </Button>
-                                <Button
-                                    variant="secondary"
-                                    onClick={() => setShowNotifyModal(false)}
-                                    className="px-8 justify-center py-4 rounded-2xl"
-                                >
-                                    Cancel
-                                </Button>
-                            </div>
+                        {/* Fixed Footer */}
+                        <div className="p-6 pt-4 border-t border-zinc-100 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/50 shrink-0 flex gap-3">
+                            <Button
+                                onClick={executeNotify}
+                                loading={notifying}
+                                className={`flex-1 justify-center py-4 rounded-2xl shadow-xl ${notifyType === 'email' ? 'shadow-indigo-600/20' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'}`}
+                            >
+                                Confirm & Send {notifyType === 'email' ? 'Email' : 'WhatsApp'}
+                            </Button>
+                            <Button
+                                variant="secondary"
+                                onClick={() => setShowNotifyModal(false)}
+                                className="px-8 justify-center py-4 rounded-2xl"
+                            >
+                                Cancel
+                            </Button>
                         </div>
                     </div>
                 </div>
