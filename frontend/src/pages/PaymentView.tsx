@@ -58,6 +58,15 @@ export const PaymentView: React.FC = () => {
     const [cashError, setCashError] = useState<string>('');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // True if member is known via authentication or explicit query parameters
+    const hasIdentifiedMember = Boolean(
+        user?.id || 
+        searchParams.get('m') || 
+        searchParams.get('member_id') || 
+        searchParams.get('phone') || 
+        searchParams.get('email')
+    );
+
     // Fetch meeting details if slug or ID is provided in route
     useEffect(() => {
         if (!slugOrId) return;
@@ -565,20 +574,20 @@ export const PaymentView: React.FC = () => {
 
                         <form onSubmit={handleUploadSubmit} className="space-y-4">
                             {/* Member identifier input only if not identified via user, params, or link */}
-                            {!user && !searchParams.get('m') && !searchParams.get('member_id') && !searchParams.get('phone') && !searchParams.get('email') && (
+                            {!hasIdentifiedMember && (
                                 <div>
-                                    <label className="block text-xs font-black uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-1.5">
-                                        Your Email or Phone <span className="text-red-500">*</span>
+                                    <label className="block text-xs font-black uppercase tracking-wider text-zinc-700 dark:text-zinc-200 mb-1.5">
+                                        Your Phone Number or Email <span className="text-red-500">*</span>
                                     </label>
                                     <input 
                                         type="text" 
                                         required
                                         value={memberIdentifier}
                                         onChange={(e) => setMemberIdentifier(e.target.value)}
-                                        placeholder="name@example.com or 9876543210"
+                                        placeholder="e.g. 9876543210 or your email"
                                         className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                                     />
-                                    <p className="text-[10px] text-zinc-400 mt-1">Used to link this payment to your RSVP registration.</p>
+                                    <p className="text-[10px] text-zinc-400 mt-1">Please enter your phone number so we can link your payment proof to your registration.</p>
                                 </div>
                             )}
 
@@ -699,18 +708,18 @@ export const PaymentView: React.FC = () => {
                             className="space-y-4"
                         >
                             <div>
-                                <label className="block text-xs font-black uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-1.5">
-                                    Your Email or Phone <span className="text-red-500">*</span>
+                                <label className="block text-xs font-black uppercase tracking-wider text-zinc-700 dark:text-zinc-200 mb-1.5">
+                                    Your Phone Number or Email <span className="text-red-500">*</span>
                                 </label>
                                 <input 
                                     type="text" 
                                     required
                                     value={memberIdentifier}
                                     onChange={(e) => setMemberIdentifier(e.target.value)}
-                                    placeholder="name@example.com or 9876543210"
+                                    placeholder="e.g. 9876543210 or your email"
                                     className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
                                 />
-                                <p className="text-[10px] text-zinc-400 mt-1">Used to identify your RSVP and mark cash payment at check-in.</p>
+                                <p className="text-[10px] text-zinc-400 mt-1">Please enter your phone number so we can identify your RSVP and check you in at the venue.</p>
                             </div>
 
                             <div className="pt-3 flex gap-2">
