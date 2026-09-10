@@ -34,6 +34,8 @@ export interface Meeting {
     poster_image_url?: string | null;
     upi_link?: string | null;
     my_payment_status?: string | null;
+    my_payment_proof?: string | null;
+    my_payment_proof_url?: string | null;
 }
 
 export const useSingleMeeting = (id: string | undefined) => {

@@ -367,7 +367,7 @@ const AdminWhatsAppTemplateEditor: React.FC = () => {
                                 <p className="text-sm text-zinc-800 dark:text-zinc-200 whitespace-pre-wrap leading-relaxed font-medium">
                                     {formData.content
                                         ? formData.content
-                                            .replace(/\{rsvp_options_link\}/g, "Going: https://goa.city/api/r/r_9a2f1b8c\nMaybe: https://goa.city/api/r/r_3d7e5a1f\nNo: https://goa.city/api/r/r_6b8c4e2d")
+                                            .replace(/\{rsvp_options_link\}/g, "*Going:* https://goa.city/meeting/r/r_9a2f1b8c\n\n*Maybe:* https://goa.city/meeting/r/r_3d7e5a1f\n\n*No:* https://goa.city/meeting/r/r_6b8c4e2d")
                                             .replace(/\{rsvp_link\}/g, "https://goa.city/meetings/september_meeting")
                                         : 'Your message preview will appear here...'}
                                 </p>

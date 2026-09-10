@@ -1,7 +1,9 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import QRCode from 'react-qr-code';
 import api from '../api/axios';
+import { useAuth } from '../features/auth/context/AuthContext';
+import confetti from 'canvas-confetti';
 import { 
     ArrowTopRightOnSquareIcon, 
     CheckIcon, 
@@ -9,7 +11,12 @@ import {
     ShieldCheckIcon, 
     DevicePhoneMobileIcon,
     ComputerDesktopIcon,
-    ArrowLeftIcon
+    ArrowLeftIcon,
+    CheckCircleIcon,
+    CameraIcon,
+    XMarkIcon,
+    ArrowUpTrayIcon,
+    BanknotesIcon
 } from '@heroicons/react/24/solid';
 
 interface MeetingPaymentInfo {
@@ -23,16 +30,33 @@ interface MeetingPaymentInfo {
     payment_amount?: number | string;
     upi_link?: string;
     payment_qr_image_url?: string | null;
+    my_payment_status?: string | null;
+    my_payment_proof?: string | null;
+    my_payment_proof_url?: string | null;
 }
 
 export const PaymentView: React.FC = () => {
     const { slugOrId } = useParams<{ slugOrId?: string }>();
     const [searchParams] = useSearchParams();
+    const { user } = useAuth();
 
     const [loading, setLoading] = useState<boolean>(!!slugOrId);
     const [meeting, setMeeting] = useState<MeetingPaymentInfo | null>(null);
     const [copied, setCopied] = useState<boolean>(false);
     const [autoRedirectAttempted, setAutoRedirectAttempted] = useState<boolean>(false);
+
+    // Modal state for screenshot upload
+    const [showUploadModal, setShowUploadModal] = useState<boolean>(false);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [memberIdentifier, setMemberIdentifier] = useState<string>('');
+    const [uploading, setUploading] = useState<boolean>(false);
+    const [uploadError, setUploadError] = useState<string>('');
+    const [paymentSuccess, setPaymentSuccess] = useState<boolean>(false);
+    const [showCashModal, setShowCashModal] = useState<boolean>(false);
+    const [cashSaving, setCashSaving] = useState<boolean>(false);
+    const [cashError, setCashError] = useState<string>('');
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Fetch meeting details if slug or ID is provided in route
     useEffect(() => {
@@ -45,6 +69,13 @@ export const PaymentView: React.FC = () => {
             .then(res => {
                 if (isMounted) {
                     setMeeting(res.data);
+                    if (res.data?.my_payment_status === 'paid_online' || 
+                        res.data?.my_payment_status === 'paid_cash' || 
+                        res.data?.my_payment_status === 'completed' ||
+                        res.data?.my_payment_status === 'paid' ||
+                        Boolean(res.data?.my_payment_proof)) {
+                        setPaymentSuccess(true);
+                    }
                 }
             })
             .catch(err => {
@@ -59,6 +90,21 @@ export const PaymentView: React.FC = () => {
         };
     }, [slugOrId]);
 
+    // Derive member identifier from search params or logged in user
+    useEffect(() => {
+        if (user?.email) {
+            setMemberIdentifier(user.email);
+        } else if (user?.phone) {
+            setMemberIdentifier(user.phone);
+        } else if (searchParams.get('email')) {
+            setMemberIdentifier(searchParams.get('email') || '');
+        } else if (searchParams.get('phone')) {
+            setMemberIdentifier(searchParams.get('phone') || '');
+        } else if (searchParams.get('m') || searchParams.get('member_id')) {
+            setMemberIdentifier(searchParams.get('m') || searchParams.get('member_id') || '');
+        }
+    }, [user, searchParams]);
+
     // Derive raw UPI deep-link and payment details
     const paymentDetails = useMemo(() => {
         // Query params fallback / override
@@ -70,6 +116,7 @@ export const PaymentView: React.FC = () => {
 
         // Check if meeting has existing upi_link
         let upiUri = '';
+        let upiId = '';
         let amount = '';
         let payeeName = '';
         let note = '';
@@ -83,6 +130,7 @@ export const PaymentView: React.FC = () => {
                 try {
                     const urlObj = new URL(rawInput.replace('upi://pay', 'https://dummy.local'));
                     const pa = urlObj.searchParams.get('pa') || '';
+                    upiId = pa;
                     payeeName = urlObj.searchParams.get('pn') || '';
                     amount = urlObj.searchParams.get('am') || '';
                     note = urlObj.searchParams.get('tn') || '';
@@ -103,6 +151,7 @@ export const PaymentView: React.FC = () => {
             } else if (rawInput.includes('@')) {
                 // Admin entered a raw UPI VPA/ID (e.g. atashadmello@okicici)
                 const vpa = rawInput;
+                upiId = vpa;
                 const amt = meeting?.payment_amount ? String(meeting.payment_amount) : queryAm;
                 const pn = meeting?.title ? 'Goa City' : queryPn || 'Goa City';
                 const tn = meeting ? `Meeting Registration - ${meeting.title}` : (queryTn || 'Event Registration');
@@ -123,6 +172,7 @@ export const PaymentView: React.FC = () => {
             }
         } else if (queryPa) {
             // Construct UPI URI from query parameters
+            upiId = queryPa;
             const params = new URLSearchParams();
             params.set('pa', queryPa);
             if (queryPn) params.set('pn', queryPn);
@@ -143,6 +193,7 @@ export const PaymentView: React.FC = () => {
 
         return {
             upiUri,
+            upiId,
             amount: amount ? Number(amount).toFixed(2) : '',
             payeeName: payeeName || 'Goa.City Organizers',
             note: note || (meeting ? `Registration for ${meeting.title}` : ''),
@@ -156,12 +207,11 @@ export const PaymentView: React.FC = () => {
         return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
     }, []);
 
-    // Auto-redirect to UPI App on mobile devices if UPI link exists
+    // Auto-redirect to UPI App on mobile devices if UPI link exists (only if not already marked paid)
     useEffect(() => {
-        if (!isMobile || !paymentDetails.upiUri || autoRedirectAttempted || loading) return;
+        if (!isMobile || !paymentDetails.upiUri || autoRedirectAttempted || loading || paymentSuccess) return;
 
         setAutoRedirectAttempted(true);
-        // Small delay to let user see the screen if they come back from app
         const timer = setTimeout(() => {
             try {
                 window.location.href = paymentDetails.upiUri;
@@ -171,13 +221,145 @@ export const PaymentView: React.FC = () => {
         }, 400);
 
         return () => clearTimeout(timer);
-    }, [isMobile, paymentDetails.upiUri, autoRedirectAttempted, loading]);
+    }, [isMobile, paymentDetails.upiUri, autoRedirectAttempted, loading, paymentSuccess]);
 
     const handleCopy = () => {
         if (!paymentDetails.upiUri) return;
         navigator.clipboard.writeText(paymentDetails.upiUri);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setSelectedFile(file);
+            const url = URL.createObjectURL(file);
+            setPreviewUrl(url);
+            setUploadError('');
+        }
+    };
+
+    const handleUploadSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedFile) {
+            setUploadError('Please select a payment screenshot or transaction receipt image.');
+            return;
+        }
+
+        const meetingTarget = meeting?.id || slugOrId;
+        if (!meetingTarget) {
+            setUploadError('Meeting not identified.');
+            return;
+        }
+
+        setUploading(true);
+        setUploadError('');
+
+        try {
+            const formData = new FormData();
+            formData.append('payment_proof', selectedFile);
+            formData.append('method', 'paid_online');
+            if (paymentDetails.amount) {
+                formData.append('amount', paymentDetails.amount);
+            }
+
+            // Member association
+            const memberIdParam = searchParams.get('m') || searchParams.get('member_id');
+            if (user?.id) {
+                formData.append('member_id', String(user.id));
+            } else if (memberIdParam) {
+                formData.append('member_id', memberIdParam);
+            } else if (memberIdentifier.trim()) {
+                if (memberIdentifier.includes('@')) {
+                    formData.append('email', memberIdentifier.trim());
+                } else {
+                    formData.append('phone', memberIdentifier.trim());
+                }
+            }
+
+            const response = await api.post(`/meetings/${meetingTarget}/pay`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            if (response.data.success) {
+                setPaymentSuccess(true);
+                setShowUploadModal(false);
+                confetti({
+                    particleCount: 90,
+                    spread: 70,
+                    origin: { y: 0.6 },
+                    zIndex: 9999
+                });
+            } else {
+                setUploadError(response.data.message || 'Failed to submit payment proof.');
+            }
+        } catch (err: any) {
+            console.error('Payment upload failed:', err);
+            const msg = err.response?.data?.message || err.message || 'Failed to submit payment proof. Please check and try again.';
+            setUploadError(msg);
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const handlePayCash = async () => {
+        const meetingTarget = meeting?.id || slugOrId;
+        if (!meetingTarget) {
+            setCashError('Meeting not identified.');
+            return;
+        }
+
+        // Validate member identifier if not authenticated
+        const memberIdParam = searchParams.get('m') || searchParams.get('member_id');
+        if (!user?.id && !memberIdParam && !memberIdentifier.trim()) {
+            setShowCashModal(true);
+            return;
+        }
+
+        setCashSaving(true);
+        setCashError('');
+
+        try {
+            const formData = new FormData();
+            formData.append('method', 'paid_cash');
+            if (paymentDetails.amount) {
+                formData.append('amount', paymentDetails.amount);
+            }
+
+            if (user?.id) {
+                formData.append('member_id', String(user.id));
+            } else if (memberIdParam) {
+                formData.append('member_id', memberIdParam);
+            } else if (memberIdentifier.trim()) {
+                if (memberIdentifier.includes('@')) {
+                    formData.append('email', memberIdentifier.trim());
+                } else {
+                    formData.append('phone', memberIdentifier.trim());
+                }
+            }
+
+            const response = await api.post(`/meetings/${meetingTarget}/pay`, formData);
+
+            if (response.data.success) {
+                setPaymentSuccess(true);
+                setShowCashModal(false);
+                confetti({
+                    particleCount: 90,
+                    spread: 70,
+                    origin: { y: 0.6 },
+                    zIndex: 9999
+                });
+            } else {
+                setCashError(response.data.message || 'Failed to record cash payment preference.');
+            }
+        } catch (err: any) {
+            console.error('Cash payment selection failed:', err);
+            const msg = err.response?.data?.message || err.message || 'Failed to record cash payment. Please try again.';
+            setCashError(msg);
+        } finally {
+            setCashSaving(false);
+        }
     };
 
     if (loading) {
@@ -226,12 +408,22 @@ export const PaymentView: React.FC = () => {
                         <p className="text-sm font-semibold text-zinc-600 dark:text-zinc-400 mt-2 line-clamp-2">
                             {paymentDetails.title}
                         </p>
-                        {paymentDetails.payeeName && (
-                            <p className="text-[11px] font-medium text-zinc-400 mt-0.5">
-                                Payee: <span className="font-bold text-zinc-700 dark:text-zinc-300">{paymentDetails.payeeName}</span>
-                            </p>
-                        )}
                     </div>
+
+                    {/* Success Alert if Already Confirmed */}
+                    {paymentSuccess && (
+                        <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700/60 rounded-2xl flex items-center justify-center gap-2.5 text-emerald-800 dark:text-emerald-300">
+                            <CheckCircleIcon className="w-6 h-6 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                            <div className="text-left">
+                                <p className="font-black text-xs uppercase tracking-wider">Payment completed</p>
+                                <p className="text-[11px] font-medium opacity-90">
+                                    {meeting?.my_payment_status === 'paid_cash' 
+                                        ? 'Registered to pay cash at the venue.' 
+                                        : 'Your proof has been submitted and RSVP is confirmed.'}
+                                </p>
+                            </div>
+                        </div>
+                    )}
 
                     {/* QR Code Container */}
                     <div className="flex flex-col items-center justify-center pt-2">
@@ -257,57 +449,62 @@ export const PaymentView: React.FC = () => {
                         </div>
 
                         {/* Device Guidance */}
-                        <div className="flex items-center gap-2 mt-4 text-[11px] text-zinc-400 font-medium">
-                            {isMobile ? (
-                                <>
-                                    <DevicePhoneMobileIcon className="w-4 h-4 text-indigo-500 shrink-0" />
-                                    <span>Tap the button below to launch your UPI app</span>
-                                </>
-                            ) : (
-                                <>
-                                    <ComputerDesktopIcon className="w-4 h-4 text-indigo-500 shrink-0" />
-                                    <span>Scan this QR with Google Pay, PhonePe, Paytm, or BHIM</span>
-                                </>
+                        <div className="flex flex-col items-center justify-center text-center mt-4 space-y-2">
+                            <p className="text-sm sm:text-base font-bold text-zinc-850 dark:text-zinc-100">
+                                Please scan the QR code to complete the payment.
+                            </p>
+                            {paymentDetails.upiId && (
+                                <div className="mt-2 p-3 bg-zinc-50 dark:bg-zinc-800/60 rounded-xl border border-zinc-200/80 dark:border-zinc-700/60 w-full text-center">
+                                    <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
+                                        UPI ID:
+                                    </p>
+                                    <p className="text-base sm:text-lg font-black tracking-wide text-zinc-900 dark:text-white select-all">
+                                        {paymentDetails.upiId}
+                                    </p>
+                                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 font-medium">
+                                        Make payment to this ID directly from any UPI app
+                                    </p>
+                                </div>
                             )}
                         </div>
                     </div>
 
-                    {/* One-Tap Action Button */}
-                    {paymentDetails.upiUri ? (
-                        <div className="space-y-3 pt-2">
-                            <a 
-                                href={paymentDetails.upiUri}
-                                className="w-full flex items-center justify-center gap-2.5 py-4 px-6 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm uppercase tracking-widest rounded-2xl shadow-lg shadow-indigo-600/30 active:scale-[0.98] transition-all"
-                            >
-                                <span>Open in UPI App</span>
-                                <ArrowTopRightOnSquareIcon className="w-4 h-4" />
-                            </a>
+                    {/* Action Buttons */}
+                    <div className="space-y-3 pt-2">
+                        {/* Mark Payment Done Button */}
+                        <button
+                            type="button"
+                            onClick={() => setShowUploadModal(true)}
+                            className={`w-full flex items-center justify-center gap-2 py-3.5 px-6 font-black text-sm uppercase tracking-widest rounded-2xl transition-all shadow-md active:scale-[0.98] ${
+                                paymentSuccess 
+                                    ? 'bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/60'
+                                    : 'bg-[#059669] hover:bg-[#047857] text-white shadow-emerald-700/25'
+                            }`}
+                        >
+                            {paymentSuccess ? (
+                                <>
+                                    <CheckCircleIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                                    <span>Payment Completed (Update Proof)</span>
+                                </>
+                            ) : (
+                                <>
+                                    <CameraIcon className="w-5 h-5" />
+                                    <span>Mark Payment Done</span>
+                                </>
+                            )}
+                        </button>
 
-                            <div className="flex items-center justify-center gap-3 pt-1">
-                                <button
-                                    onClick={handleCopy}
-                                    type="button"
-                                    className="inline-flex items-center gap-1.5 text-xs font-bold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
-                                >
-                                    {copied ? (
-                                        <>
-                                            <CheckIcon className="w-4 h-4 text-emerald-500" />
-                                            <span className="text-emerald-500">Copied UPI Link</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <ClipboardDocumentIcon className="w-4 h-4" />
-                                            <span>Copy UPI URI</span>
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="p-4 bg-amber-50 dark:bg-amber-950/30 rounded-2xl border border-amber-200 dark:border-amber-800 text-xs font-bold text-amber-800 dark:text-amber-300">
-                            Please scan the QR code above or pay directly at the venue.
-                        </div>
-                    )}
+                        {/* Pay Cash At Venue Button */}
+                        <button
+                            type="button"
+                            onClick={handlePayCash}
+                            disabled={cashSaving}
+                            className="w-full flex items-center justify-center gap-2 py-3.5 px-6 font-black text-sm uppercase tracking-widest rounded-2xl transition-all shadow-md bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white shadow-blue-600/25 disabled:opacity-50"
+                        >
+                            <BanknotesIcon className="w-5 h-5" />
+                            <span>{cashSaving ? 'Saving...' : 'Pay cash at venue'}</span>
+                        </button>
+                    </div>
 
                     {/* Supported Apps Badges */}
                     <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800/80">
@@ -327,6 +524,215 @@ export const PaymentView: React.FC = () => {
                     Payments are handled securely and directly through NPCI UPI protocol between your bank and the host.
                 </p>
             </main>
+
+            {/* Screenshot Upload Modal */}
+            {showUploadModal && (
+                <div 
+                    className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-zinc-950/70 backdrop-blur-md animate-in fade-in duration-200"
+                    onClick={() => setShowUploadModal(false)}
+                >
+                    <div 
+                        className="bg-white dark:bg-zinc-900 rounded-[2.5rem] shadow-2xl w-full max-w-md p-6 sm:p-8 relative border border-zinc-200 dark:border-zinc-800 animate-in zoom-in-95 duration-200 text-left"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <button
+                            type="button"
+                            onClick={() => setShowUploadModal(false)}
+                            className="absolute top-6 right-6 p-2 rounded-full text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                        >
+                            <XMarkIcon className="w-5 h-5" />
+                        </button>
+
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-100 dark:border-emerald-800">
+                                <CameraIcon className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-black text-zinc-900 dark:text-white uppercase tracking-tight">
+                                    Upload Payment Proof
+                                </h3>
+                                <p className="text-xs text-zinc-500 font-medium">
+                                    Attach screenshot of your completed UPI payment
+                                </p>
+                            </div>
+                        </div>
+
+                        {uploadError && (
+                            <div className="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-xl text-xs font-semibold text-red-600 dark:text-red-400">
+                                {uploadError}
+                            </div>
+                        )}
+
+                        <form onSubmit={handleUploadSubmit} className="space-y-4">
+                            {/* Member identifier input only if not identified via user, params, or link */}
+                            {!user && !searchParams.get('m') && !searchParams.get('member_id') && !searchParams.get('phone') && !searchParams.get('email') && (
+                                <div>
+                                    <label className="block text-xs font-black uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-1.5">
+                                        Your Email or Phone <span className="text-red-500">*</span>
+                                    </label>
+                                    <input 
+                                        type="text" 
+                                        required
+                                        value={memberIdentifier}
+                                        onChange={(e) => setMemberIdentifier(e.target.value)}
+                                        placeholder="name@example.com or 9876543210"
+                                        className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                    />
+                                    <p className="text-[10px] text-zinc-400 mt-1">Used to link this payment to your RSVP registration.</p>
+                                </div>
+                            )}
+
+                            {/* File Upload Box */}
+                            <div>
+                                <label className="block text-xs font-black uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-1.5">
+                                    Payment Screenshot <span className="text-red-500">*</span>
+                                </label>
+                                
+                                <input 
+                                    ref={fileInputRef}
+                                    type="file" 
+                                    accept="image/*"
+                                    onChange={handleFileChange}
+                                    className="hidden"
+                                />
+
+                                {previewUrl ? (
+                                    <div className="relative rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950 p-2 text-center">
+                                        <img 
+                                            src={previewUrl} 
+                                            alt="Proof Preview" 
+                                            className="w-full max-h-56 object-contain rounded-xl mx-auto"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setSelectedFile(null);
+                                                setPreviewUrl(null);
+                                            }}
+                                            className="absolute top-4 right-4 bg-zinc-900/80 hover:bg-zinc-900 text-white p-1.5 rounded-full text-xs shadow-md transition-all"
+                                        >
+                                            <XMarkIcon className="w-4 h-4" />
+                                        </button>
+                                        <p className="text-[11px] font-bold text-zinc-500 mt-2 truncate">
+                                            {selectedFile?.name}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div 
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="border-2 border-dashed border-zinc-300 dark:border-zinc-700 hover:border-emerald-500 dark:hover:border-emerald-500 rounded-2xl p-6 text-center cursor-pointer transition-all bg-zinc-50/50 dark:bg-zinc-950/50 group"
+                                    >
+                                        <ArrowUpTrayIcon className="w-8 h-8 mx-auto text-zinc-400 group-hover:text-emerald-600 transition-colors mb-2" />
+                                        <p className="text-xs font-black uppercase tracking-wider text-zinc-700 dark:text-zinc-200">
+                                            Tap to select screenshot
+                                        </p>
+                                        <p className="text-[10px] text-zinc-400 mt-1">PNG, JPG, or WEBP up to 10MB</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Submit & Cancel Buttons */}
+                            <div className="pt-3 flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowUploadModal(false)}
+                                    className="flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-wider bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={uploading}
+                                    className="flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-wider bg-[#059669] hover:bg-[#047857] text-white shadow-lg shadow-emerald-700/25 transition-all disabled:opacity-50"
+                                >
+                                    {uploading ? 'Uploading...' : 'Confirm & Save'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Cash at Venue Confirmation Modal (for Unauthenticated Guests) */}
+            {showCashModal && (
+                <div 
+                    className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-zinc-950/70 backdrop-blur-md animate-in fade-in duration-200"
+                    onClick={() => setShowCashModal(false)}
+                >
+                    <div 
+                        className="bg-white dark:bg-zinc-900 rounded-[2.5rem] shadow-2xl w-full max-w-md p-6 sm:p-8 relative border border-zinc-200 dark:border-zinc-800 animate-in zoom-in-95 duration-200 text-left"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <button
+                            type="button"
+                            onClick={() => setShowCashModal(false)}
+                            className="absolute top-6 right-6 p-2 rounded-full text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                        >
+                            <XMarkIcon className="w-5 h-5" />
+                        </button>
+
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-100 dark:border-blue-800">
+                                <BanknotesIcon className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-black text-zinc-900 dark:text-white uppercase tracking-tight">
+                                    Pay Cash at Venue
+                                </h3>
+                                <p className="text-xs text-zinc-500 font-medium">
+                                    Confirm your registration to pay at the registration desk
+                                </p>
+                            </div>
+                        </div>
+
+                        {cashError && (
+                            <div className="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-xl text-xs font-semibold text-red-600 dark:text-red-400">
+                                {cashError}
+                            </div>
+                        )}
+
+                        <form 
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                handlePayCash();
+                            }} 
+                            className="space-y-4"
+                        >
+                            <div>
+                                <label className="block text-xs font-black uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-1.5">
+                                    Your Email or Phone <span className="text-red-500">*</span>
+                                </label>
+                                <input 
+                                    type="text" 
+                                    required
+                                    value={memberIdentifier}
+                                    onChange={(e) => setMemberIdentifier(e.target.value)}
+                                    placeholder="name@example.com or 9876543210"
+                                    className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                />
+                                <p className="text-[10px] text-zinc-400 mt-1">Used to identify your RSVP and mark cash payment at check-in.</p>
+                            </div>
+
+                            <div className="pt-3 flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowCashModal(false)}
+                                    className="flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-wider bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={cashSaving || !memberIdentifier.trim()}
+                                    className="flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-wider bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/25 transition-all disabled:opacity-50"
+                                >
+                                    {cashSaving ? 'Confirming...' : 'Confirm Cash Payment'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

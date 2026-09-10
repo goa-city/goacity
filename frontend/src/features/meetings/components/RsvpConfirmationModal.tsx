@@ -1,13 +1,16 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { CheckCircleIcon, QuestionMarkCircleIcon, XCircleIcon, XMarkIcon, CalendarDaysIcon } from '@heroicons/react/24/solid';
-import Button from '../../../shared/components/ui/Button';
+import confetti from 'canvas-confetti';
+import { CheckCircleIcon, QuestionMarkCircleIcon, XCircleIcon, XMarkIcon, ArrowTopRightOnSquareIcon } from '@heroicons/react/24/solid';
 
 interface RsvpConfirmationModalProps {
     isOpen: boolean;
     status: 'going' | 'not_sure' | 'cant_go' | string;
     meetingTitle?: string;
     memberName?: string;
+    isPaid?: boolean | number;
+    paymentAmount?: number | string | null;
+    paymentLink?: string | null;
     onClose: () => void;
 }
 
@@ -16,9 +19,15 @@ export const RsvpConfirmationModal: React.FC<RsvpConfirmationModalProps> = ({
     status,
     meetingTitle,
     memberName,
+    isPaid,
+    paymentAmount,
+    paymentLink,
     onClose
 }) => {
     if (!isOpen) return null;
+
+    const hasPayment = Boolean(isPaid) && (paymentLink || paymentAmount);
+    const isGoing = status === 'going';
 
     const config = {
         going: {
@@ -28,8 +37,10 @@ export const RsvpConfirmationModal: React.FC<RsvpConfirmationModalProps> = ({
             badgeBg: 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300',
             title: 'RSVP Confirmed: Going!',
             badgeText: 'Going 🎉',
-            message: 'Awesome! Your spot is reserved. We look forward to seeing you at the meeting.',
-            actionBtnText: 'Great, see you there'
+            message: hasPayment
+                ? 'Awesome! Your RSVP is noted. Since this is a paid event, please complete your payment to confirm your seat.'
+                : 'Awesome! Your spot is reserved. We look forward to seeing you at the meeting.',
+            actionBtnText: hasPayment ? 'Close' : 'Great, see you there'
         },
         not_sure: {
             icon: QuestionMarkCircleIcon,
@@ -64,21 +75,57 @@ export const RsvpConfirmationModal: React.FC<RsvpConfirmationModalProps> = ({
 
     const Icon = config.icon;
 
+    // Trigger celebratory confetti burst when modal opens with "going"
+    useEffect(() => {
+        if (isOpen && isGoing) {
+            // Initial center burst
+            confetti({
+                particleCount: 80,
+                spread: 70,
+                origin: { y: 0.6 },
+                zIndex: 9999,
+                colors: ['#10B981', '#6366F1', '#F59E0B', '#EC4899', '#3B82F6']
+            });
+
+            // Side bursts after a slight delay
+            const timer = setTimeout(() => {
+                confetti({
+                    particleCount: 50,
+                    angle: 60,
+                    spread: 55,
+                    origin: { x: 0.1, y: 0.7 },
+                    zIndex: 9999,
+                    colors: ['#10B981', '#6366F1', '#F59E0B', '#EC4899', '#3B82F6']
+                });
+                confetti({
+                    particleCount: 50,
+                    angle: 120,
+                    spread: 55,
+                    origin: { x: 0.9, y: 0.7 },
+                    zIndex: 9999,
+                    colors: ['#10B981', '#6366F1', '#F59E0B', '#EC4899', '#3B82F6']
+                });
+            }, 250);
+
+            return () => clearTimeout(timer);
+        }
+    }, [isOpen, isGoing]);
+
     return createPortal(
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-zinc-950/65 backdrop-blur-md animate-in fade-in duration-200">
             <div 
-                className="bg-white dark:bg-zinc-900 rounded-[2.5rem] shadow-2xl w-full max-w-md p-7 sm:p-8 relative border border-zinc-100 dark:border-zinc-800 animate-in zoom-in-95 duration-200"
+                className="bg-white dark:bg-zinc-900 rounded-[2.5rem] shadow-2xl w-full max-w-md p-7 sm:p-8 relative border border-zinc-100 dark:border-zinc-800 animate-in zoom-in-95 duration-200 overflow-hidden"
                 onClick={(e) => e.stopPropagation()}
             >
                 <button
                     onClick={onClose}
-                    className="absolute top-6 right-6 p-2 rounded-full text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                    className="absolute top-6 right-6 z-30 p-2 rounded-full text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
                     aria-label="Close modal"
                 >
                     <XMarkIcon className="w-5 h-5" />
                 </button>
 
-                <div className="flex flex-col items-center text-center">
+                <div className="flex flex-col items-center text-center relative z-10">
                     {/* Icon Halo */}
                     <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-5 border ${config.bgColor}`}>
                         <Icon className={`w-10 h-10 ${config.iconColor}`} />
@@ -113,13 +160,32 @@ export const RsvpConfirmationModal: React.FC<RsvpConfirmationModalProps> = ({
                         {config.message}
                     </p>
 
-                    {/* Close / Action Button */}
-                    <Button
-                        onClick={onClose}
-                        className="w-full py-3.5 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-indigo-600/20"
-                    >
-                        {config.actionBtnText}
-                    </Button>
+                    {/* Action Buttons */}
+                    <div className="w-full flex flex-col gap-3">
+                        {/* Green Payment Button when Paid & Going (Rupee icon removed as requested) */}
+                        {isGoing && hasPayment && (
+                            <a
+                                href={paymentLink || '#'}
+                                className="w-full py-4 px-4 rounded-2xl font-black uppercase tracking-wider text-xs flex items-center justify-center gap-2 bg-[#059669] hover:bg-[#047857] active:bg-[#065f46] text-white shadow-lg shadow-emerald-700/25 active:scale-[0.98] transition-all cursor-pointer"
+                            >
+                                <span>Make Payment & Confirm Seat {paymentAmount ? `(₹${paymentAmount})` : ''}</span>
+                                <ArrowTopRightOnSquareIcon className="w-4 h-4 shrink-0" />
+                            </a>
+                        )}
+
+                        {/* Dismiss Button */}
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className={`w-full py-3.5 px-4 rounded-2xl font-black uppercase tracking-wider text-xs transition-all active:scale-[0.98] cursor-pointer ${
+                                isGoing && hasPayment
+                                    ? 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 border border-zinc-200/80 dark:border-zinc-700'
+                                    : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-600/25'
+                            }`}
+                        >
+                            {config.actionBtnText}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>,

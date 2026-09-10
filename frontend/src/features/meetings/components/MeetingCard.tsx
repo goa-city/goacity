@@ -168,25 +168,40 @@ const MeetingCard: React.FC<MeetingCardProps> = ({ meeting, onRSVP, onCheckIn, o
                                 </div>
                             ) : (
                                 <div className="flex flex-wrap items-center gap-2">
-                                     <button onClick={() => handleRsvpClick('going')} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'going' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-900/50'}`}>
-                                         <CheckCircleIcon className="w-4 h-4" /> Going
-                                     </button>
-                                     <button onClick={() => handleRsvpClick('not_sure')} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'not_sure' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'bg-orange-100 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 hover:bg-orange-200 dark:hover:bg-orange-900/50'}`}>
-                                         <QuestionMarkCircleIcon className="w-4 h-4" /> Maybe
-                                     </button>
-                                     <button onClick={() => handleRsvpClick('cant_go')} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'cant_go' ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/20' : 'bg-rose-100 dark:bg-rose-950/30 text-rose-750 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-900/50'}`}>
-                                         <XCircleIcon className="w-4 h-4" /> No
-                                     </button>
-                                     {Boolean(meeting.is_paid) && (meeting.upi_link || meeting.payment_amount) && (
-                                         <a
-                                             href={`/pay/${meeting.slug || meeting.id}`}
-                                             target="_blank"
-                                             rel="noopener noreferrer"
-                                             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
-                                         >
-                                             <span>Pay ₹{meeting.payment_amount || ''}</span>
-                                             <ArrowTopRightOnSquareIcon className="w-3.5 h-3.5" />
-                                         </a>
+                                     {Boolean(meeting.is_paid) && (
+                                         meeting.my_payment_status === 'paid_online' || 
+                                         meeting.my_payment_status === 'paid_cash' || 
+                                         meeting.my_payment_status === 'completed' || 
+                                         meeting.my_payment_status === 'paid' || 
+                                         Boolean(meeting.my_payment_proof)
+                                     ) ? (
+                                         <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/60 shadow-sm">
+                                             <CheckCircleIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                                             <span>Payment completed</span>
+                                         </div>
+                                     ) : (
+                                         <>
+                                             <button onClick={() => handleRsvpClick('going')} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'going' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-900/50'}`}>
+                                                 <CheckCircleIcon className="w-4 h-4" /> Going
+                                             </button>
+                                             <button onClick={() => handleRsvpClick('not_sure')} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'not_sure' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'bg-orange-100 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 hover:bg-orange-200 dark:hover:bg-orange-900/50'}`}>
+                                                 <QuestionMarkCircleIcon className="w-4 h-4" /> Maybe
+                                             </button>
+                                             <button onClick={() => handleRsvpClick('cant_go')} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'cant_go' ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/20' : 'bg-rose-100 dark:bg-rose-950/30 text-rose-750 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-900/50'}`}>
+                                                 <XCircleIcon className="w-4 h-4" /> No
+                                             </button>
+                                             {Boolean(meeting.is_paid) && (meeting.upi_link || meeting.payment_amount) && (
+                                                 <a
+                                                     href={`/pay/${meeting.slug || meeting.id}${user?.id ? `?m=${user.id}` : ''}`}
+                                                     target="_blank"
+                                                     rel="noopener noreferrer"
+                                                     className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
+                                                 >
+                                                     <span>Pay ₹{meeting.payment_amount || ''}</span>
+                                                     <ArrowTopRightOnSquareIcon className="w-3.5 h-3.5" />
+                                                 </a>
+                                             )}
+                                         </>
                                      )}
                                 </div>
                             )}
@@ -242,6 +257,9 @@ const MeetingCard: React.FC<MeetingCardProps> = ({ meeting, onRSVP, onCheckIn, o
                 status={rsvpModalStatus || ''}
                 meetingTitle={meeting.title}
                 memberName={user ? `${user.first_name} ${user.last_name || ''}`.trim() : undefined}
+                isPaid={meeting.is_paid}
+                paymentAmount={meeting.payment_amount}
+                paymentLink={`/pay/${meeting.slug || meeting.id}`}
                 onClose={() => setRsvpModalStatus(null)}
             />
         </Card>

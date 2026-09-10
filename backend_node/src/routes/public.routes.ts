@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getMemberMeetings, getMeeting, getPosts, rsvpClickMeeting, resolveShortLink } from '../controllers/meetings.controller.js';
+import { getMemberMeetings, getMeeting, getPosts, rsvpClickMeeting, resolveShortLink, payMeeting } from '../controllers/meetings.controller.js';
 import { rsvpMeeting } from '../controllers/meeting.controller.js';
 import { getFormWithFields, getFormProgress, submitForm, submitOnboarding } from '../controllers/forms.controller.js';
 import { getJobs, createJob, createPost, getResources, createResource, registerPublicMember } from '../controllers/member.controller.js';
@@ -20,6 +20,7 @@ router.get('/r/:code', resolveShortLink);
 router.get('/meetings', getMemberMeetings);
 router.get('/meetings/:id/rsvp-click', rsvpClickMeeting);
 router.get('/meetings/:id', optionalAuthMiddleware, getMeeting);
+router.post('/meetings/:id/pay', optionalAuthMiddleware, upload.single('payment_proof'), payMeeting);
 router.post('/meeting-actions', rsvpMeeting);
 
 router.get('/posts', getPosts);

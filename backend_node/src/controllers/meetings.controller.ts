@@ -59,7 +59,8 @@ export const getMeetings = async (req: Request, res: Response) => {
                     ...mr,
                     first_name: mr.user?.first_name,
                     last_name: mr.user?.last_name,
-                    email: mr.user?.email
+                    email: mr.user?.email,
+                    payment_proof_url: mr.payment_proof ? `${baseUrl}/uploads/${mr.payment_proof}` : null
                 }))
             };
             return res.json(formatted);
@@ -68,7 +69,7 @@ export const getMeetings = async (req: Request, res: Response) => {
         const meetings = await prisma.meetings.findMany({
             where: { archived: archived ? 1 : 0 },
             include: { 
-                city: true,
+                city: true, 
                 stream: true
             },
             orderBy: { meeting_date: 'desc' }
@@ -83,10 +84,6 @@ export const getMeetings = async (req: Request, res: Response) => {
             stream_color: (m as any).stream?.color,
             meeting_date_display: formatDateDDMMYYYY(m.meeting_date),
             start_time_display: m.start_time || '-',
-            end_time_display: m.end_time || '-',
-            payment_qr_image_url: m.payment_qr_image ? `${baseUrl}/uploads/${m.payment_qr_image}` : null,
-            poster_image_url: m.poster_image ? `${baseUrl}/uploads/${m.poster_image}` : null,
-            // Also keep original fields for frontend substring logic if needed, but display fields are preferred
             start_time: m.start_time,
             end_time: m.end_time
         }));
@@ -105,7 +102,7 @@ export const getUpcomingMeetings = async (req: Request, res: Response) => {
         const now = new Date();
         const rawMeetings: any[] = await prisma.$queryRaw`
             SELECT m.*, s.name as stream_name, s.color as stream_color,
-                mr.rsvp_status as my_rsvp, mr.checked_in as my_checkin, mr.payment_status as my_payment_status, mr.paid_amount
+                mr.rsvp_status as my_rsvp, mr.checked_in as my_checkin, mr.payment_status as my_payment_status, mr.paid_amount, mr.payment_proof as my_payment_proof
             FROM meetings m
             LEFT JOIN streams s ON s.id = m.stream_id
             LEFT JOIN meeting_responses mr ON mr.meeting_id = m.id AND mr.user_id = ${userId}
@@ -131,7 +128,8 @@ export const getUpcomingMeetings = async (req: Request, res: Response) => {
                     url_display: `${baseUrl}/uploads/${r.url}`
                 })),
                 payment_qr_image_url: m.payment_qr_image ? `${baseUrl}/uploads/${m.payment_qr_image}` : null,
-                poster_image_url: m.poster_image ? `${baseUrl}/uploads/${m.poster_image}` : null
+                poster_image_url: m.poster_image ? `${baseUrl}/uploads/${m.poster_image}` : null,
+                my_payment_proof_url: m.my_payment_proof ? `${baseUrl}/uploads/${m.my_payment_proof}` : null
             };
         }));
 
@@ -148,7 +146,7 @@ export const getPastMeetings = async (req: Request, res: Response) => {
         const now = new Date();
         const rawMeetings: any[] = await prisma.$queryRaw`
             SELECT m.*, s.name as stream_name, s.color as stream_color,
-                mr.rsvp_status as my_rsvp, mr.checked_in as my_checkin, mr.payment_status as my_payment_status, mr.paid_amount
+                mr.rsvp_status as my_rsvp, mr.checked_in as my_checkin, mr.payment_status as my_payment_status, mr.paid_amount, mr.payment_proof as my_payment_proof
             FROM meetings m
             LEFT JOIN streams s ON s.id = m.stream_id
             LEFT JOIN meeting_responses mr ON mr.meeting_id = m.id AND mr.user_id = ${userId}
@@ -174,7 +172,8 @@ export const getPastMeetings = async (req: Request, res: Response) => {
                     url_display: `${baseUrl}/uploads/${r.url}`
                 })),
                 payment_qr_image_url: m.payment_qr_image ? `${baseUrl}/uploads/${m.payment_qr_image}` : null,
-                poster_image_url: m.poster_image ? `${baseUrl}/uploads/${m.poster_image}` : null
+                poster_image_url: m.poster_image ? `${baseUrl}/uploads/${m.poster_image}` : null,
+                my_payment_proof_url: m.my_payment_proof ? `${baseUrl}/uploads/${m.my_payment_proof}` : null
             };
         }));
 
@@ -190,7 +189,7 @@ export const getMemberMeetings = async (req: Request, res: Response) => {
         const userId = Number(req.query.user_id) || (req as any).userId || 0;
         const rawMeetings: any[] = await prisma.$queryRaw`
             SELECT m.*, s.name as stream_name, s.color as stream_color,
-                mr.rsvp_status as my_rsvp, mr.checked_in as my_checkin, mr.payment_status as my_payment_status, mr.paid_amount
+                mr.rsvp_status as my_rsvp, mr.checked_in as my_checkin, mr.payment_status as my_payment_status, mr.paid_amount, mr.payment_proof as my_payment_proof
             FROM meetings m
             LEFT JOIN streams s ON s.id = m.stream_id
             LEFT JOIN meeting_responses mr ON mr.meeting_id = m.id AND mr.user_id = ${userId}
@@ -215,7 +214,8 @@ export const getMemberMeetings = async (req: Request, res: Response) => {
                     url_display: `${baseUrl}/uploads/${r.url}`
                 })),
                 payment_qr_image_url: m.payment_qr_image ? `${baseUrl}/uploads/${m.payment_qr_image}` : null,
-                poster_image_url: m.poster_image ? `${baseUrl}/uploads/${m.poster_image}` : null
+                poster_image_url: m.poster_image ? `${baseUrl}/uploads/${m.poster_image}` : null,
+                my_payment_proof_url: m.my_payment_proof ? `${baseUrl}/uploads/${m.my_payment_proof}` : null
             };
         }));
 
@@ -252,7 +252,7 @@ export const getMeeting = async (req: Request, res: Response) => {
         
         const rawMeetings: any[] = await prisma.$queryRaw`
             SELECT m.*, s.name as stream_name, s.color as stream_color,
-                mr.rsvp_status as my_rsvp, mr.checked_in as my_checkin, mr.payment_status as my_payment_status, mr.paid_amount
+                mr.rsvp_status as my_rsvp, mr.checked_in as my_checkin, mr.payment_status as my_payment_status, mr.paid_amount, mr.payment_proof as my_payment_proof
             FROM meetings m
             LEFT JOIN streams s ON s.id = m.stream_id
             LEFT JOIN meeting_responses mr ON mr.meeting_id = m.id AND mr.user_id = ${userId}
@@ -272,7 +272,8 @@ export const getMeeting = async (req: Request, res: Response) => {
             start_time_display: m.start_time || '-',
             end_time_display: m.end_time || '-',
             payment_qr_image_url: m.payment_qr_image ? `${baseUrl}/uploads/${m.payment_qr_image}` : null,
-            poster_image_url: m.poster_image ? `${baseUrl}/uploads/${m.poster_image}` : null
+            poster_image_url: m.poster_image ? `${baseUrl}/uploads/${m.poster_image}` : null,
+            my_payment_proof_url: m.my_payment_proof ? `${baseUrl}/uploads/${m.my_payment_proof}` : null
         };
 
         // Get resources
@@ -280,7 +281,10 @@ export const getMeeting = async (req: Request, res: Response) => {
             where: { meeting_id: id }
         });
 
-        formatted.resources = resources || [];
+        formatted.resources = resources.map((r: any) => ({
+            ...r,
+            url_display: `${baseUrl}/uploads/${r.url}`
+        }));
 
         return res.json(formatted);
     } catch (error: any) {
@@ -291,8 +295,8 @@ export const getMeeting = async (req: Request, res: Response) => {
 
 import { createGoogleCalendarEvent } from '../utils/google-calendar.js';
 
-// POST /api/admin/meetings (Handles both Create and Update)
-export const createMeeting = async (req: Request, res: Response) => {
+// POST /api/admin/meetings (Create/Update meeting)
+export const saveMeeting = async (req: Request, res: Response) => {
     try {
         let { id, title, slug, description, meeting_date, start_time, end_time, location_name, map_link, is_paid, payment_amount, feedback_form_id, stream_id, archived, recap_content, zoom_link, upi_link, remove_poster_image, remove_payment_qr } = req.body;
         
@@ -355,15 +359,17 @@ export const createMeeting = async (req: Request, res: Response) => {
         let finalId: number;
 
         if (id) {
-            const mId = Array.isArray(id) ? Number(id[0]) : Number(id);
+            finalId = Number(id);
             await prisma.meetings.update({
-                where: { id: mId },
+                where: { id: finalId },
                 data: meetingData
             });
-            finalId = mId;
         } else {
             const created = await prisma.meetings.create({
-                data: meetingData
+                data: {
+                    ...meetingData,
+                    city_id: cityId
+                }
             });
             finalId = created.id;
         }
@@ -382,12 +388,14 @@ export const createMeeting = async (req: Request, res: Response) => {
             console.warn('[CALENDAR] Failed to trigger background update:', calErr);
         }
 
-        return res.json({ message: id ? 'Meeting updated' : 'Meeting created', id: finalId });
+        return res.json({ success: true, id: finalId });
     } catch (error: any) {
-        console.error('createMeeting Error:', error);
-        return res.status(500).json({ message: error.message });
+        console.error('saveMeeting Error:', error);
+        return res.status(500).json({ message: 'Internal server error' });
     }
 };
+
+export const createMeeting = saveMeeting;
 
 // GET /api/admin/meetings/:id/responses
 export const getMeetingResponses = async (req: Request, res: Response) => {
@@ -417,13 +425,14 @@ export const getMeetingResponses = async (req: Request, res: Response) => {
 export const getMeetingActions = async (req: Request, res: Response) => {
     try {
         const id = Number(req.params.id);
-        const actions = await prisma.$queryRaw`
+        const actions: any[] = await prisma.$queryRaw`
             SELECT 
                 mr.id, 
                 mr.rsvp_status, 
                 mr.checked_in, 
                 mr.payment_status,
                 mr.paid_amount,
+                mr.payment_proof,
                 m.first_name, 
                 m.last_name, 
                 m.email 
@@ -432,7 +441,15 @@ export const getMeetingActions = async (req: Request, res: Response) => {
             WHERE mr.meeting_id = ${id}
             ORDER BY m.first_name ASC
         `;
-        return res.json({ success: true, data: actions });
+        const apiUrl = process.env.VITE_API_URL || '';
+        const baseUrl = apiUrl.replace(/\/api\/?$/, '');
+
+        const formatted = actions.map(a => ({
+            ...a,
+            payment_proof_url: a.payment_proof ? `${baseUrl}/uploads/${a.payment_proof}` : null
+        }));
+
+        return res.json({ success: true, data: formatted });
     } catch (error: any) {
         console.error('getMeetingActions Error:', error);
         return res.status(500).json({ message: 'Internal server error' });
@@ -506,6 +523,22 @@ export const rsvpMeeting = async (req: Request, res: Response) => {
             where: { meeting_id: meetingId, user_id: userId }
         });
 
+        // If payment is already completed/confirmed, lock RSVP from being changed
+        const isPaidLocked = existing && (
+            existing.payment_status === 'paid_online' || 
+            existing.payment_status === 'paid_cash' || 
+            existing.payment_status === 'completed' ||
+            existing.payment_status === 'paid' ||
+            Boolean(existing.payment_proof)
+        );
+
+        if (isPaidLocked) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Payment completed. RSVP cannot be modified.' 
+            });
+        }
+
         if (existing) {
             await prisma.meeting_responses.update({
                 where: { id: existing.id },
@@ -570,15 +603,25 @@ export const rsvpClickMeeting = async (req: Request, res: Response) => {
             where: { meeting_id: basicMeeting.id, user_id: memberId }
         });
 
-        if (existing) {
-            await prisma.meeting_responses.update({
-                where: { id: existing.id },
-                data: { rsvp_status: status, updated_at: new Date() }
-            });
-        } else {
-            await prisma.meeting_responses.create({
-                data: { meeting_id: basicMeeting.id, user_id: memberId, rsvp_status: status }
-            });
+        const isPaidLocked = existing && (
+            existing.payment_status === 'paid_online' || 
+            existing.payment_status === 'paid_cash' || 
+            existing.payment_status === 'completed' ||
+            existing.payment_status === 'paid' ||
+            Boolean(existing.payment_proof)
+        );
+
+        if (!isPaidLocked) {
+            if (existing) {
+                await prisma.meeting_responses.update({
+                    where: { id: existing.id },
+                    data: { rsvp_status: status, updated_at: new Date() }
+                });
+            } else {
+                await prisma.meeting_responses.create({
+                    data: { meeting_id: basicMeeting.id, user_id: memberId, rsvp_status: status }
+                });
+            }
         }
 
         let authToken = '';
@@ -658,9 +701,33 @@ export const checkInMeeting = async (req: Request, res: Response) => {
 
 export const payMeeting = async (req: Request, res: Response) => {
     try {
-        const userId = (req as any).userId;
+        let userId = (req as any).userId;
         const idOrSlug = req.params.id as string;
-        const { method, amount } = req.body;
+        const { method, amount, member_id, email, phone } = req.body;
+
+        // If not authenticated via JWT, try resolving member from request body (e.g. from WhatsApp/public payment link)
+        if (!userId && member_id) {
+            userId = Number(member_id);
+        } else if (!userId && (email || phone)) {
+            const member = await prisma.member.findFirst({
+                where: {
+                    OR: [
+                        email ? { email: String(email).trim().toLowerCase() } : {},
+                        phone ? { phone: String(phone).trim() } : {}
+                    ]
+                }
+            });
+            if (member) {
+                userId = member.id;
+            }
+        }
+
+        if (!userId) {
+            return res.status(401).json({ 
+                success: false, 
+                message: 'Member identification required to record payment.' 
+            });
+        }
 
         const isNumeric = !isNaN(Number(idOrSlug));
         const cityId = (req as any).cityId || 1;
@@ -678,17 +745,39 @@ export const payMeeting = async (req: Request, res: Response) => {
         if (!basicMeeting) return res.status(404).json({ message: 'Meeting not found' });
         const meetingId = basicMeeting.id;
 
+        // Process screenshot / proof image if uploaded
+        let paymentProofFilename: string | null = null;
+        if (req.file) {
+            try {
+                paymentProofFilename = await processImageToWebp(req.file, 1200);
+            } catch (imgErr) {
+                console.warn('Could not convert payment proof to webp with sharp, using original filename:', imgErr);
+                paymentProofFilename = req.file.filename;
+            }
+        }
+
         const existing = await prisma.meeting_responses.findFirst({
             where: { meeting_id: meetingId, user_id: userId }
         });
 
-        const updateData = {
-            payment_status: method,
-            paid_amount: new Prisma.Decimal(amount || 0),
+        const paymentStatus = method || 'paid_online';
+        const paymentAmountVal = amount || (basicMeeting.payment_amount ? Number(basicMeeting.payment_amount) : 0);
+
+        const updateData: any = {
+            payment_status: paymentStatus,
+            paid_amount: new Prisma.Decimal(paymentAmountVal || 0),
             updated_at: new Date()
         };
 
+        if (paymentProofFilename) {
+            updateData.payment_proof = paymentProofFilename;
+        }
+
         if (existing) {
+            // Also ensure RSVP is confirmed as going if payment is completed
+            if (!existing.rsvp_status || existing.rsvp_status !== 'going') {
+                updateData.rsvp_status = 'going';
+            }
             await prisma.meeting_responses.update({
                 where: { id: existing.id },
                 data: updateData
@@ -698,17 +787,27 @@ export const payMeeting = async (req: Request, res: Response) => {
                 data: { 
                     meeting_id: meetingId, 
                     user_id: userId, 
+                    rsvp_status: 'going',
                     ...updateData 
                 }
             });
         }
 
-        return res.json({ success: true, message: 'Payment recorded' });
+        const apiUrl = process.env.VITE_API_URL || '';
+        const baseUrl = apiUrl.replace(/\/api\/?$/, '');
+
+        return res.json({ 
+            success: true, 
+            message: 'Payment recorded successfully',
+            payment_status: paymentStatus,
+            payment_proof_url: paymentProofFilename ? `${baseUrl}/uploads/${paymentProofFilename}` : null
+        });
     } catch (error: any) {
         console.error('payMeeting Error:', error);
         return res.status(500).json({ message: 'Internal server error' });
     }
 };
+
 // POST /api/admin/meetings/archive
 export const archiveMeeting = async (req: Request, res: Response) => {
     try {
@@ -860,8 +959,8 @@ export const notifyMeetingMembers = async (req: Request, res: Response) => {
                 ShortLinkService.getOrCreateRsvpLink(meeting.id, m.id, 'cant_go', meetingTarget, baseUrl)
             ]);
 
-            const rsvpOptionsBlock = `Going: ${goingUrl}\nMaybe: ${maybeUrl}\nNo: ${noUrl}`;
-            const payUrl = `${baseUrl}/pay/${meetingTarget}`;
+            const rsvpOptionsBlock = `*Going:* ${goingUrl}\n\n*Maybe:* ${maybeUrl}\n\n*No:* ${noUrl}`;
+            const payUrl = `${baseUrl}/pay/${meetingTarget}?m=${m.id}`;
 
             return {
                 '{first_name}': m.first_name || 'Member',

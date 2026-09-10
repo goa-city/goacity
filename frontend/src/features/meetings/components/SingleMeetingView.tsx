@@ -134,7 +134,23 @@ const SingleMeetingView: React.FC = () => {
 
                     {/* RSVP Buttons directly below the meeting date and time row */}
                     <div className="pt-2 flex flex-wrap items-center gap-3 w-full">
-                        {new Date(meeting.meeting_date).toDateString() === new Date().toDateString() && !meeting.checked_in ? (
+                        {Boolean(meeting.is_paid) && (
+                            meeting.my_payment_status === 'paid_online' || 
+                            meeting.my_payment_status === 'paid_cash' || 
+                            meeting.my_payment_status === 'completed' || 
+                            meeting.my_payment_status === 'paid' || 
+                            Boolean(meeting.my_payment_proof)
+                        ) ? (
+                            <div className="flex items-center gap-3 flex-wrap">
+                                <div className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/60 shadow-sm">
+                                    <CheckCircleIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                                    <span>Payment completed</span>
+                                </div>
+                                <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
+                                    (Seat Confirmed)
+                                </span>
+                            </div>
+                        ) : new Date(meeting.meeting_date).toDateString() === new Date().toDateString() && !meeting.checked_in ? (
                             <Button onClick={() => setShowCheckIn(true)} className="shadow-xl shadow-indigo-600/20 px-8">
                                 Check In Now
                             </Button>
@@ -168,9 +184,15 @@ const SingleMeetingView: React.FC = () => {
                                 </div>
                             )
                         )}
-                        {Boolean(meeting.is_paid) && meeting.checked_in !== 1 && (meeting.upi_link || meeting.payment_amount) && (
+                        {Boolean(meeting.is_paid) && meeting.checked_in !== 1 && !(
+                            meeting.my_payment_status === 'paid_online' || 
+                            meeting.my_payment_status === 'paid_cash' || 
+                            meeting.my_payment_status === 'completed' || 
+                            meeting.my_payment_status === 'paid' || 
+                            Boolean(meeting.my_payment_proof)
+                        ) && (meeting.upi_link || meeting.payment_amount) && (
                             <a
-                                href={`/pay/${meeting.slug || meeting.id}`}
+                                href={`/pay/${meeting.slug || meeting.id}${user?.id ? `?m=${user.id}` : ''}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
@@ -348,6 +370,9 @@ const SingleMeetingView: React.FC = () => {
                 status={rsvpModalStatus || ''}
                 meetingTitle={meeting.title}
                 memberName={user ? `${user.first_name} ${user.last_name || ''}`.trim() : undefined}
+                isPaid={meeting.is_paid}
+                paymentAmount={meeting.payment_amount}
+                paymentLink={`/pay/${meeting.slug || meeting.id}${user?.id ? `?m=${user.id}` : ''}`}
                 onClose={() => setRsvpModalStatus(null)}
             />
         </DashboardLayout>

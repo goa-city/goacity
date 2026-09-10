@@ -60,7 +60,7 @@ router.get('/meetings/past', getPastMeetings);
 router.get('/meeting/:id', getMeeting);
 router.post('/meeting/:id/rsvp', rsvpMeeting);
 router.post('/meeting/:id/checkin', checkInMeeting);
-router.post('/meeting/:id/pay', payMeeting);
+router.post('/meeting/:id/pay', upload.single('payment_proof'), payMeeting);
 
 // Stewardship
 router.get('/stewardship/summary', getStewardshipSummary);

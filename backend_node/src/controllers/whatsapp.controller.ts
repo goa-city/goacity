@@ -199,8 +199,8 @@ export const sendMeetingAlert = async (req: Request, res: Response) => {
                 ShortLinkService.getOrCreateRsvpLink(meeting.id, m.id, 'cant_go', meetingTarget, baseUrl)
             ]);
 
-            const rsvpOptionsBlock = `Going: ${goingUrl}\nMaybe: ${maybeUrl}\nNo: ${noUrl}`;
-            const payUrl = `${baseUrl}/pay/${meetingTarget}`;
+            const rsvpOptionsBlock = `*Going:* ${goingUrl}\n\n*Maybe:* ${maybeUrl}\n\n*No:* ${noUrl}`;
+            const payUrl = `${baseUrl}/pay/${meetingTarget}?m=${m.id}`;
 
             return {
                 '{first_name}': m.first_name || 'Member',

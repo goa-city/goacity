@@ -14,13 +14,13 @@ const SidebarRight: React.FC = () => {
     const [paymentModalOpen, setPaymentModalOpen] = useState(false);
     const [selectedMeeting, setSelectedMeeting] = useState<any>(null);
     const [rsvpModalStatus, setRsvpModalStatus] = useState<string | null>(null);
-    const [rsvpModalMeetingTitle, setRsvpModalMeetingTitle] = useState<string>('');
+    const [rsvpModalMeeting, setRsvpModalMeeting] = useState<any>(null);
 
-    const handleRSVP = async (meetingId: number, status: string, meetingTitle?: string) => {
+    const handleRSVP = async (meeting: any, status: string) => {
         if (!user) return alert("Please login to RSVP");
         try {
-            await rsvp(meetingId, status);
-            setRsvpModalMeetingTitle(meetingTitle || '');
+            await rsvp(meeting.id, status);
+            setRsvpModalMeeting(meeting);
             setRsvpModalStatus(status);
         } catch (e) {
             console.error(e);
@@ -134,23 +134,36 @@ const SidebarRight: React.FC = () => {
                                         <div className="mt-4">
                                             {isUpcoming ? (
                                                 <div className="flex flex-col gap-2">
-                                                     <div className="flex flex-wrap gap-1.5">
-                                                         <button onClick={() => handleRSVP(meeting.id, 'going', meeting.title)}
-                                                             className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'going' ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20' : 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-755 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-900/50'}`}>
-                                                             <CheckCircleIcon className="w-3.5 h-3.5" />
-                                                             <span>Going</span>
-                                                         </button>
-                                                         <button onClick={() => handleRSVP(meeting.id, 'not_sure', meeting.title)}
-                                                             className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'not_sure' ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20' : 'bg-orange-100 dark:bg-orange-950/30 text-orange-755 dark:text-orange-400 hover:bg-orange-200 dark:hover:bg-orange-900/50'}`}>
-                                                             <QuestionMarkCircleIcon className="w-3.5 h-3.5" />
-                                                             <span>Maybe</span>
-                                                         </button>
-                                                         <button onClick={() => handleRSVP(meeting.id, 'cant_go', meeting.title)}
-                                                             className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'cant_go' ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20' : 'bg-rose-100 dark:bg-rose-950/30 text-rose-755 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-900/50'}`}>
-                                                             <XCircleIcon className="w-3.5 h-3.5" />
-                                                             <span>No</span>
-                                                         </button>
-                                                     </div>
+                                                    {Boolean(meeting.is_paid) && (
+                                                        meeting.my_payment_status === 'paid_online' || 
+                                                        meeting.my_payment_status === 'paid_cash' || 
+                                                        meeting.my_payment_status === 'completed' || 
+                                                        meeting.my_payment_status === 'paid' || 
+                                                        Boolean(meeting.my_payment_proof)
+                                                    ) ? (
+                                                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/60 shadow-sm w-fit">
+                                                            <CheckCircleIcon className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                                            <span>Payment completed</span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            <button onClick={() => handleRSVP(meeting, 'going')}
+                                                                className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'going' ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20' : 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-755 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-900/50'}`}>
+                                                                <CheckCircleIcon className="w-3.5 h-3.5" />
+                                                                <span>Going</span>
+                                                            </button>
+                                                            <button onClick={() => handleRSVP(meeting, 'not_sure')}
+                                                                className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'not_sure' ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20' : 'bg-orange-100 dark:bg-orange-950/30 text-orange-755 dark:text-orange-400 hover:bg-orange-200 dark:hover:bg-orange-900/50'}`}>
+                                                                <QuestionMarkCircleIcon className="w-3.5 h-3.5" />
+                                                                <span>Maybe</span>
+                                                            </button>
+                                                            <button onClick={() => handleRSVP(meeting, 'cant_go')}
+                                                                className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'cant_go' ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20' : 'bg-rose-100 dark:bg-rose-950/30 text-rose-755 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-900/50'}`}>
+                                                                <XCircleIcon className="w-3.5 h-3.5" />
+                                                                <span>No</span>
+                                                            </button>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ) : (
                                                 <div className="mt-1">
@@ -201,9 +214,15 @@ const SidebarRight: React.FC = () => {
             <RsvpConfirmationModal
                 isOpen={!!rsvpModalStatus}
                 status={rsvpModalStatus || ''}
-                meetingTitle={rsvpModalMeetingTitle}
+                meetingTitle={rsvpModalMeeting?.title}
                 memberName={user ? `${user.first_name} ${user.last_name || ''}`.trim() : undefined}
-                onClose={() => setRsvpModalStatus(null)}
+                isPaid={rsvpModalMeeting?.is_paid}
+                paymentAmount={rsvpModalMeeting?.payment_amount}
+                paymentLink={rsvpModalMeeting ? `/pay/${rsvpModalMeeting.slug || rsvpModalMeeting.id}${user?.id ? `?m=${user.id}` : ''}` : null}
+                onClose={() => {
+                    setRsvpModalStatus(null);
+                    setRsvpModalMeeting(null);
+                }}
             />
         </div>
     );

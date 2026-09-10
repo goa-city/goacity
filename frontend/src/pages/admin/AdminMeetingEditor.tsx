@@ -15,6 +15,7 @@ import { ArrowLeftIcon as ArrowLeftOutline } from '@heroicons/react/24/outline';
 import { Card } from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
 import QuillEditor from '../../components/QuillEditor';
+import QRCode from 'react-qr-code';
 
 const getLocalYYYYMMDD = (dateInput: any) => {
     const d = new Date(dateInput);
@@ -56,10 +57,39 @@ const AdminMeetingEditor: React.FC = () => {
     const [notifyType, setNotifyType] = useState<'email' | 'whatsapp'>('email');
     const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
     const [targetAudience, setTargetAudience] = useState<TargetAudience>('all');
+    const [upiVpa, setUpiVpa] = useState('');
+    const [payeeName, setPayeeName] = useState('');
+    const [paymentNote, setPaymentNote] = useState('');
     const meetingDate = watch('meeting_date');
     const title = watch('title');
     const slug = watch('slug');
+    const watchedPaymentAmount = watch('payment_amount');
     const isPastDate = meetingDate ? getLocalYYYYMMDD(meetingDate) < getLocalYYYYMMDD(new Date()) : false;
+
+    // Live generated UPI URI
+    const generatedUpiUri = React.useMemo(() => {
+        const vpa = upiVpa.trim();
+        if (!vpa) return '';
+        if (vpa.startsWith('upi://pay')) {
+            try {
+                const urlObj = new URL(vpa.replace('upi://pay', 'https://dummy.local'));
+                if (watchedPaymentAmount) urlObj.searchParams.set('am', String(watchedPaymentAmount).trim());
+                if (payeeName.trim()) urlObj.searchParams.set('pn', payeeName.trim());
+                if (paymentNote.trim()) urlObj.searchParams.set('tn', paymentNote.trim());
+                if (!urlObj.searchParams.get('cu')) urlObj.searchParams.set('cu', 'INR');
+                return urlObj.toString().replace('https://dummy.local', 'upi://pay');
+            } catch (e) {
+                return vpa;
+            }
+        }
+        const params = new URLSearchParams();
+        params.set('pa', vpa);
+        if (payeeName.trim()) params.set('pn', payeeName.trim());
+        if (watchedPaymentAmount && Number(watchedPaymentAmount) > 0) params.set('am', String(watchedPaymentAmount).trim());
+        params.set('cu', 'INR');
+        if (paymentNote.trim()) params.set('tn', paymentNote.trim());
+        return `upi://pay?${params.toString()}`;
+    }, [upiVpa, payeeName, paymentNote, watchedPaymentAmount]);
 
     // Auto-slug logic
     useEffect(() => {
@@ -105,6 +135,23 @@ const AdminMeetingEditor: React.FC = () => {
                         stream_id: data.stream_id ? String(data.stream_id) : '',
                         payment_amount: data.payment_amount || '0',
                     });
+                    // Parse existing upi_link into upiVpa, payeeName, paymentNote
+                    if (data.upi_link) {
+                        const linkStr = String(data.upi_link).trim();
+                        if (linkStr.startsWith('upi://pay')) {
+                            try {
+                                const urlObj = new URL(linkStr.replace('upi://pay', 'https://dummy.local'));
+                                setUpiVpa(urlObj.searchParams.get('pa') || '');
+                                setPayeeName(urlObj.searchParams.get('pn') || '');
+                                setPaymentNote(urlObj.searchParams.get('tn') || '');
+                            } catch (e) {
+                                setUpiVpa(linkStr);
+                            }
+                        } else if (linkStr.includes('@')) {
+                            setUpiVpa(linkStr);
+                        }
+                    }
+
                     if (data.payment_qr_image_url) setQrPreview(data.payment_qr_image_url);
                     else if (data.payment_qr_image) setQrPreview(`${baseUrl}/uploads/${data.payment_qr_image}`);
 
@@ -128,6 +175,51 @@ const AdminMeetingEditor: React.FC = () => {
     const onSubmit = async (data: Record<string, unknown>) => {
         setSaving(true);
         try {
+            // Generate canonical upi_link from structured fields if paid
+            if (data.is_paid) {
+                const vpa = upiVpa.trim();
+                const amt = data.payment_amount ? String(data.payment_amount).trim() : '';
+                const pn = payeeName.trim();
+                const tn = paymentNote.trim();
+
+                if (!vpa) {
+                    showToast("Please enter a valid UPI ID (e.g. yourname@bank).");
+                    setSaving(false);
+                    return;
+                }
+
+                if (!amt || Number(amt) <= 0) {
+                    showToast("Please enter a valid Payment Amount (₹).");
+                    setSaving(false);
+                    return;
+                }
+
+                if (vpa.startsWith('upi://pay')) {
+                    // It is already a full URI, update amount/note/name if provided
+                    try {
+                        const urlObj = new URL(vpa.replace('upi://pay', 'https://dummy.local'));
+                        if (amt) urlObj.searchParams.set('am', amt);
+                        if (pn) urlObj.searchParams.set('pn', pn);
+                        if (tn) urlObj.searchParams.set('tn', tn);
+                        if (!urlObj.searchParams.get('cu')) urlObj.searchParams.set('cu', 'INR');
+                        data.upi_link = urlObj.toString().replace('https://dummy.local', 'upi://pay');
+                    } catch (e) {
+                        data.upi_link = vpa;
+                    }
+                } else {
+                    // Standard UPI VPA (e.g. yourname@bank)
+                    const params = new URLSearchParams();
+                    params.set('pa', vpa);
+                    if (pn) params.set('pn', pn);
+                    if (amt) params.set('am', amt);
+                    params.set('cu', 'INR');
+                    if (tn) params.set('tn', tn);
+                    data.upi_link = `upi://pay?${params.toString()}`;
+                }
+            } else {
+                data.upi_link = '';
+            }
+
             const formData = new FormData();
             if (isEdit && id) formData.append('id', String(id));
 
@@ -240,10 +332,10 @@ const AdminMeetingEditor: React.FC = () => {
         setNotifying(true);
         setShowNotifyModal(false);
         try {
-            const res = await api.post(`/admin/meetings/${id}/notify`, { 
-                type: notifyType, 
+            const res = await api.post(`/admin/meetings/${id}/notify`, {
+                type: notifyType,
                 templateId: selectedTemplateId,
-                targetAudience 
+                targetAudience
             });
             showToast(res.data?.message || "Notifications sent successfully!");
         } catch (e: any) {
@@ -362,7 +454,7 @@ const AdminMeetingEditor: React.FC = () => {
                                     render={({ field }) => (
                                         <DatePicker
                                             selected={field.value ? new Date(field.value) : null}
-                                        onChange={(date: Date | null) => field.onChange(date)}
+                                            onChange={(date: Date | null) => field.onChange(date)}
                                             dateFormat="dd/MM/yyyy"
                                             className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-4 font-medium"
                                             placeholderText="dd/mm/yyyy"
@@ -412,8 +504,8 @@ const AdminMeetingEditor: React.FC = () => {
                             </label>
                             <div className="relative">
                                 <SwatchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400 pointer-events-none" />
-                                <select 
-                                    {...register('stream_id', { required: "Stream is required" })} 
+                                <select
+                                    {...register('stream_id', { required: "Stream is required" })}
                                     className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 pl-12 h-14 font-medium appearance-none"
                                 >
                                     <option value="">-- Select Stream (Required) --</option>
@@ -450,116 +542,186 @@ const AdminMeetingEditor: React.FC = () => {
                     </div>
 
                     {isPaid && (
-                        <div className="space-y-6 p-4 bg-sky-50/30 dark:bg-sky-950/20 rounded-xl border border-sky-100 dark:border-sky-900/50">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-6 p-5 sm:p-6 bg-slate-50/60 dark:bg-zinc-900/60 rounded-2xl border border-slate-200/80 dark:border-zinc-800">
+                            {/* UPI ID Field (Required) */}
+                            <div>
+                                <label className="block text-sm font-bold text-slate-800 dark:text-zinc-200 mb-2">
+                                    UPI ID <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={upiVpa}
+                                    onChange={(e) => setUpiVpa(e.target.value)}
+                                    placeholder="yourname@bank"
+                                    className="w-full bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-3.5 text-base font-medium shadow-sm transition-all"
+                                />
+                            </div>
+
+                            {/* Your Name Field (Optional) */}
+                            <div>
+                                <div className="flex items-center justify-between mb-2">
+                                    <label className="text-sm font-bold text-slate-800 dark:text-zinc-200">
+                                        Your name
+                                    </label>
+                                    <span className="text-xs text-slate-500 dark:text-zinc-400 font-normal">
+                                        optional — leave blank for best compatibility
+                                    </span>
+                                </div>
+                                <input
+                                    type="text"
+                                    value={payeeName}
+                                    onChange={(e) => setPayeeName(e.target.value)}
+                                    placeholder=""
+                                    className="w-full bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-3.5 text-base font-medium shadow-sm transition-all"
+                                />
+                            </div>
+
+                            {/* Row: Amount (₹) & Note */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                                 <div>
-                                    <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Payment Amount (INR)</label>
-                                    <input {...register('payment_amount')} type="number" step="0.01" className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-4 font-medium" placeholder="0.00" />
+                                    <div className="flex items-center justify-between mb-2">
+                                        <label className="text-sm font-bold text-slate-800 dark:text-zinc-200">
+                                            Amount (₹) <span className="text-red-500">*</span>
+                                        </label>
+                                    </div>
+                                    <input
+                                        {...register('payment_amount')}
+                                        type="number"
+                                        step="0.01"
+                                        placeholder="0.00"
+                                        className="w-full bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-3.5 text-base font-medium shadow-sm transition-all"
+                                    />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Payment QR Code</label>
-                                    {qrPreview ? (
-                                        <div className="relative group/qr w-32 h-32 bg-white rounded-xl border border-zinc-200 shadow-sm overflow-hidden mb-3">
-                                            <img src={qrPreview} alt="QR Preview" className="w-full h-full object-contain" />
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/qr:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setQrPreview(null);
-                                                        setQrFile(null);
-                                                        setValue('payment_qr_image', null);
-                                                    }}
-                                                    className="p-1.5 bg-white text-red-600 rounded-lg hover:scale-110 transition-transform shadow-lg"
-                                                    title="Delete QR"
-                                                >
-                                                    <TrashIcon className="w-4 h-4" />
-                                                </button>
-                                                <a
-                                                    href={qrPreview}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="p-1.5 bg-white text-indigo-600 rounded-lg hover:scale-110 transition-transform shadow-lg"
-                                                >
-                                                    <EyeIcon className="w-4 h-4" />
-                                                </a>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="mb-3 p-4 bg-zinc-50 dark:bg-zinc-900/50 border border-dashed border-zinc-300 dark:border-zinc-700 rounded-xl flex flex-col items-center justify-center">
-                                            <CloudArrowUpIcon className="w-6 h-6 text-zinc-300 mb-1" />
-                                            <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400">No Image</p>
-                                        </div>
-                                    )}
+                                    <div className="flex items-center justify-between mb-2">
+                                        <label className="text-sm font-bold text-slate-800 dark:text-zinc-200">
+                                            Note
+                                        </label>
+                                        <span className="text-xs text-slate-500 dark:text-zinc-400 font-normal">
+                                            optional
+                                        </span>
+                                    </div>
                                     <input
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={(e) => {
-                                            const file = e.target.files?.[0];
-                                            if (file) {
-                                                setQrFile(file);
-                                                const reader = new FileReader();
-                                                reader.onloadend = () => setQrPreview(reader.result);
-                                                reader.readAsDataURL(file);
-                                            }
-                                        }}
-                                        className="text-sm text-zinc-500 dark:text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:tracking-widest file:bg-sky-50 file:text-sky-700 dark:file:bg-sky-950/30 dark:file:text-sky-400 hover:file:bg-sky-100 dark:hover:file:bg-sky-900/50"
+                                        type="text"
+                                        value={paymentNote}
+                                        onChange={(e) => setPaymentNote(e.target.value)}
+                                        placeholder=""
+                                        className="w-full bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-3.5 text-base font-medium shadow-sm transition-all"
                                     />
                                 </div>
                             </div>
-                            <div className="border-t border-sky-100 dark:border-sky-900/50 pt-4 space-y-3">
-                                <div>
-                                    <div className="flex items-center justify-between mb-2">
-                                        <label className="block text-xs font-black uppercase tracking-widest text-zinc-500">UPI Link (Optional)</label>
-                                        <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400">Supports raw `upi://` or UPI ID</span>
-                                    </div>
-                                    <input 
-                                        {...register('upi_link')} 
-                                        type="text" 
-                                        className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-4 font-medium font-mono text-sm" 
-                                        placeholder="e.g. upi://pay?pa=address@okicici&pn=Name&am=500 or just yourname@upi" 
-                                    />
-                                    <p className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-1.5">
-                                        Paste a complete UPI URL or enter a UPI ID (e.g. <code className="text-zinc-600 dark:text-zinc-300 font-bold">username@okicici</code>). We automatically format and encode it for payments.
-                                    </p>
-                                </div>
 
-                                {/* Generated Public Web Payment Link Preview */}
-                                <div className="p-3.5 bg-white dark:bg-zinc-900 rounded-xl border border-sky-200/70 dark:border-sky-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                    <div className="flex items-center gap-2.5 min-w-0">
-                                        <div className="w-8 h-8 rounded-lg bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
-                                            <LinkIcon className="w-4 h-4" />
+                            {/* Optional Custom QR Override or Dynamic Generation */}
+                            <div className="pt-2 border-t border-slate-200/80 dark:border-zinc-800">
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                    <div className="space-y-1">
+                                        <p className="text-xs font-bold text-slate-700 dark:text-zinc-300">Custom Payment QR Code Image</p>
+                                        <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                                            Optional. If not provided, a QR code is generated dynamically from the UPI ID & Amount.
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        {qrPreview && (
+                                            <div className="relative group/qr w-14 h-14 bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden shrink-0">
+                                                <img src={qrPreview} alt="QR Preview" className="w-full h-full object-contain" />
+                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/qr:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setQrPreview(null);
+                                                            setQrFile(null);
+                                                            setRemoveQr(true);
+                                                            setValue('payment_qr_image', null);
+                                                        }}
+                                                        className="p-1 bg-white text-red-600 rounded hover:scale-110 transition-transform shadow"
+                                                        title="Delete Custom QR"
+                                                    >
+                                                        <TrashIcon className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                    setQrFile(file);
+                                                    setRemoveQr(false);
+                                                    const reader = new FileReader();
+                                                    reader.onloadend = () => setQrPreview(reader.result);
+                                                    reader.readAsDataURL(file);
+                                                }
+                                            }}
+                                            className="text-xs text-slate-500 dark:text-zinc-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-slate-100 file:text-slate-700 dark:file:bg-zinc-800 dark:file:text-zinc-300 hover:file:bg-slate-200"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Live Payment QR & Link Preview Card */}
+                            {(upiVpa || qrPreview) && (
+                                <div className="p-4 bg-white dark:bg-zinc-950 rounded-xl border border-sky-200/80 dark:border-sky-900/50 shadow-sm space-y-4">
+                                    <div className="flex flex-col sm:flex-row items-center gap-5">
+                                        <div className="p-3 bg-white rounded-xl border border-slate-100 shadow-sm shrink-0">
+                                            {qrPreview ? (
+                                                <img src={qrPreview} alt="Custom QR" className="w-28 h-28 object-contain" />
+                                            ) : generatedUpiUri ? (
+                                                <QRCode value={generatedUpiUri} size={112} />
+                                            ) : null}
                                         </div>
-                                        <div className="min-w-0">
-                                            <p className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Public Payment Page Link</p>
-                                            <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 truncate">
-                                                {baseUrl}/pay/{slug || (isEdit && id ? id : 'meeting-slug')}
+                                        <div className="space-y-1.5 text-center sm:text-left min-w-0 flex-1">
+                                            <span className="inline-block px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/40">
+                                                Live QR Code Active
+                                            </span>
+                                            <p className="text-xs font-mono font-bold text-slate-700 dark:text-zinc-300 break-all">
+                                                {generatedUpiUri || upiVpa}
+                                            </p>
+                                            <p className="text-[11px] text-slate-400">
+                                                Attendees can scan this QR with Google Pay, PhonePe, Paytm, BHIM, or any UPI app.
                                             </p>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-2 shrink-0">
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                const url = `${baseUrl}/pay/${slug || (isEdit && id ? id : '')}`;
-                                                navigator.clipboard.writeText(url);
-                                                showToast('Payment link copied to clipboard!');
-                                            }}
-                                            className="px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors"
-                                        >
-                                            Copy Link
-                                        </button>
-                                        <a
-                                            href={`/pay/${slug || (isEdit && id ? id : '')}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/50 rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors"
-                                        >
-                                            <span>Preview</span>
-                                            <ArrowTopRightOnSquareIcon className="w-3 h-3" />
-                                        </a>
+
+                                    {/* Public Payment Page Link */}
+                                    <div className="pt-3 border-t border-slate-100 dark:border-zinc-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                        <div className="flex items-center gap-2.5 min-w-0">
+                                            <div className="w-8 h-8 rounded-lg bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
+                                                <LinkIcon className="w-4 h-4" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Public Payment Page Link</p>
+                                                <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 truncate">
+                                                    https://goa.city/pay/{slug || (isEdit && id ? id : 'meeting-slug')}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const url = `https://goa.city/pay/${slug || (isEdit && id ? id : '')}`;
+                                                    navigator.clipboard.writeText(url);
+                                                    showToast('Payment link copied to clipboard!');
+                                                }}
+                                                className="px-3 py-1.5 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors"
+                                            >
+                                                Copy Link
+                                            </button>
+                                            <a
+                                                href={`/pay/${slug || (isEdit && id ? id : '')}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center gap-1 px-3 py-1.5 bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/50 rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors"
+                                            >
+                                                <span>Preview</span>
+                                                <ArrowTopRightOnSquareIcon className="w-3 h-3" />
+                                            </a>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
                     )}
 
@@ -734,6 +896,7 @@ const AdminMeetingEditor: React.FC = () => {
                                             <th className="px-6 py-4">Check-in Status</th>
                                             {isPaid && <th className="px-6 py-4">Payment Status</th>}
                                             {isPaid && <th className="px-6 py-4">Payment Amount</th>}
+                                            {isPaid && <th className="px-6 py-4">Payment Proof</th>}
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/50">
@@ -767,6 +930,23 @@ const AdminMeetingEditor: React.FC = () => {
                                                 {isPaid && (
                                                     <td className="px-6 py-4 text-zinc-500 font-medium">
                                                         ₹ {action.paid_amount || '0'}
+                                                    </td>
+                                                )}
+                                                {isPaid && (
+                                                    <td className="px-6 py-4">
+                                                        {action.payment_proof_url ? (
+                                                            <a
+                                                                href={action.payment_proof_url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 hover:underline"
+                                                            >
+                                                                <span>View Proof</span>
+                                                                <ArrowTopRightOnSquareIcon className="w-3 h-3" />
+                                                            </a>
+                                                        ) : (
+                                                            <span className="text-zinc-400 text-xs">-</span>
+                                                        )}
                                                     </td>
                                                 )}
                                             </tr>
@@ -873,8 +1053,8 @@ const AdminMeetingEditor: React.FC = () => {
                     <div className="bg-white dark:bg-zinc-900 rounded-[2.5rem] shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col relative border border-zinc-100 dark:border-zinc-800 animate-in zoom-in-95 duration-300 overflow-hidden">
                         {/* Header */}
                         <div className="p-8 pb-4 relative shrink-0 border-b border-zinc-100 dark:border-zinc-800/60">
-                            <button 
-                                onClick={() => setShowNotifyModal(false)} 
+                            <button
+                                onClick={() => setShowNotifyModal(false)}
                                 className="absolute top-8 right-8 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors p-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800"
                             >
                                 <XMarkIcon className="w-6 h-6" />
@@ -923,8 +1103,8 @@ const AdminMeetingEditor: React.FC = () => {
                                         { id: 'checked_in', label: 'Checked In', desc: 'Checked in at venue' },
                                     ].map((opt) => {
                                         const isSelected = targetAudience === opt.id;
-                                        const count = opt.id === 'all' 
-                                            ? undefined 
+                                        const count = opt.id === 'all'
+                                            ? undefined
                                             : meetingActions.filter(a => {
                                                 if (opt.id === 'going') return a.rsvp_status === 'going';
                                                 if (opt.id === 'maybe') return a.rsvp_status === 'not_sure';
@@ -939,24 +1119,22 @@ const AdminMeetingEditor: React.FC = () => {
                                                 key={opt.id}
                                                 type="button"
                                                 onClick={() => setTargetAudience(opt.id as TargetAudience)}
-                                                className={`p-3 rounded-2xl border text-left transition-all relative ${
-                                                    isSelected
-                                                        ? notifyType === 'email'
-                                                            ? 'bg-indigo-50/80 dark:bg-indigo-950/40 border-indigo-500 text-indigo-950 dark:text-indigo-200 ring-2 ring-indigo-500/20'
-                                                            : 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-500 text-emerald-950 dark:text-emerald-200 ring-2 ring-emerald-500/20'
-                                                        : 'bg-zinc-50 dark:bg-zinc-950/50 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-700'
-                                                }`}
+                                                className={`p-3 rounded-2xl border text-left transition-all relative ${isSelected
+                                                    ? notifyType === 'email'
+                                                        ? 'bg-indigo-50/80 dark:bg-indigo-950/40 border-indigo-500 text-indigo-950 dark:text-indigo-200 ring-2 ring-indigo-500/20'
+                                                        : 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-500 text-emerald-950 dark:text-emerald-200 ring-2 ring-emerald-500/20'
+                                                    : 'bg-zinc-50 dark:bg-zinc-950/50 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-700'
+                                                    }`}
                                             >
                                                 <div className="flex items-center justify-between gap-1 mb-0.5">
                                                     <span className="font-bold text-xs">{opt.label}</span>
                                                     {count !== undefined && (
-                                                        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${
-                                                            isSelected 
-                                                                ? notifyType === 'email' 
-                                                                    ? 'bg-indigo-600 text-white' 
-                                                                    : 'bg-emerald-600 text-white' 
-                                                                : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
-                                                        }`}>
+                                                        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${isSelected
+                                                            ? notifyType === 'email'
+                                                                ? 'bg-indigo-600 text-white'
+                                                                : 'bg-emerald-600 text-white'
+                                                            : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
+                                                            }`}>
                                                             {count}
                                                         </span>
                                                     )}
@@ -972,7 +1150,7 @@ const AdminMeetingEditor: React.FC = () => {
                                 <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Available Templates</label>
                                 <div className="relative">
                                     <ChevronDownIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400 pointer-events-none" />
-                                    <select 
+                                    <select
                                         value={selectedTemplateId || ''}
                                         onChange={(e) => setSelectedTemplateId(e.target.value)}
                                         className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 px-6 h-14 font-medium appearance-none"
@@ -1001,7 +1179,7 @@ const AdminMeetingEditor: React.FC = () => {
                                                 )}
                                                 <div>
                                                     <p className="text-[10px] font-black uppercase text-zinc-400">Message Body:</p>
-                                                    <div 
+                                                    <div
                                                         className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed whitespace-pre-wrap mt-1"
                                                         dangerouslySetInnerHTML={{ __html: selected.content || selected.message || selected.body || '' }}
                                                     />
