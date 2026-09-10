@@ -28,11 +28,12 @@ const UNSCOPED_MODELS = new Set([
     'needs',
     'offers',
     'businesses',
-    'idea_feedback',
+    'IdeaFeedback',
     'CollaborationRequest',
     'StewardshipLog',
     'VerificationOrg',
     'ResourceCategory',
+    'ShortLink',
 ]);
 
 // Extension logic

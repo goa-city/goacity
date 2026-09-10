@@ -80,7 +80,7 @@ const DashboardView: React.FC = () => {
                             {/* Streams Section */}
                             <section>
                                 <div className="flex justify-between items-center mb-6 px-2">
-                                    <h2 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Streams</h2>
+                                    <h2 className="text-xs font-black text-zinc-400 uppercase tracking-[0.2em]">Streams</h2>
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                                     {data?.streams?.map((stream: any) => (
@@ -94,9 +94,9 @@ const DashboardView: React.FC = () => {
                                 <div className="p-2 flex flex-col justify-between">
                                     <div>
                                         <div className="flex justify-between items-center mb-6 px-2">
-                                            <h2 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Action Items</h2>
+                                            <h2 className="text-xs font-black text-zinc-400 uppercase tracking-[0.2em]">Action Items</h2>
                                             {data?.pending_actions?.some((action: any) => action.type === 'onboarding') && (
-                                                <span className="text-[10px] bg-zinc-200 text-zinc-700 font-black px-2.5 py-1 rounded-full uppercase tracking-wider">
+                                                <span className="text-[10px] bg-red-600 text-white font-black px-2.5 py-1 rounded-full uppercase tracking-wider animate-bounce-subtle inline-block">
                                                     {data.pending_actions.filter((action: any) => action.type === 'onboarding').length} Pending
                                                 </span>
                                             )}
@@ -114,7 +114,8 @@ const DashboardView: React.FC = () => {
                                                                 title: action.title || action.message.replace('Check-in for ', ''),
                                                                 is_paid: action.is_paid,
                                                                 payment_amount: action.payment_amount,
-                                                                payment_qr_image: action.payment_qr_image
+                                                                payment_qr_image: action.payment_qr_image,
+                                                                upi_link: action.upi_link
                                                             });
                                                         }}
                                                         className="p-4 cursor-pointer hover:bg-white/80 transition-all flex items-center justify-between gap-4 group rounded-2xl border border-zinc-200/50 bg-white/40 shadow-sm"

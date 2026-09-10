@@ -23,6 +23,7 @@ export const createWhatsAppTemplateSchema = z.object({
   body: z.object({
     title: z.string().min(1, 'Title is required').max(255),
     content: z.string().min(1, 'Content is required'),
+    image_url: z.string().optional().nullable(),
   }),
 });
 
@@ -33,5 +34,7 @@ export const updateWhatsAppTemplateSchema = z.object({
   body: z.object({
     title: z.string().min(1, 'Title is required').max(255).optional(),
     content: z.string().min(1, 'Content is required').optional(),
+    image_url: z.string().optional().nullable(),
   }),
 });
+

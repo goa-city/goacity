@@ -119,8 +119,8 @@ export const getUsers = async (req: Request, res: Response) => {
 
             const formattedResponses = await Promise.all(
                 (member as any).responses
-                    // Only show fully completed submissions with a valid form link
-                    .filter((fr: any) => fr.status === 'completed' && fr.form_id != null)
+                    // Show both completed and draft submissions with a valid form link
+                    .filter((fr: any) => fr.form_id != null)
                     .map(async (fr: any) => {
                     // 1. Fetch the current form field definitions (always the latest)
                     let formFields: any[] = [];

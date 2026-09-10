@@ -2,6 +2,10 @@ import type { Request, Response } from 'express';
 import { whatsapp } from '../services/whatsapp.service.js';
 import prisma from '../lib/prisma.js';
 import { SYSTEM_TEMPLATES } from '../config/constants.js';
+import { processImageToWebp } from '../utils/image.js';
+import { getBaseUrl } from '../lib/utils.js';
+import { ShortLinkService } from '../services/short-link.service.js';
+import fs from 'fs';
 
 export const getWhatsAppStatus = async (req: Request, res: Response) => {
     try {
@@ -91,17 +95,47 @@ export const getWhatsAppLogs = async (req: Request, res: Response) => {
 };
 
 export const broadcastWhatsApp = async (req: Request, res: Response) => {
-    const { messages, streamNames } = req.body; // Array of { to, content, memberId }
-    
-    if (!Array.isArray(messages)) {
-        return res.status(400).json({ error: 'Messages must be an array' });
-    }
-
     try {
+        let messages = req.body.messages;
+        let streamNames = req.body.streamNames;
+
+        if (typeof messages === 'string') {
+            try {
+                messages = JSON.parse(messages);
+            } catch (e) {
+                return res.status(400).json({ error: 'Invalid JSON for messages' });
+            }
+        }
+
+        if (typeof streamNames === 'string') {
+            try {
+                streamNames = JSON.parse(streamNames);
+            } catch (e) {
+                streamNames = [streamNames];
+            }
+        }
+        
+        if (!Array.isArray(messages) || messages.length === 0) {
+            return res.status(400).json({ error: 'Messages must be a non-empty array' });
+        }
+
+        let imagePath: string | undefined;
+        let imageUrl: string | undefined;
+
+        if (req.file) {
+            try {
+                const webpFilename = await processImageToWebp(req.file, 1200);
+                imagePath = `uploads/${webpFilename}`;
+                imageUrl = `/uploads/${webpFilename}`;
+            } catch (imgErr: any) {
+                return res.status(400).json({ error: imgErr.message || 'Failed to process attached image' });
+            }
+        }
+
         const broadcastName = streamNames ? streamNames.join(', ') : 'Bulk Broadcast';
         
         // Trigger bulk send in background
-        whatsapp.sendBulk(messages, broadcastName).catch(err => {
+        whatsapp.sendBulk(messages, broadcastName, undefined, imagePath, imageUrl).catch(err => {
             console.error('Background bulk send failed:', err);
         });
 
@@ -154,26 +188,37 @@ export const sendMeetingAlert = async (req: Request, res: Response) => {
         const endTime = meeting.end_time || '';
         const timeStr = (startTime && endTime) ? `${startTime} - ${endTime}` : (startTime || endTime || 'TBD');
 
-        const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
-        const host = req.headers.host || '';
-        const baseUrl = (process.env.VITE_API_URL || `${protocol}://${host}`).replace(/\/api\/?$/, '');
+        const baseUrl = getBaseUrl(req);
         const meetingUrl = `${baseUrl}/meetings/${meeting.id}`;
 
-        const getReplacements = (m: any) => ({
-            '{first_name}': m.first_name || 'Member',
-            '{firstname}': m.first_name || 'Member',
-            '{last_name}': m.last_name || '',
-            '{lastname}': m.last_name || '',
-            '{meeting_title}': meeting.title || '',
-            '{meeting_date}': dateStr || '',
-            '{meeting_time}': timeStr || '',
-            '{location_name}': meeting.location_name || '',
-            '{location}': meeting.location_name || '',
-            '{map_link}': meeting.map_link || '',
-            '{zoom_link}': meeting.zoom_link || '',
-            '{rsvp_link}': meetingUrl || '',
-            '{{rsvp_link}}': meetingUrl || ''
-        });
+        const getReplacements = async (m: any) => {
+            const meetingTarget = meeting.slug || meeting.id;
+            const [goingUrl, maybeUrl, noUrl] = await Promise.all([
+                ShortLinkService.getOrCreateRsvpLink(meeting.id, m.id, 'going', meetingTarget, baseUrl),
+                ShortLinkService.getOrCreateRsvpLink(meeting.id, m.id, 'not_sure', meetingTarget, baseUrl),
+                ShortLinkService.getOrCreateRsvpLink(meeting.id, m.id, 'cant_go', meetingTarget, baseUrl)
+            ]);
+
+            const rsvpOptionsBlock = `Going: ${goingUrl}\nMaybe: ${maybeUrl}\nNo: ${noUrl}`;
+
+            return {
+                '{first_name}': m.first_name || 'Member',
+                '{firstname}': m.first_name || 'Member',
+                '{last_name}': m.last_name || '',
+                '{lastname}': m.last_name || '',
+                '{meeting_title}': meeting.title || '',
+                '{meeting_date}': dateStr || '',
+                '{meeting_time}': timeStr || '',
+                '{location_name}': meeting.location_name || '',
+                '{location}': meeting.location_name || '',
+                '{map_link}': meeting.map_link || '',
+                '{zoom_link}': meeting.zoom_link || '',
+                '{rsvp_link}': meetingUrl || '',
+                '{rsvp_options_link}': rsvpOptionsBlock,
+                '{{rsvp_link}}': meetingUrl || '',
+                '{{rsvp_options_link}}': rsvpOptionsBlock
+            };
+        };
 
         const applyReplacements = (text: string, replacements: any) => {
             let result = text;
@@ -184,14 +229,23 @@ export const sendMeetingAlert = async (req: Request, res: Response) => {
             return result;
         };
 
-        // 4. Send bulk
-        const bulkMessages = members.map(m => ({
+        // 4. Send bulk with async short link replacements
+        const bulkMessages = await Promise.all(members.map(async m => ({
             to: m.phone!,
-            content: applyReplacements(template.content, getReplacements(m)),
+            content: applyReplacements(template.content, await getReplacements(m)),
             memberId: m.id
-        }));
+        })));
 
-        whatsapp.sendBulk(bulkMessages, `Meeting Alert: ${meeting.title}`).catch(console.error);
+        const templateImagePath = template.image_url ? `uploads/${template.image_url}` : undefined;
+        const templateImageUrl = template.image_url ? `${baseUrl}/uploads/${template.image_url}` : undefined;
+
+        whatsapp.sendBulk(
+            bulkMessages, 
+            `Meeting Alert: ${meeting.title}`,
+            undefined,
+            templateImagePath,
+            templateImageUrl
+        ).catch(console.error);
 
         res.json({ success: true, message: `Alert queued for ${members.length} members` });
     } catch (error) {

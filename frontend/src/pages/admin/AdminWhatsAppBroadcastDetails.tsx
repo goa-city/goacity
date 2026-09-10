@@ -7,7 +7,8 @@ import {
     CheckCircleIcon,
     ClockIcon,
     MegaphoneIcon,
-    ArrowPathIcon
+    ArrowPathIcon,
+    PhotoIcon
 } from '@heroicons/react/24/outline';
 import { formatDateTime } from '../../utils/date';
 import { Card } from '../../shared/components/ui/Card';
@@ -32,6 +33,7 @@ interface WhatsAppBroadcastDetail {
     total_count: number;
     sent_count: number;
     content: string;
+    image_url?: string | null;
     logs?: BroadcastLog[];
 }
 
@@ -115,9 +117,23 @@ const AdminWhatsAppBroadcastDetails: React.FC = () => {
                         </div>
 
                         <div className="space-y-4 pt-4 border-t border-white/10">
+                            {broadcast.image_url && (
+                                <div className="space-y-2">
+                                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+                                        <PhotoIcon className="w-3.5 h-3.5 text-indigo-400" /> Attached Photo
+                                    </p>
+                                    <div className="rounded-xl overflow-hidden border border-white/10 max-h-60 bg-black/30 flex items-center justify-center">
+                                        <img 
+                                            src={broadcast.image_url} 
+                                            alt="Broadcast media" 
+                                            className="max-h-60 w-auto object-contain"
+                                        />
+                                    </div>
+                                </div>
+                            )}
                             <div className="flex items-start gap-4">
                                 <MegaphoneIcon className="w-5 h-5 text-indigo-400 shrink-0" />
-                                <p className="text-xs font-medium text-zinc-300 leading-relaxed italic">"{broadcast.content}"</p>
+                                <p className="text-xs font-medium text-zinc-300 leading-relaxed italic">"{broadcast.content || (broadcast.image_url ? '[Photo Only]' : '')}"</p>
                             </div>
                         </div>
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { fetchAdminMembers, type AdminMember } from '../../features/admin-members/api/admin-members.api';
 import { broadcastWhatsApp } from '../../features/admin-whatsapp/api/whatsapp.api';
@@ -8,7 +8,9 @@ import {
     MegaphoneIcon,
     InformationCircleIcon,
     ArrowPathIcon,
-    CheckCircleIcon
+    CheckCircleIcon,
+    PhotoIcon,
+    XMarkIcon
 } from '@heroicons/react/24/outline';
 import { Link } from 'react-router-dom';
 import { Card } from '../../shared/components/ui/Card';
@@ -22,8 +24,11 @@ interface AdminStream {
 const AdminWhatsAppBroadcasts: React.FC = () => {
     const [selectedStreams, setSelectedStreams] = useState<number[]>([]);
     const [message, setMessage] = useState('');
+    const [imageFile, setImageFile] = useState<File | null>(null);
+    const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [toast, setToast] = useState<string | null>(null);
     const [isAllMembers, setIsAllMembers] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const { data: streams } = useQuery<AdminStream[]>({ 
         queryKey: ['streams'], 
@@ -37,9 +42,33 @@ const AdminWhatsAppBroadcasts: React.FC = () => {
         queryFn: () => fetchAdminMembers()
     });
 
+    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (!file.type.startsWith('image/')) {
+                setToast('Only image files (JPG, PNG, WebP) are allowed.');
+                setTimeout(() => setToast(null), 3000);
+                return;
+            }
+            setImageFile(file);
+            setImagePreview(URL.createObjectURL(file));
+        }
+    };
+
+    const removeImage = () => {
+        setImageFile(null);
+        if (imagePreview) {
+            URL.revokeObjectURL(imagePreview);
+        }
+        setImagePreview(null);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
     const broadcastMutation = useMutation({
         mutationFn: async () => {
-            if (!message) throw new Error('Message is required');
+            if (!message && !imageFile) throw new Error('Message content or photo is required');
             
             let targetMembers: AdminMember[] = [];
             if (isAllMembers) {
@@ -65,11 +94,12 @@ const AdminWhatsAppBroadcasts: React.FC = () => {
                 ? ['All Members']
                 : streams?.filter((stream) => selectedStreams.includes(stream.id)).map((stream) => stream.name);
 
-            return broadcastWhatsApp(bulkMessages, streamNames);
+            return broadcastWhatsApp(bulkMessages, streamNames, imageFile);
         },
         onSuccess: () => {
             setToast('Broadcast successfully initiated!');
             setMessage('');
+            removeImage();
             setSelectedStreams([]);
             setTimeout(() => setToast(null), 3000);
         },
@@ -173,8 +203,72 @@ const AdminWhatsAppBroadcasts: React.FC = () => {
                                 value={message}
                                 onChange={(e) => setMessage(e.target.value)}
                                 placeholder="Hi {firstname}, hope you're having a great day!..."
-                                className="admin-input w-full h-48 rounded-lg"
+                                className="admin-input w-full h-40 rounded-lg"
                             />
+
+                            {/* Image / Photo Attachment */}
+                            <div className="p-4 bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/80 rounded-xl space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <PhotoIcon className="w-4 h-4 text-indigo-600" />
+                                        <span className="text-[11px] font-black uppercase tracking-wider text-zinc-700 dark:text-zinc-200">
+                                            Attach Image / Photo (Optional)
+                                        </span>
+                                    </div>
+                                    {imageFile && (
+                                        <button
+                                            type="button"
+                                            onClick={removeImage}
+                                            className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-500 hover:text-rose-600 transition-colors uppercase tracking-wider"
+                                        >
+                                            <XMarkIcon className="w-3.5 h-3.5" />
+                                            Remove
+                                        </button>
+                                    )}
+                                </div>
+
+                                {imagePreview ? (
+                                    <div className="relative rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-700 max-h-56 flex items-center justify-center bg-black/5 dark:bg-black/20 group">
+                                        <img 
+                                            src={imagePreview} 
+                                            alt="Attached broadcast" 
+                                            className="max-h-56 w-auto object-contain rounded-lg shadow-sm"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={removeImage}
+                                            className="absolute top-2 right-2 p-1.5 bg-black/60 hover:bg-black/80 text-white rounded-full transition-all shadow-md"
+                                            title="Remove photo"
+                                        >
+                                            <XMarkIcon className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <input 
+                                            ref={fileInputRef}
+                                            type="file" 
+                                            accept="image/png,image/jpeg,image/webp,image/gif"
+                                            onChange={handleImageChange}
+                                            className="hidden" 
+                                            id="broadcast-image-input"
+                                        />
+                                        <label
+                                            htmlFor="broadcast-image-input"
+                                            className="flex flex-col items-center justify-center border-2 border-dashed border-zinc-200 dark:border-zinc-700 rounded-lg p-5 cursor-pointer hover:border-indigo-500/50 hover:bg-indigo-50/20 dark:hover:bg-indigo-950/10 transition-all text-center group"
+                                        >
+                                            <PhotoIcon className="w-7 h-7 text-zinc-400 group-hover:text-indigo-600 transition-colors mb-2" />
+                                            <p className="text-xs font-bold text-zinc-600 dark:text-zinc-300">
+                                                Click to upload a photo or poster
+                                            </p>
+                                            <p className="text-[10px] text-zinc-400 mt-1 uppercase tracking-wider">
+                                                PNG, JPG, or WebP &bull; Sent with caption
+                                            </p>
+                                        </label>
+                                    </div>
+                                )}
+                            </div>
+
                             <div className="flex flex-col gap-3">
                                 <div className="flex items-start gap-3 p-4 bg-indigo-500/5 border border-indigo-500/20 rounded-lg">
                                     <InformationCircleIcon className="w-5 h-5 text-indigo-600 shrink-0" />
@@ -199,8 +293,8 @@ const AdminWhatsAppBroadcasts: React.FC = () => {
                                 setTimeout(() => setToast(null), 3000);
                                 return;
                             }
-                            if (!message.trim()) {
-                                setToast('Please enter a message content.');
+                            if (!message.trim() && !imageFile) {
+                                setToast('Please enter message text or attach an image.');
                                 setTimeout(() => setToast(null), 3000);
                                 return;
                             }

@@ -36,7 +36,12 @@ const MyPeople: React.FC = () => {
                 if (queryString) url += `?${queryString}`;
 
                 const res = await api.get(url);
-                setPeers(res.data.data || []);
+                const sorted = (res.data.data || []).sort((a: Peer, b: Peer) => {
+                    const nameA = `${a.first_name || ''} ${a.last_name || ''}`.trim().toLowerCase();
+                    const nameB = `${b.first_name || ''} ${b.last_name || ''}`.trim().toLowerCase();
+                    return nameA.localeCompare(nameB);
+                });
+                setPeers(sorted);
             } catch (err) {
                 console.error("Failed to load my people", err);
             } finally {

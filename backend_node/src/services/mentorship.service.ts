@@ -414,8 +414,13 @@ export class MentorshipService {
     }
 
     static async getAdminMentorProfiles() {
-        // Fetch all profiles
+        // Fetch all profiles where member has is_mentor = true
         const profiles = await prisma.mentorProfile.findMany({
+            where: {
+                member: {
+                    is_mentor: true
+                }
+            },
             include: {
                 member: {
                     select: { id: true, first_name: true, last_name: true, profile_photo: true, email: true, is_mentor: true }
@@ -621,16 +626,7 @@ export class MentorshipService {
     static async getApprovedMentors() {
         return prisma.member.findMany({
             where: {
-                OR: [
-                    {
-                        mentorProfile: {
-                            is_approved: true
-                        }
-                    },
-                    {
-                        is_mentor: true
-                    }
-                ]
+                is_mentor: true
             },
             include: {
                 mentorProfile: true

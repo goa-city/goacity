@@ -117,7 +117,8 @@ export class MemberService {
                         payment_amount: meeting.payment_amount,
                         payment_qr_image: meeting.payment_qr_image,
                         payment_qr_image_url: meeting.payment_qr_image ? `${baseUrl}/uploads/${meeting.payment_qr_image}` : null,
-                        title: meeting.title // Add title for the modal
+                        title: meeting.title, // Add title for the modal
+                        upi_link: meeting.upi_link
                     });
                 }
             }

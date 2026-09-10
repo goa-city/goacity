@@ -61,7 +61,12 @@ export class AssessmentService {
 
         // 3. Find approved mentors
         const mentors = await prisma.mentorProfile.findMany({
-            where: { is_approved: true },
+            where: {
+                is_approved: true,
+                member: {
+                    is_mentor: true
+                }
+            },
             include: { 
                 member: { 
                     select: { 

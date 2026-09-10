@@ -6,17 +6,22 @@ import { CheckIcon } from '@heroicons/react/24/solid';
 import { formatDate } from '../utils/date';
 import CheckInModal from '../features/meetings/components/CheckInModal';
 import { useMeetings } from '../features/meetings/hooks/useMeetings';
+import RsvpConfirmationModal from '../features/meetings/components/RsvpConfirmationModal';
 
 const SidebarRight: React.FC = () => {
     const { user } = useAuth();
     const { upcoming: meetings, rsvp, refetch } = useMeetings();
     const [paymentModalOpen, setPaymentModalOpen] = useState(false);
     const [selectedMeeting, setSelectedMeeting] = useState<any>(null);
+    const [rsvpModalStatus, setRsvpModalStatus] = useState<string | null>(null);
+    const [rsvpModalMeetingTitle, setRsvpModalMeetingTitle] = useState<string>('');
 
-    const handleRSVP = async (meetingId: number, status: string) => {
+    const handleRSVP = async (meetingId: number, status: string, meetingTitle?: string) => {
         if (!user) return alert("Please login to RSVP");
         try {
             await rsvp(meetingId, status);
+            setRsvpModalMeetingTitle(meetingTitle || '');
+            setRsvpModalStatus(status);
         } catch (e) {
             console.error(e);
             alert("Failed to update RSVP");
@@ -116,10 +121,10 @@ const SidebarRight: React.FC = () => {
                                     <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
                                         <div>
                                             <h4 className="font-bold text-sm text-zinc-850 dark:text-zinc-150 leading-snug truncate">{meeting.title}</h4>
-                                            <p className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 mt-1">
+                                            <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 mt-1">
                                                 {getFriendlyDateTime(meeting)}
                                             </p>
-                                            <div className="flex items-center text-[10px] text-zinc-400 dark:text-zinc-500 mt-1.5 font-bold uppercase tracking-wider truncate">
+                                            <div className="flex items-center text-[11px] text-zinc-400 dark:text-zinc-500 mt-1.5 font-bold uppercase tracking-wider truncate">
                                                 <MapPinIcon className="w-3.5 h-3.5 mr-1" />
                                                 {meeting.location_name || 'Online'}
                                             </div>
@@ -130,17 +135,17 @@ const SidebarRight: React.FC = () => {
                                             {isUpcoming ? (
                                                 <div className="flex flex-col gap-2">
                                                      <div className="flex flex-wrap gap-1.5">
-                                                         <button onClick={() => handleRSVP(meeting.id, 'going')}
+                                                         <button onClick={() => handleRSVP(meeting.id, 'going', meeting.title)}
                                                              className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'going' ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20' : 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-755 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-900/50'}`}>
                                                              <CheckCircleIcon className="w-3.5 h-3.5" />
                                                              <span>Going</span>
                                                          </button>
-                                                         <button onClick={() => handleRSVP(meeting.id, 'not_sure')}
+                                                         <button onClick={() => handleRSVP(meeting.id, 'not_sure', meeting.title)}
                                                              className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'not_sure' ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20' : 'bg-orange-100 dark:bg-orange-950/30 text-orange-755 dark:text-orange-400 hover:bg-orange-200 dark:hover:bg-orange-900/50'}`}>
                                                              <QuestionMarkCircleIcon className="w-3.5 h-3.5" />
                                                              <span>Maybe</span>
                                                          </button>
-                                                         <button onClick={() => handleRSVP(meeting.id, 'cant_go')}
+                                                         <button onClick={() => handleRSVP(meeting.id, 'cant_go', meeting.title)}
                                                              className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'cant_go' ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20' : 'bg-rose-100 dark:bg-rose-950/30 text-rose-755 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-900/50'}`}>
                                                              <XCircleIcon className="w-3.5 h-3.5" />
                                                              <span>No</span>
@@ -161,12 +166,12 @@ const SidebarRight: React.FC = () => {
                                                             )}
                                                         </div>
                                                     ) : (
-                                                        <button
-                                                            onClick={() => handleCheckInClick(meeting)}
-                                                            className="inline-flex items-center px-4 py-1.5 border border-transparent text-[9px] font-black uppercase tracking-widest rounded-xl shadow-md text-white bg-zinc-900 hover:bg-zinc-850 focus:outline-none transition-all"
-                                                        >
-                                                            Check In {meeting.is_paid == 1 ? '(Pay)' : ''}
-                                                        </button>
+                                                         <button
+                                                             onClick={() => handleCheckInClick(meeting)}
+                                                             className="inline-flex items-center gap-1 px-3 py-1.5 border border-transparent text-[9px] font-black uppercase tracking-widest rounded-xl shadow-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none transition-all shadow-indigo-600/20"
+                                                         >
+                                                             Check In {meeting.is_paid == 1 ? '(Pay)' : ''}
+                                                         </button>
                                                     )}
                                                 </div>
                                             )}
@@ -191,6 +196,15 @@ const SidebarRight: React.FC = () => {
                     onSuccess={() => refetch()}
                 />
             )}
+
+            {/* RSVP Confirmation Modal */}
+            <RsvpConfirmationModal
+                isOpen={!!rsvpModalStatus}
+                status={rsvpModalStatus || ''}
+                meetingTitle={rsvpModalMeetingTitle}
+                memberName={user ? `${user.first_name} ${user.last_name || ''}`.trim() : undefined}
+                onClose={() => setRsvpModalStatus(null)}
+            />
         </div>
     );
 };

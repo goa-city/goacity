@@ -44,7 +44,10 @@ const IncubatorSubmit: React.FC = () => {
 
         setSubmitting(true);
         try {
-            await api.post('/incubator', form);
+            await api.post('/member/incubator', {
+                ...form,
+                needs: form.needs_json
+            });
             navigate('/incubator/explore');
         } catch (err: any) {
             console.error(err);

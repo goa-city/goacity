@@ -13,6 +13,8 @@ interface WhatsAppTemplate {
     id: number;
     title: string;
     content: string;
+    image_url?: string | null;
+    image_url_display?: string | null;
     created_at: string;
     updated_at: string;
 }
@@ -85,7 +87,16 @@ const AdminWhatsAppTemplates: React.FC = () => {
                                 {templates.map((template) => (
                                     <tr key={template.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30 transition-colors group cursor-pointer" onClick={() => navigate(`/admin/whatsapp/templates/${template.id}`)}>
                                         <td className="px-8 py-5 font-black text-sm text-zinc-900 dark:text-white">
-                                            {template.title}
+                                            <div className="flex items-center gap-3">
+                                                {template.image_url_display ? (
+                                                    <img 
+                                                        src={template.image_url_display} 
+                                                        alt="" 
+                                                        className="w-9 h-9 object-cover rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-sm shrink-0" 
+                                                    />
+                                                ) : null}
+                                                <span>{template.title}</span>
+                                            </div>
                                         </td>
                                         <td className="px-8 py-5 text-sm font-medium text-zinc-500 dark:text-zinc-400">
                                             <div className="max-w-xs truncate">{template.content}</div>

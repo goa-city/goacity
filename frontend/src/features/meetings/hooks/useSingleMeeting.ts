@@ -30,6 +30,9 @@ export interface Meeting {
     payment_amount?: number | string | null;
     payment_qr_image?: string | null;
     payment_qr_image_url?: string | null;
+    poster_image?: string | null;
+    poster_image_url?: string | null;
+    upi_link?: string | null;
     my_payment_status?: string | null;
 }
 

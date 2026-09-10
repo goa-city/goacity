@@ -21,6 +21,11 @@ export const getMe = async (): Promise<AuthResponse> => {
     return data;
 };
 
+export const tokenLogin = async (token: string): Promise<AuthResponse> => {
+    const { data } = await httpClient.post<AuthResponse>('/auth/token-login', { token });
+    return data;
+};
+
 export const logout = async (): Promise<void> => {
     await httpClient.post('/auth/logout');
 };

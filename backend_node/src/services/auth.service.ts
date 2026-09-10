@@ -234,4 +234,53 @@ export class AuthService {
             }
         };
     }
+
+    static async tokenLogin(token: string) {
+        if (!token) {
+            throw new AppError('Token is required', 400);
+        }
+
+        const { verifyToken } = await import('../utils/jwt.js');
+        const decoded: any = verifyToken(token);
+
+        if (!decoded || !decoded.id) {
+            throw new AppError('Invalid or expired token', 401);
+        }
+
+        const user = await prisma.member.findUnique({
+            where: { id: Number(decoded.id) }
+        });
+
+        if (!user) {
+            throw new AppError('Member not found', 404);
+        }
+
+        const streamMembers = await prisma.streamMember.findMany({
+            where: { user_id: user.id },
+            include: { stream: true }
+        });
+
+        const streams = streamMembers.map((sm: any) => ({
+            id: sm.stream.id,
+            name: sm.stream.name,
+            color: sm.stream.color
+        }));
+
+        return {
+            token,
+            user: {
+                id: user.id,
+                first_name: user.first_name,
+                last_name: user.last_name,
+                full_name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+                email: user.email,
+                phone: user.phone,
+                role: user.role,
+                is_onboarded: user.is_onboarded,
+                profile_photo: user.profile_photo,
+                slug: user.slug,
+                streams
+            }
+        };
+    }
 }

@@ -3,6 +3,8 @@ import { formatDate } from '../../../utils/date';
 import { Card, CardContent, CardTitle } from '../../../shared/components/ui/Card';
 import Button from '../../../shared/components/ui/Button';
 import type { Meeting, MeetingResource } from '../hooks/useSingleMeeting';
+import RsvpConfirmationModal from './RsvpConfirmationModal';
+import { useAuth } from '../../auth/context/AuthContext';
 import {
     CalendarIcon,
     MapPinIcon,
@@ -13,7 +15,8 @@ import {
     ClockIcon,
     VideoCameraIcon,
     ArrowTopRightOnSquareIcon,
-    LinkIcon
+    LinkIcon,
+    XMarkIcon
 } from '@heroicons/react/24/solid';
 
 interface MeetingCardProps {
@@ -24,11 +27,22 @@ interface MeetingCardProps {
 }
 
 const MeetingCard: React.FC<MeetingCardProps> = ({ meeting, onRSVP, onCheckIn, onOpenRecap }) => {
+    const { user } = useAuth();
+    const [showPosterModal, setShowPosterModal] = React.useState(false);
+    const [rsvpModalStatus, setRsvpModalStatus] = React.useState<string | null>(null);
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     const isPast = new Date(meeting.meeting_date).getTime() < todayStart.getTime();
     const isToday = new Date(meeting.meeting_date).toDateString() === new Date().toDateString();
 
+    const handleRsvpClick = async (status: string) => {
+        try {
+            await onRSVP(meeting.id, status);
+            setRsvpModalStatus(status);
+        } catch (err) {
+            console.error('Failed to RSVP:', err);
+        }
+    };
 
     return (
         <Card className={`overflow-hidden transition-all ${isToday ? 'ring-4 ring-indigo-500/10 border-indigo-500' : 'hover:shadow-2xl'}`}>
@@ -107,6 +121,26 @@ const MeetingCard: React.FC<MeetingCardProps> = ({ meeting, onRSVP, onCheckIn, o
                     )}
                 </div>
 
+                {/* Poster Invite Thumbnail on Card if available */}
+                {meeting.poster_image_url && (
+                    <div className="mb-6 flex justify-start">
+                        <div
+                            className="relative rounded-2xl overflow-hidden shadow-sm hover:shadow-md border border-zinc-200/80 dark:border-zinc-800 group cursor-pointer transition-all max-w-sm"
+                            onClick={() => setShowPosterModal(true)}
+                        >
+                            <img
+                                src={meeting.poster_image_url}
+                                alt={`${meeting.title} Poster`}
+                                className="max-h-80 w-auto object-contain rounded-2xl group-hover:scale-[1.02] transition-transform duration-300 block"
+                            />
+                            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 text-white text-xs font-black uppercase tracking-widest rounded-2xl">
+                                <ArrowTopRightOnSquareIcon className="w-5 h-5" />
+                                <span>View Poster</span>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <div className="flex items-center justify-between pt-6 border-t border-zinc-50 dark:border-zinc-800/50">
                     {!isPast ? (
                         <div className="flex flex-wrap gap-2 w-full">
@@ -118,14 +152,13 @@ const MeetingCard: React.FC<MeetingCardProps> = ({ meeting, onRSVP, onCheckIn, o
                                             Checked In
                                         </span>
                                     ) : (
-                                        <Button
+                                        <button
                                             onClick={() => onCheckIn?.(meeting)}
-                                            size="sm"
-                                            className="rounded-xl px-8"
                                             disabled={!onCheckIn}
+                                            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-600/20 disabled:opacity-50"
                                         >
                                             Check In
-                                        </Button>
+                                        </button>
                                     )}
                                     {meeting.my_checkin == 1 && (
                                         <Button variant="ghost" onClick={onOpenRecap} className="member-btn bg-primary text-white group hover:bg-primary/90">
@@ -135,13 +168,13 @@ const MeetingCard: React.FC<MeetingCardProps> = ({ meeting, onRSVP, onCheckIn, o
                                 </div>
                             ) : (
                                 <div className="flex gap-2">
-                                     <button onClick={() => onRSVP(meeting.id, 'going')} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'going' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-900/50'}`}>
+                                     <button onClick={() => handleRsvpClick('going')} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'going' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-900/50'}`}>
                                          <CheckCircleIcon className="w-4 h-4" /> Going
                                      </button>
-                                     <button onClick={() => onRSVP(meeting.id, 'not_sure')} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'not_sure' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'bg-orange-100 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 hover:bg-orange-200 dark:hover:bg-orange-900/50'}`}>
+                                     <button onClick={() => handleRsvpClick('not_sure')} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'not_sure' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'bg-orange-100 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 hover:bg-orange-200 dark:hover:bg-orange-900/50'}`}>
                                          <QuestionMarkCircleIcon className="w-4 h-4" /> Maybe
                                      </button>
-                                     <button onClick={() => onRSVP(meeting.id, 'cant_go')} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'cant_go' ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/20' : 'bg-rose-100 dark:bg-rose-950/30 text-rose-750 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-900/50'}`}>
+                                     <button onClick={() => handleRsvpClick('cant_go')} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'cant_go' ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/20' : 'bg-rose-100 dark:bg-rose-950/30 text-rose-750 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-900/50'}`}>
                                          <XCircleIcon className="w-4 h-4" /> No
                                      </button>
                                 </div>
@@ -159,6 +192,47 @@ const MeetingCard: React.FC<MeetingCardProps> = ({ meeting, onRSVP, onCheckIn, o
                     )}
                 </div>
             </CardContent>
+
+            {/* Poster Lightbox Modal */}
+            {showPosterModal && meeting.poster_image_url && (
+                <div
+                    className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm animate-in fade-in duration-200"
+                    onClick={() => setShowPosterModal(false)}
+                >
+                    <div
+                        className="relative max-w-4xl max-h-[90vh] bg-white dark:bg-zinc-900 rounded-3xl overflow-hidden shadow-2xl p-2 border border-zinc-100 dark:border-zinc-800"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-100 dark:border-zinc-800">
+                            <h4 className="text-sm font-black uppercase tracking-widest text-zinc-800 dark:text-zinc-200 truncate pr-4">
+                                {meeting.title} - Poster Invite
+                            </h4>
+                            <button
+                                onClick={() => setShowPosterModal(false)}
+                                className="p-1.5 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 transition-colors"
+                            >
+                                <XMarkIcon className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="p-2 flex items-center justify-center max-h-[80vh] overflow-auto">
+                            <img
+                                src={meeting.poster_image_url}
+                                alt={`${meeting.title} Poster Full`}
+                                className="max-h-[75vh] w-auto object-contain rounded-xl"
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* RSVP Confirmation Modal */}
+            <RsvpConfirmationModal
+                isOpen={!!rsvpModalStatus}
+                status={rsvpModalStatus || ''}
+                meetingTitle={meeting.title}
+                memberName={user ? `${user.first_name} ${user.last_name || ''}`.trim() : undefined}
+                onClose={() => setRsvpModalStatus(null)}
+            />
         </Card>
     );
 };

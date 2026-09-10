@@ -4,7 +4,6 @@ import { useStewardship } from '../hooks/useStewardship';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../../shared/components/ui/Card';
 import Button from '../../../shared/components/ui/Button';
 import { 
-    CurrencyDollarIcon, 
     ClockIcon, 
     SparklesIcon,
     PlusIcon
@@ -37,7 +36,9 @@ const StewardshipDashboard: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
                 <Card className="flex items-center gap-6 p-8 hover:shadow-2xl transition-all border-none bg-zinc-50 dark:bg-zinc-900/50 rounded-xl">
                     <div className="p-5 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl text-emerald-600 shadow-sm">
-                        <CurrencyDollarIcon className="w-8 h-8" />
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 16 16" width="32" height="32">
+                            <path d="M4 3.06h2.726c1.22 0 2.12.575 2.325 1.724H4v1.051h5.051C8.855 7.001 8 7.558 6.788 7.558H4v1.317L8.437 14h2.11L6.095 8.884h.855c2.316-.018 3.465-1.476 3.688-3.049H12V4.784h-1.345c-.08-.778-.357-1.335-.793-1.732H12V2H4z"></path>
+                        </svg>
                     </div>
                     <div>
                         <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Financial</p>

@@ -21,6 +21,8 @@ import { getWhatsAppStatus, sendWhatsAppMessage, getWhatsAppLogs, broadcastWhats
 import { getTemplates as getEmailTemplates, createTemplate as createEmailTemplate, updateTemplate as updateEmailTemplate, deleteTemplate as deleteEmailTemplate, getTemplateById as getEmailTemplateById } from '../controllers/email-template.controller.js';
 import { getTemplates as getWhatsAppTemplates, createTemplate as createWhatsAppTemplate, updateTemplate as updateWhatsAppTemplate, deleteTemplate as deleteWhatsAppTemplate, getTemplateById as getWhatsAppTemplateById } from '../controllers/whatsapp-template.controller.js';
 import { getAdminMentorships, toggleMentorApproval, exportMentorshipReport, getAdminMentorshipRequests, getAdminMentorshipRequestById, getAdminMentors, adminMatchMentorship, getAdminMentorProfiles, getMentorshipById, updateMentorshipStatus, notifyMentorshipRelation, updateMentorshipMentor, deleteMentorshipRelation, updateMentorshipDetails } from '../controllers/mentorship.controller.js';
+import { getAdminCollabs, updateCollabStatus } from '../controllers/collab.controller.js';
+import { getAdminIdeas, updateIdeaStatus, getIdeaMatches, deleteIdea } from '../controllers/incubator.controller.js';
 import { validate } from '../middleware/validate.js';
 import { 
     createEmailTemplateSchema, updateEmailTemplateSchema,
@@ -40,7 +42,19 @@ import {
     getAdminResourceCategories, createAdminResourceCategory, 
     updateAdminResourceCategory, deleteAdminResourceCategory 
 } from '../controllers/resource-category.controller.js';
+import {
+    getAdminLogs,
+    approveLog,
+    addImpactNote,
+    getRecipients,
+    createRecipient,
+    updateRecipient,
+    deleteLog,
+    archiveLog
+} from '../controllers/stewardship.controller.js';
+
 import multer from 'multer';
+
 
 const router = Router();
 const storage = multer.diskStorage({
@@ -120,14 +134,17 @@ router.delete('/email-templates/:id', deleteEmailTemplate);
 
 // WhatsApp Templates
 router.get('/whatsapp-templates', getWhatsAppTemplates);
-router.post('/whatsapp-templates', validate(createWhatsAppTemplateSchema), createWhatsAppTemplate);
+router.post('/whatsapp-templates', upload.single('image'), validate(createWhatsAppTemplateSchema), createWhatsAppTemplate);
 router.get('/whatsapp-templates/:id', getWhatsAppTemplateById);
-router.put('/whatsapp-templates/:id', validate(updateWhatsAppTemplateSchema), updateWhatsAppTemplate);
+router.put('/whatsapp-templates/:id', upload.single('image'), validate(updateWhatsAppTemplateSchema), updateWhatsAppTemplate);
 router.delete('/whatsapp-templates/:id', deleteWhatsAppTemplate);
 
 // Meetings
 router.get('/meetings', getMeetings);
-router.post('/meetings', upload.single('payment_qr_image'), validate(createMeetingSchema), createMeeting);
+router.post('/meetings', upload.fields([
+    { name: 'payment_qr_image', maxCount: 1 },
+    { name: 'poster_image', maxCount: 1 }
+]), validate(createMeetingSchema), createMeeting);
 router.post('/meetings/archive', archiveMeeting);
 router.delete('/meetings', deleteMeeting);
 router.get('/meetings/:id/responses', getMeetingResponses);
@@ -150,7 +167,7 @@ router.delete('/pages/:id', deletePage);
 router.get('/whatsapp/status', getWhatsAppStatus);
 router.post('/whatsapp/send', sendWhatsAppMessage);
 router.get('/whatsapp/logs/:memberId', getWhatsAppLogs);
-router.post('/whatsapp/broadcast', broadcastWhatsApp);
+router.post('/whatsapp/broadcast', upload.single('image'), broadcastWhatsApp);
 router.post('/whatsapp/meeting-alert', sendMeetingAlert);
 router.post('/whatsapp/refresh', refreshWhatsApp);
 router.post('/whatsapp/restart', restartWhatsApp);
@@ -175,9 +192,31 @@ router.put('/mentorship/relations/:id/details', updateMentorshipDetails);
 router.post('/mentorship/relations/:id/notify', notifyMentorshipRelation);
 router.delete('/mentorship/relations/:id', deleteMentorshipRelation);
 
+// Collabs
+router.get('/collabs', getAdminCollabs);
+router.put('/collabs/:id/status', updateCollabStatus);
+
+// Incubator
+router.get('/incubator', getAdminIdeas);
+router.put('/incubator/:id/status', updateIdeaStatus);
+router.delete('/incubator/:id', deleteIdea);
+router.get('/incubator/:id/matches', getIdeaMatches);
+
+// Stewardship
+router.get('/stewardship/pending', getAdminLogs);
+router.put('/stewardship/logs/:id/verify', approveLog);
+router.post('/stewardship/logs/:id/impact', addImpactNote);
+router.delete('/stewardship/logs/:id', deleteLog);
+router.put('/stewardship/logs/:id/archive', archiveLog);
+router.get('/stewardship/recipients', getRecipients);
+router.post('/stewardship/recipients', createRecipient);
+router.put('/stewardship/recipients/:id', updateRecipient);
+
+
 // City Management (Super Admin)
 router.get('/cities', superAdminMiddleware, getCities);
 router.post('/cities', superAdminMiddleware, createCity);
 router.put('/cities', superAdminMiddleware, updateCity);
 
 export default router;
+

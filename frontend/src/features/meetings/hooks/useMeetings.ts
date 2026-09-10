@@ -32,6 +32,10 @@ export const useMeetings = () => {
         }
     });
 
+    const rsvp = async (meetingId: number, status: string) => {
+        return rsvpMutation.mutateAsync({ meetingId, status });
+    };
+
     return {
         upcoming: (upcomingQuery.data as Meeting[]) || [],
         past: (pastQuery.data as Meeting[]) || [],
@@ -40,7 +44,7 @@ export const useMeetings = () => {
         refetch: async () => {
             await Promise.all([upcomingQuery.refetch(), pastQuery.refetch()]);
         },
-        rsvp: (meetingId: number, status: string) => rsvpMutation.mutateAsync({ meetingId, status }),
+        rsvp,
         checkIn: (meetingId: number) => checkInMutation.mutateAsync(meetingId),
         isRsvping: rsvpMutation.isPending,
         isCheckingIn: checkInMutation.isPending

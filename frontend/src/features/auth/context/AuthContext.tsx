@@ -11,6 +11,7 @@ interface AuthContextType {
     verifyOtp: (identifier: string, otp: string, rememberMe: boolean) => Promise<{ success: boolean; message?: string }>;
     logout: () => void;
     checkAuth: () => Promise<void>;
+    loginWithToken: (token: string) => Promise<{ success: boolean; user?: User; message?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -20,6 +21,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [loading, setLoading] = useState(true);
 
     const checkAuth = async () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const authToken = urlParams.get('auth_token');
+
+        if (authToken) {
+            try {
+                const { user: tokenUser } = await authApi.tokenLogin(authToken);
+                if (tokenUser) {
+                    const userString = JSON.stringify(tokenUser);
+                    localStorage.setItem('token', authToken);
+                    localStorage.setItem('user', userString);
+                    sessionStorage.setItem('token', authToken);
+                    sessionStorage.setItem('user', userString);
+                    setUser(tokenUser);
+                    setLoading(false);
+                    return;
+                }
+            } catch (err) {
+                console.error("Token login failed during checkAuth:", err);
+            }
+        }
+
         const storedUser = localStorage.getItem('user') || sessionStorage.getItem('user');
         if (storedUser) {
             try {
@@ -35,6 +57,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     useEffect(() => {
         checkAuth();
     }, []);
+
+    const loginWithToken = async (token: string) => {
+        try {
+            const { user } = await authApi.tokenLogin(token);
+            const userString = JSON.stringify(user);
+            localStorage.setItem('token', token);
+            localStorage.setItem('user', userString);
+            sessionStorage.setItem('token', token);
+            sessionStorage.setItem('user', userString);
+            setUser(user);
+            return { success: true, user };
+        } catch (error: any) {
+            console.error('Auto-login with token failed:', error);
+            return {
+                success: false,
+                message: error.response?.data?.message || 'Token login failed'
+            };
+        }
+    };
 
     const login = async (credentials: LoginCredentials) => {
         try {
@@ -99,7 +140,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     return (
-        <AuthContext.Provider value={{ user, loading, login, sendOtp, verifyOtp, logout, checkAuth }}>
+        <AuthContext.Provider value={{ user, loading, login, sendOtp, verifyOtp, logout, checkAuth, loginWithToken }}>
             <ThemeHandler config={user?.city?.theme_config} />
             {children}
         </AuthContext.Provider>

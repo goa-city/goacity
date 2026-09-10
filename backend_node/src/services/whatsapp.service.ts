@@ -1,6 +1,8 @@
 import pkg from 'whatsapp-web.js';
-const { Client, LocalAuth } = pkg;
+const { Client, LocalAuth, MessageMedia } = pkg;
 import qrcode from 'qrcode-terminal';
+import fs from 'fs';
+import path from 'path';
 import prisma from '../lib/prisma.js';
 
 export class WhatsAppService {
@@ -363,7 +365,7 @@ export class WhatsAppService {
     /**
      * Send a single message with retry logic for "detached frame" errors
      */
-    public async sendMessage(to: string, content: string, memberId?: number, retryCount = 0, broadcastId?: number): Promise<any> {
+    public async sendMessage(to: string, content: string, memberId?: number, retryCount = 0, broadcastId?: number, mediaPath?: string): Promise<any> {
         try {
             // 1. Clean the number
             let cleanTo = to.replace(/\D/g, '');
@@ -392,8 +394,19 @@ export class WhatsAppService {
                 formattedTo = numberId._serialized;
             }
 
-            // 4. Send
-            const response = await this.client.sendMessage(formattedTo, content);
+            // 4. Send (with media if mediaPath is provided)
+            let response: any;
+            if (mediaPath && fs.existsSync(mediaPath)) {
+                try {
+                    const media = MessageMedia.fromFilePath(path.resolve(mediaPath));
+                    response = await this.client.sendMessage(formattedTo, media, { caption: content });
+                } catch (mediaErr) {
+                    console.error('[WhatsApp] Failed to attach media, falling back to text only:', mediaErr);
+                    response = await this.client.sendMessage(formattedTo, content);
+                }
+            } else {
+                response = await this.client.sendMessage(formattedTo, content);
+            }
             
             // 5. Save the resolved ID back to the member record for next time
             if (memberId && formattedTo) {
@@ -448,7 +461,7 @@ export class WhatsAppService {
                     console.error('[WhatsApp] Recovery failed:', recoveryErr);
                 }
                 
-                return this.sendMessage(to, content, memberId, retryCount + 1, broadcastId);
+                return this.sendMessage(to, content, memberId, retryCount + 1, broadcastId, mediaPath);
             }
             
             throw error;
@@ -458,8 +471,14 @@ export class WhatsAppService {
     /**
      * Bulk message sender with randomized delays
      */
-    public async sendBulk(messages: { to: string; content: string; memberId?: number }[], broadcastName?: string, existingBroadcastId?: number) {
-        console.log(`[WhatsApp] Starting bulk send to ${messages.length} contacts (Retry: ${!!existingBroadcastId})...`);
+    public async sendBulk(
+        messages: { to: string; content: string; memberId?: number }[], 
+        broadcastName?: string, 
+        existingBroadcastId?: number,
+        imagePath?: string,
+        imageUrl?: string
+    ) {
+        console.log(`[WhatsApp] Starting bulk send to ${messages.length} contacts (Retry: ${!!existingBroadcastId}, HasImage: ${!!imagePath})...`);
         
         let broadcast: any;
 
@@ -467,6 +486,14 @@ export class WhatsAppService {
             broadcast = await prisma.whatsAppBroadcast.findUnique({ where: { id: existingBroadcastId } });
             if (!broadcast) throw new Error('Broadcast not found');
             
+            // If retry didn't pass imagePath directly, check if broadcast had one
+            if (!imagePath && broadcast.image_url) {
+                const relativePath = broadcast.image_url.startsWith('/') ? broadcast.image_url.slice(1) : broadcast.image_url;
+                if (fs.existsSync(relativePath)) {
+                    imagePath = relativePath;
+                }
+            }
+
             await prisma.whatsAppBroadcast.update({
                 where: { id: existingBroadcastId },
                 data: { status: 'ONGOING', updated_at: new Date() }
@@ -476,6 +503,7 @@ export class WhatsAppService {
                 data: {
                     name: broadcastName || 'Unnamed Broadcast',
                     content: messages[0]?.content || '',
+                    image_url: imageUrl || null,
                     total_count: messages.length,
                     status: 'ONGOING',
                     city_id: this.cityId
@@ -520,8 +548,8 @@ export class WhatsAppService {
                     }
                 }
 
-                // 3. Send message (sendMessage will use the whatsapp_id from DB internally)
-                await this.sendMessage(msg.to, personalizedContent, currentMemberId, 0, broadcast.id);
+                // 3. Send message (sendMessage will use the whatsapp_id from DB internally, and media if present)
+                await this.sendMessage(msg.to, personalizedContent, currentMemberId, 0, broadcast.id, imagePath);
                 sentCount++;
                 
                 // Update progress in DB every message

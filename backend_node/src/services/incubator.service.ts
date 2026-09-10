@@ -37,7 +37,19 @@ export class IncubatorService {
         return prisma.incubatorIdea.findMany({
             include: {
                 founder: true,
-                feedbacks: true
+                feedbacks: {
+                    include: {
+                        contributor: {
+                            select: {
+                                id: true,
+                                first_name: true,
+                                last_name: true,
+                                profile_photo: true
+                            }
+                        }
+                    },
+                    orderBy: { created_at: 'desc' }
+                }
             },
             orderBy: { created_at: 'desc' }
         });
@@ -54,10 +66,45 @@ export class IncubatorService {
         });
     }
 
+    static async getIdeaById(id: string) {
+        return prisma.incubatorIdea.findUnique({
+            where: { id },
+            include: {
+                founder: {
+                    select: {
+                        id: true,
+                        first_name: true,
+                        last_name: true,
+                        profile_photo: true
+                    }
+                },
+                feedbacks: {
+                    include: {
+                        contributor: {
+                            select: {
+                                id: true,
+                                first_name: true,
+                                last_name: true,
+                                profile_photo: true
+                            }
+                        }
+                    },
+                    orderBy: { created_at: 'desc' }
+                }
+            }
+        });
+    }
+
     static async updateStatus(ideaId: string, status: string) {
         return prisma.incubatorIdea.update({
             where: { id: ideaId },
             data: { status }
+        });
+    }
+
+    static async deleteIdea(id: string) {
+        return prisma.incubatorIdea.delete({
+            where: { id }
         });
     }
 }

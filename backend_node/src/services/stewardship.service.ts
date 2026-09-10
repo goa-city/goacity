@@ -126,10 +126,7 @@ export class StewardshipService {
         const whereClause: any = {};
 
         if (filters?.willing_to_mentor) {
-            whereClause.OR = [
-                { willing_to_mentor: true },
-                { is_mentor: true }
-            ];
+            whereClause.is_mentor = true;
             whereClause.mentorProfile = {
                 is_approved: true
             };
@@ -204,4 +201,79 @@ export class StewardshipService {
 
         return results;
     }
+
+    static async getAdminLogs() {
+        const logs = await prisma.stewardshipLog.findMany({
+            include: {
+                user: {
+                    select: {
+                        first_name: true,
+                        last_name: true,
+                        email: true
+                    }
+                }
+            },
+            orderBy: { created_at: 'desc' }
+        });
+
+        const orgs = await prisma.verificationOrg.findMany();
+        const orgMap = new Map(orgs.map(o => [o.id, o.name]));
+
+        return logs.map(log => ({
+            ...log,
+            user_name: `${log.user.first_name} ${log.user.last_name}`.trim(),
+            recipient_name: log.recipient_id ? orgMap.get(log.recipient_id) || 'Unknown Organization' : 'N/A'
+        }));
+    }
+
+    static async getAllRecipients() {
+        return prisma.verificationOrg.findMany({
+            orderBy: { name: 'asc' }
+        });
+    }
+
+    static async createRecipient(name: string, orgType: string) {
+        return prisma.verificationOrg.create({
+            data: {
+                name,
+                org_type: orgType,
+                status: 'Active'
+            }
+        });
+    }
+
+    static async updateRecipientStatus(id: number, status: string) {
+        return prisma.verificationOrg.update({
+            where: { id },
+            data: { status }
+        });
+    }
+
+    static async addImpactNote(id: number, note: string) {
+        return prisma.stewardshipLog.update({
+            where: { id },
+            data: { impact_note: note }
+        });
+    }
+
+    static async deleteLog(logId: number) {
+        return prisma.stewardshipLog.delete({
+            where: { id: logId }
+        });
+    }
+
+    static async toggleArchiveLog(logId: number) {
+        const log = await prisma.stewardshipLog.findUnique({
+            where: { id: logId }
+        });
+        if (!log) throw new AppError('Log not found', 404);
+
+        const newStatus = log.status === 'Archived' ? 'Verified' : 'Archived';
+        return prisma.stewardshipLog.update({
+            where: { id: logId },
+            data: { status: newStatus }
+        });
+    }
 }
+
+

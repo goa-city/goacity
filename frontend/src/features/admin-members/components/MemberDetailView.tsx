@@ -402,10 +402,21 @@ const MemberDetailView: React.FC = () => {
                                                     onClick={() => setOpenResponses(prev => ({ ...prev, [resp.response_id]: !prev[resp.response_id] }))}
                                                     className="w-full flex items-center justify-between p-6 bg-zinc-50/50 dark:bg-zinc-900/50 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
                                                 >
-                                                    <div className="flex flex-col items-start gap-1">
-                                                        <span className="text-sm font-black text-zinc-800 dark:text-white uppercase tracking-tight">{resp.form_title}</span>
-                                                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Submitted {resp.submitted_at}</span>
-                                                    </div>
+                                                     <div className="flex flex-col items-start gap-1">
+                                                         <div className="flex items-center gap-2">
+                                                             <span className="text-sm font-black text-zinc-800 dark:text-white uppercase tracking-tight">{resp.form_title}</span>
+                                                             <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded border ${
+                                                                 resp.status === 'draft'
+                                                                     ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                                                                     : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                                                             }`}>
+                                                                 {resp.status}
+                                                             </span>
+                                                         </div>
+                                                         <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+                                                             {resp.status === 'draft' ? 'In Progress / Partial' : `Submitted ${resp.submitted_at}`}
+                                                         </span>
+                                                     </div>
                                                     <div className="flex items-center gap-4">
                                                         {openResponses[resp.response_id] ? <ChevronUpIcon className="w-4 h-4 text-zinc-400" /> : <ChevronDownIcon className="w-4 h-4 text-zinc-400" />}
                                                     </div>

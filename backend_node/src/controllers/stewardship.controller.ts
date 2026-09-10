@@ -74,3 +74,75 @@ export const getMemberDirectory = async (req: Request, res: Response, next: Next
         next(error);
     }
 };
+
+export const getAdminLogs = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const result = await StewardshipService.getAdminLogs();
+        res.json(result);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const addImpactNote = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        const { note } = req.body;
+        const result = await StewardshipService.addImpactNote(Number(id), note);
+        res.json({ success: true, data: result });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getRecipients = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const result = await StewardshipService.getAllRecipients();
+        res.json(result);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const createRecipient = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { name, type } = req.body;
+        const result = await StewardshipService.createRecipient(name, type);
+        res.json({ success: true, data: result });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const updateRecipient = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+        const result = await StewardshipService.updateRecipientStatus(Number(id), status);
+        res.json({ success: true, data: result });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const deleteLog = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        await StewardshipService.deleteLog(Number(id));
+        res.json({ success: true });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const archiveLog = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        const result = await StewardshipService.toggleArchiveLog(Number(id));
+        res.json({ success: true, data: result });
+    } catch (error) {
+        next(error);
+    }
+};
+
+

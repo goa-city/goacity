@@ -32,8 +32,18 @@ The platform is divided into two major sections:
     - **Stream Management**: Define streams and access levels.
     - **Dynamic Form Builder**: DRAG-and-drop style creator for onboarding and survey forms.
 - **Moderation**: Full oversight of Jobs, Resources, News, and Incubator submissions.
+### Content & Event Moderation
 - **Event Management**: Create meetings, manage attendance, and configure payment QR codes.
 - **Custom Pages**: Integrated editor (WYSIWYG) for managing legal pages like Terms & Conditions and Credits.
+
+---
+
+## 📚 Documentation & Strategic Vision
+
+Comprehensive technical and strategic documentation is maintained in the [`Docs/`](file:///Users/stevensdumpala/Imagefile/goa.city/Docs) directory:
+- **[Documentation Index](file:///Users/stevensdumpala/Imagefile/goa.city/Docs/INDEX.md)**: Full catalog of all specifications and guidelines.
+- **[MP Vision Alignment & Development Plan](file:///Users/stevensdumpala/Imagefile/goa.city/Docs/mp_vision_alignment_and_development_plan.md)**: Marketplace Core Team vision, Theory of Change, and platform alignment.
+- **[Strategic Research & Module Roadmap](file:///Users/stevensdumpala/Imagefile/goa.city/Docs/goa_city_strategic_research_and_roadmap.md)**: Benchmarking against Gloo, Servant.io, Westfall Gold, and Masterworks.
 
 ---
 

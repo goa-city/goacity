@@ -6,9 +6,9 @@ This document outlines the architecture, flow, and implementation standards for 
 The Meeting feature manages event scheduling, member RSVPs, and attendance (check-in). It supports both free and paid meetings, with integrated payment status tracking.
 
 ## 2. Core Components
-- **MeetingCard**: Reusable summary card used in lists.
-- **SingleMeetingView**: Detailed dashboard for a specific meeting, showing resources and recaps.
-- **SidebarRight**: Global sidebar showing upcoming meetings for today and future dates.
+- **MeetingCard**: Reusable summary card used in lists (displays left-aligned poster invite thumbnail when uploaded).
+- **SingleMeetingView**: Detailed dashboard for a specific meeting, showing resources, recaps, and full poster invite card with modal zoom.
+- **SidebarRight**: Global sidebar showing upcoming meetings for today and future dates (posters intentionally omitted to preserve compact layout).
 - **CheckInModal**: Shared component that handles the check-in flow (including payments).
 
 ## 3. The Check-in Protocol
@@ -54,13 +54,20 @@ Admins manage meetings via the Admin Panel:
 - **Paid Toggle**: Enables/disables the payment flow.
 - **Conditional Payments**: In the "Member Actions" table, payment-related columns (Status, Amount) are automatically hidden if the meeting is free to reduce clutter.
 - **QR Code**: Uploaded as a standard image file, served via `/uploads/`. The backend must provide a calculated `payment_qr_image_url` field in all meeting responses to simplify frontend rendering.
+- **Meeting Poster Invite**: Uploaded flyer/poster graphic (`poster_image`).
+    - Stored in `/uploads/` and processed into WebP format with high quality (max width 1600px).
+    - Calculated `poster_image_url` field is returned by all meeting API endpoints (`getMeetings`, `getUpcomingMeetings`, `getPastMeetings`, `getMeeting`).
+    - Admin UI supports upload, preview, direct link viewing, replacement, and one-click deletion via `remove_poster_image`.
+    - **Display Scope Rule**: Displayed **only** on the Meetings list page (`MeetingCard.tsx`) and Meeting detail view (`SingleMeetingView.tsx`). It is **strictly excluded** from the Dashboard page and right sidebar (`SidebarRight.tsx`, `DashboardView.tsx`) to keep dashboard cards clean and compact.
+    - **Visual Styling**: Rendered left-aligned (not centered) with clean natural edges (no grey container background), subtle border, and soft elevation. Clicking the thumbnail opens a full-screen lightbox modal with high-res zoom.
 - **Resources**: Files or links accessible to members after check-in (or before, depending on config). Managed via the "Presentation & Resources" card.
 - **Recap**: Rich text notes managed in a dedicated "Meeting Recap" card.
 - **Notifications**: Triggered via a selection modal that allows choosing different templates and previewing content before broadcast.
 - **Layout Priority**: The Admin Meeting Editor follows a prioritized layout order: Header -> Main Form -> Presentation Uploads -> Member Actions -> Recap Content -> Form Submissions.
 
 ## 8. Development Notes
-- **API Consistency**: Always ensure that `payment_qr_image_url` is included in both list and single-item responses to prevent "No QR Code" errors in the frontend modal.
+- **API Consistency**: Always ensure that both `payment_qr_image_url` and `poster_image_url` are included in both list and single-item responses.
+- **Image Optimization**: Sharp image processing converts uploaded poster files to `.webp` with responsive bounds (1600px max width) to preserve flyer typography legibility while maintaining fast load times.
 - **Sync Protocol**: Avoid manual `useEffect` fetching for data that is shared across components (like Sidebar meetings). Use the `useMeetings` hook to participate in the global cache and invalidation flow.
 
 ## 9. Notification System & Shortcodes

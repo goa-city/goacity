@@ -57,6 +57,7 @@ model Member {
   stewardshipLogs     StewardshipLog[]
   streams             StreamMember[]
   whatsappLogs        WhatsAppLog[]
+  short_links         ShortLink[]
   post_likes          post_likes[]
 
   @@unique([city_id, slug])
@@ -85,6 +86,7 @@ model City {
   posts               Post[]
   resources           resources[]
   streams             Stream[]
+  incubatorIdeas      IncubatorIdea[]
   whatsapp_broadcasts WhatsAppBroadcast[]
   whatsapp_logs       WhatsAppLog[]
   whatsapp_sessions   WhatsAppSession[]
@@ -346,6 +348,8 @@ model meetings {
   map_link          String?
   is_paid           Int?                @default(0) @db.SmallInt
   payment_qr_image  String?             @db.VarChar(255)
+  poster_image      String?             @db.VarChar(255)
+  upi_link          String?             @db.VarChar(500)
   feedback_form_id  Int?
   archived          Int?                @default(0) @db.SmallInt
   created_at        DateTime?           @default(now()) @db.Timestamp(6)
@@ -359,6 +363,7 @@ model meetings {
   slug              String?             @db.VarChar(255)
   resources         MeetingResource[]
   meeting_responses meeting_responses[]
+  short_links       ShortLink[]
   city              City?               @relation(fields: [city_id], references: [id])
   stream            Stream?             @relation(fields: [stream_id], references: [id])
 
@@ -586,6 +591,8 @@ model IncubatorIdea {
   needs_json        Json?
   created_at        DateTime?      @default(now()) @db.Timestamp(6)
   updated_at        DateTime?      @default(now()) @db.Timestamp(6)
+  city_id           Int?           @default(1)
+  city              City?          @relation(fields: [city_id], references: [id])
   feedbacks         IdeaFeedback[]
   founder           Member         @relation(fields: [founder_id], references: [id], onDelete: Cascade)
 
@@ -691,6 +698,7 @@ model WhatsAppBroadcast {
   city_id     Int?          @default(1)
   name        String?       @db.VarChar(255)
   content     String
+  image_url   String?       @db.VarChar(255)
   total_count Int           @default(0)
   sent_count  Int           @default(0)
   status      String        @default("PENDING")
@@ -707,6 +715,7 @@ model WhatsAppTemplate {
   id         Int       @id @default(autoincrement())
   title      String    @unique @db.VarChar(255)
   content    String
+  image_url  String?   @db.VarChar(255)
   created_at DateTime? @default(now()) @db.Timestamp(6)
   updated_at DateTime? @default(now()) @db.Timestamp(6)
   city_id    Int?      @default(1)
@@ -733,4 +742,23 @@ model ResourceCategory {
   updated_at DateTime? @default(now()) @db.Timestamp(6)
 
   @@map("resource_categories")
+}
+
+model ShortLink {
+  id              Int       @id @default(autoincrement())
+  code            String    @unique @db.VarChar(32)
+  target_url      String
+  link_type       String?   @default("rsvp") @db.VarChar(50)
+  meeting_id      Int?
+  member_id       Int?
+  action_status   String?   @db.VarChar(50)
+  clicks_count    Int?      @default(0)
+  last_clicked_at DateTime? @db.Timestamp(6)
+  created_at      DateTime? @default(now()) @db.Timestamp(6)
+  meeting         meetings? @relation(fields: [meeting_id], references: [id], onDelete: Cascade)
+  member          Member?   @relation(fields: [member_id], references: [id], onDelete: Cascade)
+
+  @@index([code])
+  @@index([meeting_id, member_id, action_status])
+  @@map("short_links")
 }

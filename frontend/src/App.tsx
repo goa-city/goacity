@@ -72,6 +72,7 @@ const AdminMentorship = lazy(() => import('./pages/admin/AdminMentorship'));
 const AdminMentorshipRequestDetail = lazy(() => import('./pages/admin/AdminMentorshipRequestDetail'));
 const AdminMentorshipDetail = lazy(() => import('./pages/admin/AdminMentorshipDetail'));
 const AdminIncubator = lazy(() => import('./pages/admin/AdminIncubator'));
+const AdminIncubatorDetail = lazy(() => import('./pages/admin/AdminIncubatorDetail'));
 const Mentors = lazy(() => import('./pages/Mentors'));
 const MentorshipWorkspace = lazy(() => import('./pages/MentorshipWorkspace'));
 const IncubatorSubmit = lazy(() => import('./pages/IncubatorSubmit'));
@@ -80,6 +81,7 @@ const MyPeople = lazy(() => import('./pages/MyPeople'));
 const PublicProfile = lazy(() => import('./pages/PublicProfile'));
 const AdminCollabs = lazy(() => import('./pages/admin/AdminCollabs'));
 const MeetingView = lazy(() => import('./pages/MeetingView'));
+const IncubatorDetail = lazy(() => import('./pages/IncubatorDetail'));
 const MemberMeetings = lazy(() => import('./pages/MemberMeetings'));
 const MentorshipStart = lazy(() => import('./pages/MentorshipStart'));
 const MenteeRecommendations = lazy(() => import('./pages/MenteeRecommendations'));
@@ -94,7 +96,8 @@ const AdminProtectedRoute = () => {
 
 const MemberProtectedRoute = () => {
     const { user, loading } = useAuth();
-    if (loading) return <LoadingScreen />;
+    const hasAuthToken = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('auth_token');
+    if (loading || (hasAuthToken && !user)) return <LoadingScreen />;
     if (!user) return <Navigate to="/" replace />;
     return <Outlet />;
 };
@@ -164,6 +167,7 @@ const App: React.FC = () => {
                                                 <Route path="/admin/mentorship/requests/:id" element={<AdminMentorshipRequestDetail />} />
                                                 <Route path="/admin/mentorship/relations/:id" element={<AdminMentorshipDetail />} />
                                                 <Route path="/admin/incubator" element={<AdminIncubator />} />
+                                                <Route path="/admin/incubator/:id" element={<AdminIncubatorDetail />} />
                                                 <Route path="/admin/collabs" element={<AdminCollabs />} />
                                                 <Route path="/admin/jobs" element={<AdminJobs />} />
                                                 <Route path="/admin/jobs/:id" element={<AdminJobEditor />} />
@@ -213,6 +217,7 @@ const App: React.FC = () => {
                                         <Route path="/meetings/:slug" element={<MeetingView />} />
                                         <Route path="/incubator/submit" element={<IncubatorSubmit />} />
                                         <Route path="/incubator/explore" element={<IncubatorExplore />} />
+                                        <Route path="/incubator/idea/:id" element={<IncubatorDetail />} />
                                         <Route path="/onboarding" element={<Onboarding />} />
                                         <Route path="/debug-streams" element={<DebugStreams />} />
                                         <Route path="/onboarding/form/:formId" element={<Onboarding />} />

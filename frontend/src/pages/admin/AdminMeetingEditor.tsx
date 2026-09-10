@@ -9,7 +9,7 @@ import {
     CurrencyRupeeIcon, BeakerIcon, SwatchIcon, ClockIcon,
     CloudArrowUpIcon, TrashIcon, DocumentIcon, DocumentTextIcon,
     VideoCameraIcon, EnvelopeIcon, ChevronDownIcon, ChatBubbleLeftRightIcon, EyeIcon, ArrowDownTrayIcon,
-    XMarkIcon
+    XMarkIcon, PhotoIcon, UsersIcon
 } from '@heroicons/react/24/solid';
 import { ArrowLeftIcon as ArrowLeftOutline } from '@heroicons/react/24/outline';
 import { Card } from '../../shared/components/ui/Card';
@@ -23,6 +23,7 @@ const getLocalYYYYMMDD = (dateInput: any) => {
 };
 
 type NotifyType = 'email' | 'whatsapp';
+type TargetAudience = 'all' | 'going' | 'maybe' | 'no' | 'paid' | 'checked_in';
 
 const AdminMeetingEditor: React.FC = () => {
     const { id } = useParams();
@@ -34,6 +35,10 @@ const AdminMeetingEditor: React.FC = () => {
     const [streams, setStreams] = useState<any[]>([]); // For Stream select
     const [qrPreview, setQrPreview] = useState<any>(null); // QR Code Preview
     const [qrFile, setQrFile] = useState<File | null>(null);
+    const [removeQr, setRemoveQr] = useState(false);
+    const [posterPreview, setPosterPreview] = useState<any>(null); // Poster Invite Preview
+    const [posterFile, setPosterFile] = useState<File | null>(null);
+    const [removePoster, setRemovePoster] = useState(false);
     const apiUrl = import.meta.env.VITE_API_URL || '';
     const baseUrl = apiUrl.replace(/\/api\/?$/, '');
     const [saving, setSaving] = useState(false);
@@ -50,6 +55,7 @@ const AdminMeetingEditor: React.FC = () => {
     const [showNotifyModal, setShowNotifyModal] = useState(false);
     const [notifyType, setNotifyType] = useState<'email' | 'whatsapp'>('email');
     const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+    const [targetAudience, setTargetAudience] = useState<TargetAudience>('all');
     const meetingDate = watch('meeting_date');
     const title = watch('title');
     const slug = watch('slug');
@@ -101,6 +107,10 @@ const AdminMeetingEditor: React.FC = () => {
                     });
                     if (data.payment_qr_image_url) setQrPreview(data.payment_qr_image_url);
                     else if (data.payment_qr_image) setQrPreview(`${baseUrl}/uploads/${data.payment_qr_image}`);
+
+                    if (data.poster_image_url) setPosterPreview(data.poster_image_url);
+                    else if (data.poster_image) setPosterPreview(`${baseUrl}/uploads/${data.poster_image}`);
+
                     setRecapContent(data.recap_content || '');
                     setMeetingResources(data.resources || []);
                     setMeetingActions(data.meeting_responses || []);
@@ -122,7 +132,7 @@ const AdminMeetingEditor: React.FC = () => {
             if (isEdit && id) formData.append('id', String(id));
 
             Object.keys(data).forEach(key => {
-                if (key === 'id' || key === 'payment_qr_image_url' || key === 'resources' || key === 'description' || key === 'recap_content' || key === 'payment_qr_image') return;
+                if (key === 'id' || key === 'payment_qr_image_url' || key === 'poster_image_url' || key === 'resources' || key === 'description' || key === 'recap_content' || key === 'payment_qr_image' || key === 'poster_image') return;
 
                 const value = data[key];
 
@@ -145,6 +155,15 @@ const AdminMeetingEditor: React.FC = () => {
             // Append QR Code if newly uploaded
             if (qrFile) {
                 formData.append('payment_qr_image', qrFile);
+            } else if (removeQr) {
+                formData.append('remove_payment_qr', '1');
+            }
+
+            // Append Poster Invite if newly uploaded or deleted
+            if (posterFile) {
+                formData.append('poster_image', posterFile);
+            } else if (removePoster) {
+                formData.append('remove_poster_image', '1');
             }
 
             formData.append('recap_content', recapContent);
@@ -156,9 +175,9 @@ const AdminMeetingEditor: React.FC = () => {
             if (!isEdit && res.data.id) {
                 setTimeout(() => navigate(`/admin/meetings/${res.data.id}`, { replace: true }), 1000);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Save failed", error);
-            showToast("Failed to save meeting.");
+            showToast(error.response?.data?.message || "Failed to save meeting.");
         } finally {
             setSaving(false);
         }
@@ -166,7 +185,7 @@ const AdminMeetingEditor: React.FC = () => {
 
     const handleResourceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (!file) return;
+        if (!file || !id) return;
 
         setUploadingResource(true);
         try {
@@ -190,21 +209,46 @@ const AdminMeetingEditor: React.FC = () => {
     };
 
     const handleNotify = (type: NotifyType) => {
+        const currentStreamId = watch('stream_id');
+        if (!currentStreamId) {
+            showToast("Meeting Stream is required before sending notifications. Please select and save a stream.");
+            return;
+        }
         setNotifyType(type);
         setSelectedTemplateId(type === 'email' ? '2' : '1');
+        setTargetAudience('all');
         setShowNotifyModal(true);
     };
 
     const executeNotify = async () => {
-        if (!window.confirm(`Send ${notifyType} notification using the selected template?`)) return;
+        const currentStreamId = watch('stream_id');
+        if (!currentStreamId) {
+            showToast("Meeting Stream is required before sending notifications.");
+            return;
+        }
+
+        const audienceLabels: Record<TargetAudience, string> = {
+            all: 'Everyone in stream',
+            going: 'Said Going',
+            maybe: 'Said Maybe',
+            no: 'Said No',
+            paid: 'Paid',
+            checked_in: 'Checked In'
+        };
+
+        if (!window.confirm(`Send ${notifyType.toUpperCase()} notification to [${audienceLabels[targetAudience]}] using the selected template?`)) return;
         setNotifying(true);
         setShowNotifyModal(false);
         try {
-            await api.post(`/admin/meetings/${id}/notify`, { type: notifyType, templateId: selectedTemplateId });
-            showToast("Notifications sent successfully!");
-        } catch (e) {
+            const res = await api.post(`/admin/meetings/${id}/notify`, { 
+                type: notifyType, 
+                templateId: selectedTemplateId,
+                targetAudience 
+            });
+            showToast(res.data?.message || "Notifications sent successfully!");
+        } catch (e: any) {
             console.error(e);
-            showToast("Failed to send notifications.");
+            showToast(e.response?.data?.message || "Failed to send notifications.");
         } finally {
             setNotifying(false);
         }
@@ -363,14 +407,20 @@ const AdminMeetingEditor: React.FC = () => {
                         </div>
 
                         <div>
-                            <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Stream</label>
+                            <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">
+                                Stream <span className="text-red-500">*</span>
+                            </label>
                             <div className="relative">
                                 <SwatchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400 pointer-events-none" />
-                                <select {...register('stream_id')} className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 pl-12 h-14 font-medium appearance-none">
-                                    <option value="">-- No Stream Linked --</option>
+                                <select 
+                                    {...register('stream_id', { required: "Stream is required" })} 
+                                    className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 pl-12 h-14 font-medium appearance-none"
+                                >
+                                    <option value="">-- Select Stream (Required) --</option>
                                     {streams.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                 </select>
                             </div>
+                            {errors.stream_id && <p className="mt-1 text-[10px] font-black tracking-widest uppercase text-red-500">Stream is required</p>}
                         </div>
 
                         <div>
@@ -400,62 +450,143 @@ const AdminMeetingEditor: React.FC = () => {
                     </div>
 
                     {isPaid && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-sky-50/30 dark:bg-sky-950/20 rounded-xl border border-sky-100 dark:border-sky-900/50">
-                            <div>
-                                <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Payment Amount (INR)</label>
-                                <input {...register('payment_amount')} type="number" step="0.01" className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-4 font-medium" placeholder="0.00" />
+                        <div className="space-y-6 p-4 bg-sky-50/30 dark:bg-sky-950/20 rounded-xl border border-sky-100 dark:border-sky-900/50">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Payment Amount (INR)</label>
+                                    <input {...register('payment_amount')} type="number" step="0.01" className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-4 font-medium" placeholder="0.00" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Payment QR Code</label>
+                                    {qrPreview ? (
+                                        <div className="relative group/qr w-32 h-32 bg-white rounded-xl border border-zinc-200 shadow-sm overflow-hidden mb-3">
+                                            <img src={qrPreview} alt="QR Preview" className="w-full h-full object-contain" />
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/qr:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setQrPreview(null);
+                                                        setQrFile(null);
+                                                        setValue('payment_qr_image', null);
+                                                    }}
+                                                    className="p-1.5 bg-white text-red-600 rounded-lg hover:scale-110 transition-transform shadow-lg"
+                                                    title="Delete QR"
+                                                >
+                                                    <TrashIcon className="w-4 h-4" />
+                                                </button>
+                                                <a
+                                                    href={qrPreview}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="p-1.5 bg-white text-indigo-600 rounded-lg hover:scale-110 transition-transform shadow-lg"
+                                                >
+                                                    <EyeIcon className="w-4 h-4" />
+                                                </a>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="mb-3 p-4 bg-zinc-50 dark:bg-zinc-900/50 border border-dashed border-zinc-300 dark:border-zinc-700 rounded-xl flex flex-col items-center justify-center">
+                                            <CloudArrowUpIcon className="w-6 h-6 text-zinc-300 mb-1" />
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400">No Image</p>
+                                        </div>
+                                    )}
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) {
+                                                setQrFile(file);
+                                                const reader = new FileReader();
+                                                reader.onloadend = () => setQrPreview(reader.result);
+                                                reader.readAsDataURL(file);
+                                            }
+                                        }}
+                                        className="text-sm text-zinc-500 dark:text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:tracking-widest file:bg-sky-50 file:text-sky-700 dark:file:bg-sky-950/30 dark:file:text-sky-400 hover:file:bg-sky-100 dark:hover:file:bg-sky-900/50"
+                                    />
+                                </div>
+                            </div>
+                            <div className="border-t border-sky-100 dark:border-sky-900/50 pt-4">
+                                <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">UPI Link (Optional)</label>
+                                <input {...register('upi_link')} type="text" className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-4 font-medium" placeholder="e.g. upi://pay?pa=address@upi&pn=Name&am=500" />
+                                <p className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-2">If provided, members will be able to click the QR code to open their UPI app directly.</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Poster Invite Section */}
+                    <div className="p-5 bg-zinc-50 dark:bg-zinc-900/50 rounded-xl border border-zinc-100 dark:border-zinc-800 space-y-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-indigo-50 text-indigo-600 dark:bg-indigo-950/30 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50">
+                                <PhotoIcon className="w-5 h-5" />
                             </div>
                             <div>
-                                <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Payment QR Code</label>
-                                {qrPreview ? (
-                                    <div className="relative group/qr w-32 h-32 bg-white rounded-xl border border-zinc-200 shadow-sm overflow-hidden mb-3">
-                                        <img src={qrPreview} alt="QR Preview" className="w-full h-full object-contain" />
-                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/qr:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setQrPreview(null);
-                                                    setQrFile(null);
-                                                    setValue('payment_qr_image', null);
-                                                }}
-                                                className="p-1.5 bg-white text-red-600 rounded-lg hover:scale-110 transition-transform shadow-lg"
-                                                title="Delete QR"
-                                            >
-                                                <TrashIcon className="w-4 h-4" />
-                                            </button>
-                                            <a
-                                                href={qrPreview}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="p-1.5 bg-white text-indigo-600 rounded-lg hover:scale-110 transition-transform shadow-lg"
-                                            >
-                                                <EyeIcon className="w-4 h-4" />
-                                            </a>
-                                        </div>
+                                <p className="text-sm font-black text-zinc-700 dark:text-zinc-300 uppercase tracking-widest">Meeting Poster Invite</p>
+                                <p className="text-[10px] text-zinc-500 font-medium">Upload a flyer / poster image to display on the meetings page and details</p>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row items-start gap-6 pt-2">
+                            {posterPreview ? (
+                                <div className="relative group/poster w-48 max-h-64 bg-zinc-100 dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-sm overflow-hidden shrink-0">
+                                    <img src={posterPreview} alt="Poster Preview" className="w-full h-auto max-h-64 object-contain" />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/poster:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setPosterPreview(null);
+                                                setPosterFile(null);
+                                                setRemovePoster(true);
+                                                setValue('poster_image', null);
+                                            }}
+                                            className="p-2 bg-white text-red-600 rounded-lg hover:scale-110 transition-transform shadow-lg"
+                                            title="Delete Poster"
+                                        >
+                                            <TrashIcon className="w-4 h-4" />
+                                        </button>
+                                        <a
+                                            href={posterPreview}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="p-2 bg-white text-indigo-600 rounded-lg hover:scale-110 transition-transform shadow-lg"
+                                            title="View Full Size"
+                                        >
+                                            <EyeIcon className="w-4 h-4" />
+                                        </a>
                                     </div>
-                                ) : (
-                                    <div className="mb-3 p-4 bg-zinc-50 dark:bg-zinc-900/50 border border-dashed border-zinc-300 dark:border-zinc-700 rounded-xl flex flex-col items-center justify-center">
-                                        <CloudArrowUpIcon className="w-6 h-6 text-zinc-300 mb-1" />
-                                        <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400">No Image</p>
-                                    </div>
-                                )}
+                                </div>
+                            ) : (
+                                <div className="w-48 h-36 bg-zinc-100 dark:bg-zinc-900/50 border border-dashed border-zinc-300 dark:border-zinc-700 rounded-xl flex flex-col items-center justify-center shrink-0">
+                                    <PhotoIcon className="w-8 h-8 text-zinc-300 mb-1" />
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400">No Poster Uploaded</p>
+                                </div>
+                            )}
+
+                            <div className="flex-1 space-y-2">
+                                <label className="block text-xs font-black uppercase tracking-widest text-zinc-500">
+                                    {posterPreview ? 'Replace Poster Image' : 'Select Poster Image'}
+                                </label>
                                 <input
                                     type="file"
                                     accept="image/*"
                                     onChange={(e) => {
                                         const file = e.target.files?.[0];
                                         if (file) {
-                                            setQrFile(file);
+                                            setPosterFile(file);
+                                            setRemovePoster(false);
                                             const reader = new FileReader();
-                                            reader.onloadend = () => setQrPreview(reader.result);
+                                            reader.onloadend = () => setPosterPreview(reader.result);
                                             reader.readAsDataURL(file);
                                         }
                                     }}
-                                    className="text-sm text-zinc-500 dark:text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:tracking-widest file:bg-sky-50 file:text-sky-700 dark:file:bg-sky-950/30 dark:file:text-sky-400 hover:file:bg-sky-100 dark:hover:file:bg-sky-900/50"
+                                    className="text-sm text-zinc-500 dark:text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:tracking-widest file:bg-indigo-50 file:text-indigo-700 dark:file:bg-indigo-950/30 dark:file:text-indigo-400 hover:file:bg-indigo-100 dark:hover:file:bg-indigo-900/50"
                                 />
+                                <p className="text-[10px] text-zinc-400 dark:text-zinc-500">
+                                    Supports JPG, PNG, WEBP. Will be optimized automatically for fast load times.
+                                </p>
                             </div>
                         </div>
-                    )}
+                    </div>
 
                     <div className="p-4 bg-red-50/30 dark:bg-red-950/20 rounded-xl border border-red-100 dark:border-red-900/50 flex items-center justify-between">
                         <div>
@@ -711,6 +842,81 @@ const AdminMeetingEditor: React.FC = () => {
                         </div>
 
                         <div className="space-y-6">
+                            {/* Target Audience Selector */}
+                            <div>
+                                <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2 flex items-center justify-between">
+                                    <span className="flex items-center gap-1.5">
+                                        <UsersIcon className="w-4 h-4 text-zinc-400" />
+                                        Send To (Recipient Filter)
+                                    </span>
+                                    {targetAudience !== 'all' && (
+                                        <span className="text-[10px] text-zinc-400 font-bold lowercase">
+                                            {meetingActions.filter(a => {
+                                                if (targetAudience === 'going') return a.rsvp_status === 'going';
+                                                if (targetAudience === 'maybe') return a.rsvp_status === 'not_sure';
+                                                if (targetAudience === 'no') return a.rsvp_status === 'cant_go';
+                                                if (targetAudience === 'paid') return ['paid', 'paid_online', 'paid_cash'].includes(a.payment_status) || Number(a.paid_amount) > 0;
+                                                if (targetAudience === 'checked_in') return a.checked_in == 1;
+                                                return true;
+                                            }).length} matching responses recorded
+                                        </span>
+                                    )}
+                                </label>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                    {[
+                                        { id: 'all', label: 'Everyone in Stream', desc: 'All stream members' },
+                                        { id: 'going', label: 'Going', desc: 'RSVP Going' },
+                                        { id: 'maybe', label: 'Maybe', desc: 'RSVP Maybe' },
+                                        { id: 'no', label: 'No', desc: 'RSVP Can\'t Go' },
+                                        { id: 'paid', label: 'Paid', desc: 'Completed Payment' },
+                                        { id: 'checked_in', label: 'Checked In', desc: 'Checked in at venue' },
+                                    ].map((opt) => {
+                                        const isSelected = targetAudience === opt.id;
+                                        const count = opt.id === 'all' 
+                                            ? undefined 
+                                            : meetingActions.filter(a => {
+                                                if (opt.id === 'going') return a.rsvp_status === 'going';
+                                                if (opt.id === 'maybe') return a.rsvp_status === 'not_sure';
+                                                if (opt.id === 'no') return a.rsvp_status === 'cant_go';
+                                                if (opt.id === 'paid') return ['paid', 'paid_online', 'paid_cash'].includes(a.payment_status) || Number(a.paid_amount) > 0;
+                                                if (opt.id === 'checked_in') return a.checked_in == 1;
+                                                return true;
+                                            }).length;
+
+                                        return (
+                                            <button
+                                                key={opt.id}
+                                                type="button"
+                                                onClick={() => setTargetAudience(opt.id as TargetAudience)}
+                                                className={`p-3 rounded-2xl border text-left transition-all relative ${
+                                                    isSelected
+                                                        ? notifyType === 'email'
+                                                            ? 'bg-indigo-50/80 dark:bg-indigo-950/40 border-indigo-500 text-indigo-950 dark:text-indigo-200 ring-2 ring-indigo-500/20'
+                                                            : 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-500 text-emerald-950 dark:text-emerald-200 ring-2 ring-emerald-500/20'
+                                                        : 'bg-zinc-50 dark:bg-zinc-950/50 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-700'
+                                                }`}
+                                            >
+                                                <div className="flex items-center justify-between gap-1 mb-0.5">
+                                                    <span className="font-bold text-xs">{opt.label}</span>
+                                                    {count !== undefined && (
+                                                        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${
+                                                            isSelected 
+                                                                ? notifyType === 'email' 
+                                                                    ? 'bg-indigo-600 text-white' 
+                                                                    : 'bg-emerald-600 text-white' 
+                                                                : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
+                                                        }`}>
+                                                            {count}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <p className="text-[10px] text-zinc-400 dark:text-zinc-500 truncate">{opt.desc}</p>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
                             <div>
                                 <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Available Templates</label>
                                 <div className="relative">

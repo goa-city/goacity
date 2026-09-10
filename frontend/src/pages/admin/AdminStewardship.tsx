@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../api/axios';
-import { SparklesIcon, CheckCircleIcon, XCircleIcon, XMarkIcon, PencilSquareIcon } from '@heroicons/react/24/solid';
+import { SparklesIcon, CheckCircleIcon, XCircleIcon, XMarkIcon, PencilSquareIcon, TrashIcon, ArchiveBoxIcon, ArchiveBoxXMarkIcon } from '@heroicons/react/24/solid';
 import { Card } from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
 
@@ -74,6 +74,31 @@ export default function AdminStewardship(): React.JSX.Element {
         }
     };
 
+    const handleArchiveLog = async (id: number, currentStatus: string) => {
+        const action = currentStatus === 'Archived' ? 'unarchive' : 'archive';
+        if (!window.confirm(`Are you sure you want to ${action} this gift log?`)) return;
+        try {
+            await api.put(`/admin/stewardship/logs/${id}/archive`);
+            showToast(`Log ${action}d successfully`);
+            fetchAdminData();
+        } catch (e) {
+            console.error(e);
+            showToast('Failed to update log status');
+        }
+    };
+
+    const handleDeleteLog = async (id: number) => {
+        if (!window.confirm('Are you sure you want to PERMANENTLY delete this gift log?')) return;
+        try {
+            await api.delete(`/admin/stewardship/logs/${id}`);
+            showToast('Log deleted permanently');
+            fetchAdminData();
+        } catch (e) {
+            console.error(e);
+            showToast('Failed to delete log');
+        }
+    };
+
     const handleAddImpactNote = async (e: React.FormEvent): Promise<void> => {
         e.preventDefault();
         try {
@@ -101,7 +126,7 @@ export default function AdminStewardship(): React.JSX.Element {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+            <div className="flex flex-col gap-8">
                 {/* Pending Logs Moderation */}
                 <Card className="border-zinc-100 dark:border-zinc-800 shadow-xl shadow-zinc-200/50 dark:shadow-none overflow-hidden">
                     <div className="p-6 border-b border-zinc-50 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 flex justify-between items-center">
@@ -119,7 +144,8 @@ export default function AdminStewardship(): React.JSX.Element {
                                     <tr className="border-b border-zinc-50 dark:border-zinc-800">
                                         <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400">Member</th>
                                         <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400">Details</th>
-                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400 text-right">Status / Actions</th>
+                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400">Status</th>
+                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400 text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/50">
@@ -133,26 +159,55 @@ export default function AdminStewardship(): React.JSX.Element {
                                                     {log.type}
                                                 </span>
                                                 <div className="mt-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                                                    {log.type === 'Financial' ? `$${log.amount}` : `${log.hours}h (${log.skill_category})`} - {log.recipient_name}
+                                                    {log.type === 'Financial' ? `₹${log.amount}` : `${log.hours}h (${log.skill_category})`} - {log.recipient_name}
                                                 </div>
+                                            </td>
+                                            <td className="px-8 py-5">
+                                                <span className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-lg border ${
+                                                    log.status === 'Verified' 
+                                                    ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-950/30 dark:border-emerald-900/50' 
+                                                    : log.status === 'Archived'
+                                                    ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700'
+                                                    : 'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-950/30 dark:border-amber-900/50'
+                                                }`}>
+                                                    {log.status}
+                                                </span>
                                             </td>
                                             <td className="px-8 py-5 text-right">
-                                                <div className="flex flex-col items-end gap-2">
-                                                     <span className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-lg border ${log.status === 'Verified' ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-950/30 dark:border-emerald-900/50' : 'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-950/30 dark:border-amber-900/50'}`}>
-                                                         {log.status}
-                                                     </span>
-                                                    <div className="flex gap-2 justify-end mt-2 isolate">
-                                                        <button onClick={() => { setSelectedLogId(log.id); setIsImpactModalOpen(true); }} className="text-[10px] font-black tracking-widest uppercase bg-sky-50 dark:bg-sky-950/30 text-sky-600 dark:text-sky-400 px-3 py-1.5 rounded-lg border border-sky-100 dark:border-sky-900/50 hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors flex items-center gap-1">
-                                                            <PencilSquareIcon className="w-3 h-3" /> Add Impact
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <button 
+                                                        onClick={() => { setSelectedLogId(log.id); setIsImpactModalOpen(true); }} 
+                                                        title="Add Impact" 
+                                                        className="p-2 rounded-xl text-zinc-300 group-hover:text-indigo-600 transition-all hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
+                                                    >
+                                                        <PencilSquareIcon className="w-5 h-5" />
+                                                    </button>
+                                                    {log.status === 'Pending' && (
+                                                        <button 
+                                                            onClick={() => handleApproveLog(log.id)} 
+                                                            title="Approve" 
+                                                            className="p-2 rounded-xl text-zinc-300 group-hover:text-emerald-600 transition-all hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                                                        >
+                                                            <CheckCircleIcon className="w-5 h-5" />
                                                         </button>
-                                                        {log.status === 'Pending' && (
-                                                            <button onClick={() => handleApproveLog(log.id)} className="text-[10px] font-black tracking-widest uppercase bg-emerald-500 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-600 transition-colors flex items-center gap-1">
-                                                                <CheckCircleIcon className="w-3 h-3" /> Approve
-                                                            </button>
-                                                        )}
-                                                    </div>
+                                                    )}
+                                                    <button 
+                                                        onClick={() => handleArchiveLog(log.id, log.status)} 
+                                                        title={log.status === 'Archived' ? "Restore" : "Archive"} 
+                                                        className="p-2 rounded-xl text-zinc-300 group-hover:text-amber-600 transition-all hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                                                    >
+                                                        {log.status === 'Archived' ? <ArchiveBoxXMarkIcon className="w-5 h-5" /> : <ArchiveBoxIcon className="w-5 h-5" />}
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleDeleteLog(log.id)} 
+                                                        title="Delete" 
+                                                        className="p-2 rounded-xl text-zinc-300 group-hover:text-red-600 transition-all hover:bg-red-50 dark:hover:bg-red-950/30"
+                                                    >
+                                                        <TrashIcon className="w-5 h-5" />
+                                                    </button>
                                                 </div>
                                             </td>
+
                                         </tr>
                                     ))}
                                 </tbody>
@@ -178,7 +233,8 @@ export default function AdminStewardship(): React.JSX.Element {
                                     <tr className="border-b border-zinc-50 dark:border-zinc-800">
                                         <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400">Name</th>
                                         <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400">Type</th>
-                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400 text-right">Status / Action</th>
+                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400">Status</th>
+                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400 text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/50">
@@ -190,13 +246,19 @@ export default function AdminStewardship(): React.JSX.Element {
                                             <td className="px-8 py-5">
                                                 <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">{rec.type}</p>
                                             </td>
+                                            <td className="px-8 py-5">
+                                                <span className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-lg border ${rec.status === 'Active' ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-950/30 dark:border-emerald-900/50' : 'bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-950/30 dark:border-rose-900/50'}`}>
+                                                    {rec.status}
+                                                </span>
+                                            </td>
                                             <td className="px-8 py-5 text-right">
-                                                <div className="flex items-center justify-end gap-3">
-                                                    <span className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-lg border ${rec.status === 'Active' ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-950/30 dark:border-emerald-900/50' : 'bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-950/30 dark:border-rose-900/50'}`}>
-                                                        {rec.status}
-                                                    </span>
-                                                    <button onClick={() => handleVerifyRecipient(rec.id, rec.status)} title="Toggle Status" className="p-1 rounded-lg text-zinc-300 hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-950/30 transition-all">
-                                                        {rec.status === 'Active' ? <XCircleIcon className="w-6 h-6 text-rose-500" /> : <CheckCircleIcon className="w-6 h-6 text-emerald-500" />}
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <button 
+                                                        onClick={() => handleVerifyRecipient(rec.id, rec.status)} 
+                                                        title={rec.status === 'Active' ? "Deactivate" : "Activate"}
+                                                        className={`p-2 rounded-xl text-zinc-300 transition-all hover:bg-zinc-50 dark:hover:bg-zinc-900/50 ${rec.status === 'Active' ? 'hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30' : 'hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'}`}
+                                                    >
+                                                        {rec.status === 'Active' ? <XCircleIcon className="w-5 h-5" /> : <CheckCircleIcon className="w-5 h-5" />}
                                                     </button>
                                                 </div>
                                             </td>
@@ -208,6 +270,7 @@ export default function AdminStewardship(): React.JSX.Element {
                     )}
                 </Card>
             </div>
+
 
             {/* Impact Note Modal */}
             {isImpactModalOpen && (

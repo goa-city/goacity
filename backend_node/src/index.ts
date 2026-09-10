@@ -8,6 +8,7 @@ import { errorHandler } from './middleware/error.handler.js';
 import { whatsapp } from './services/whatsapp.service.js';
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 5001;
 
 // Initialize WhatsApp Service

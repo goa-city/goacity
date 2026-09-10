@@ -34,7 +34,20 @@ export const submitFeedback = async (req: Request, res: Response, next: NextFunc
 export const getAdminIdeas = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const result = await IncubatorService.getAdminIdeas();
-        res.json(result);
+        res.json({ success: true, data: result });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getIdeaById = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        const result = await IncubatorService.getIdeaById(id as string);
+        if (!result) {
+            return res.status(404).json({ success: false, message: 'Venture idea not found.' });
+        }
+        res.json({ success: true, data: result });
     } catch (error) {
         next(error);
     }
@@ -54,4 +67,14 @@ export const updateIdeaStatus = async (req: Request, res: Response, next: NextFu
 export const getIdeaMatches = async (req: Request, res: Response, next: NextFunction) => {
     // Logic for matching skills/needs - to be refactored into service
     res.json([]);
+};
+
+export const deleteIdea = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        await IncubatorService.deleteIdea(id as string);
+        res.json({ success: true, message: 'Venture idea deleted successfully.' });
+    } catch (error) {
+        next(error);
+    }
 };

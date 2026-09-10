@@ -38,3 +38,17 @@ export const adminLogin = async (req: Request, res: Response, next: NextFunction
         next(error);
     }
 };
+
+export const tokenLogin = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const token = (req.body && req.body.token) || (req.query && req.query.token as string);
+        const result = await AuthService.tokenLogin(token);
+        return res.json({
+            success: true,
+            message: 'Auto-login successful',
+            ...result
+        });
+    } catch (error) {
+        next(error);
+    }
+};

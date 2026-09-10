@@ -1,14 +1,16 @@
 import React from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useSingleMeeting } from '../hooks/useSingleMeeting';
+import { useAuth } from '../../auth/context/AuthContext';
 import DashboardLayout from '../../../layouts/DashboardLayout';
-import { DocumentTextIcon, LinkIcon, VideoCameraIcon } from '@heroicons/react/24/outline';
-import { CheckCircleIcon, QuestionMarkCircleIcon, XCircleIcon } from '@heroicons/react/24/solid';
+import { DocumentTextIcon, LinkIcon, VideoCameraIcon, PhotoIcon } from '@heroicons/react/24/outline';
+import { CheckCircleIcon, QuestionMarkCircleIcon, XCircleIcon, ArrowTopRightOnSquareIcon, XMarkIcon } from '@heroicons/react/24/solid';
 import { formatDate } from '../../../utils/date';
 import api from '../../../api/axios';
 import { Card, CardContent } from '../../../shared/components/ui/Card';
 import Button from '../../../shared/components/ui/Button';
 import CheckInModal from './CheckInModal';
+import RsvpConfirmationModal from './RsvpConfirmationModal';
 
 const getLocalYYYYMMDD = (dateInput: string | Date) => {
     const d = new Date(dateInput);
@@ -18,15 +20,52 @@ const getLocalYYYYMMDD = (dateInput: string | Date) => {
 
 const SingleMeetingView: React.FC = () => {
     const { slug } = useParams<{ slug: string }>();
+    const [searchParams] = useSearchParams();
+    const { user, loginWithToken } = useAuth();
     const { meeting, isLoading, refetch, rsvp, isRsvping } = useSingleMeeting(slug);
+    const [showPosterModal, setShowPosterModal] = React.useState(false);
     const [showCheckIn, setShowCheckIn] = React.useState(false);
+    const [toast, setToast] = React.useState<string | null>(null);
+    const [rsvpModalStatus, setRsvpModalStatus] = React.useState<string | null>(null);
+
+    React.useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const authToken = searchParams.get('auth_token') || urlParams.get('auth_token');
+        const recordedStatus = searchParams.get('rsvp_recorded') || urlParams.get('rsvp_recorded');
+
+        if (authToken) {
+            loginWithToken(authToken).then((res) => {
+                if (res.success) {
+                    refetch();
+                }
+            });
+        }
+
+        if (recordedStatus) {
+            setRsvpModalStatus(recordedStatus);
+            refetch();
+        }
+
+        if (authToken || recordedStatus) {
+            const cleanUrl = window.location.pathname;
+            window.history.replaceState({}, '', cleanUrl);
+        }
+    }, []);
+
+    const handleRsvpClick = async (status: string) => {
+        try {
+            await rsvp(status);
+            setRsvpModalStatus(status);
+        } catch (err) {
+            console.error('RSVP failed:', err);
+        }
+    };
 
     const isDev = import.meta.env.MODE === 'development' || window.location.hostname === 'localhost';
     const isPast = meeting ? getLocalYYYYMMDD(meeting.meeting_date) < getLocalYYYYMMDD(new Date()) : false;
 
     const handleDevTest = async () => {
         if (!meeting) return;
-        // In a real refactor, we might want to move this to a mutation
         alert("ACCESS GRANTED — Resources now visible\nADMIN CHECK — Verify submission appears in /admin/meetings/" + meeting.id);
         try {
             if (meeting.feedback_form_id) {
@@ -65,14 +104,20 @@ const SingleMeetingView: React.FC = () => {
     }
     return (
         <DashboardLayout>
+            {toast && (
+                <div className="fixed bottom-10 right-10 bg-emerald-700 text-white px-6 py-4 rounded-2xl shadow-2xl z-[100] font-black uppercase text-xs tracking-wider flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4">
+                    <CheckCircleIcon className="w-5 h-5" />
+                    <span>{toast}</span>
+                </div>
+            )}
             <div className="mb-12">
                 {/* Header */}
-                <div className="flex flex-col md:flex-row justify-between items-start gap-8 mb-12">
+                <div className="flex flex-col items-start gap-4 mb-8">
                     <div>
                         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-[9px] font-black uppercase tracking-widest mb-4">
                             Meeting Dashboard
                         </div>
-                        <h1 className="text-5xl font-black text-zinc-900 dark:text-white tracking-tighter">{meeting.title}</h1>
+                        <h1 className="text-4xl sm:text-5xl font-black text-zinc-900 dark:text-white tracking-tighter">{meeting.title}</h1>
                         <p className="text-zinc-500 dark:text-zinc-400 font-bold text-xs italic flex flex-wrap items-center gap-2 mt-3 uppercase tracking-wide">
                             {formatDate(meeting.meeting_date)}
                             <span className="opacity-30">|</span>
@@ -87,34 +132,35 @@ const SingleMeetingView: React.FC = () => {
                         </p>
                     </div>
 
-                    <div className="pt-2">
+                    {/* RSVP Buttons directly below the meeting date and time row */}
+                    <div className="pt-2 flex flex-wrap items-center gap-3 w-full">
                         {new Date(meeting.meeting_date).toDateString() === new Date().toDateString() && !meeting.checked_in ? (
                             <Button onClick={() => setShowCheckIn(true)} className="shadow-xl shadow-indigo-600/20 px-8">
                                 Check In Now
                             </Button>
                         ) : (
                             !isPast && !meeting.checked_in && (
-                                <div className="flex gap-2">
+                                <div className="flex flex-wrap gap-2.5">
                                     <button
-                                        onClick={() => rsvp('going')}
+                                        onClick={() => handleRsvpClick('going')}
                                         disabled={isRsvping}
-                                        className={`flex items-center gap-2 px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'going' ? 'bg-emerald-600 text-white shadow-xl shadow-emerald-600/20' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}
+                                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'going' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-900/50'}`}
                                     >
                                         <CheckCircleIcon className="w-4 h-4" />
                                         {isRsvping && meeting.my_rsvp === 'going' ? '...' : 'Going'}
                                     </button>
                                     <button
-                                        onClick={() => rsvp('not_sure')}
+                                        onClick={() => handleRsvpClick('not_sure')}
                                         disabled={isRsvping}
-                                        className={`flex items-center gap-2 px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'not_sure' ? 'bg-orange-500 text-white shadow-xl shadow-orange-500/20' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}
+                                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'not_sure' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'bg-orange-100 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 hover:bg-orange-200 dark:hover:bg-orange-900/50'}`}
                                     >
                                         <QuestionMarkCircleIcon className="w-4 h-4" />
                                         {isRsvping && meeting.my_rsvp === 'not_sure' ? '...' : 'Maybe'}
                                     </button>
                                     <button
-                                        onClick={() => rsvp('cant_go')}
+                                        onClick={() => handleRsvpClick('cant_go')}
                                         disabled={isRsvping}
-                                        className={`flex items-center gap-2 px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'cant_go' ? 'bg-zinc-900 dark:bg-black text-white shadow-xl shadow-zinc-900/20' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}
+                                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${meeting.my_rsvp === 'cant_go' ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/20' : 'bg-rose-100 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-900/50'}`}
                                     >
                                         <XCircleIcon className="w-4 h-4" />
                                         {isRsvping && meeting.my_rsvp === 'cant_go' ? '...' : 'No'}
@@ -123,18 +169,46 @@ const SingleMeetingView: React.FC = () => {
                             )
                         )}
                         {meeting.checked_in == 1 && (
-                            <div className="flex flex-col items-end gap-2">
+                            <div className="flex flex-col items-start gap-1">
                                 <div className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 px-6 py-2 rounded-2xl font-black uppercase text-[10px] tracking-widest border border-emerald-100 dark:border-emerald-800">
                                     ✓ Checked In
                                 </div>
                                 {meeting.is_paid == 1 && meeting.my_payment_status && (
-                                    <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mr-2 italic">
+                                    <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest ml-1 italic">
                                         Paid {meeting.my_payment_status === 'paid_cash' ? 'via Cash' : 'Online'}
                                     </span>
                                 )}
                             </div>
                         )}
                     </div>
+
+                    {/* Poster Invite placed below RSVP */}
+                    {meeting.poster_image_url && (
+                        <div className="w-full mt-4">
+                            <Card className="overflow-hidden relative group cursor-pointer max-w-xl" onClick={() => setShowPosterModal(true)}>
+                                <CardContent className="p-6">
+                                    <div className="flex items-center justify-between gap-3 mb-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center">
+                                                <PhotoIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+                                            </div>
+
+                                        </div>
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 flex items-center gap-1 group-hover:underline">
+                                            <ArrowTopRightOnSquareIcon className="w-3.5 h-3.5" /> Expand
+                                        </span>
+                                    </div>
+                                    <div className="rounded-xl overflow-hidden flex items-center justify-start">
+                                        <img
+                                            src={meeting.poster_image_url}
+                                            alt={`${meeting.title} Poster`}
+                                            className="w-full h-auto max-h-[28rem] object-contain rounded-xl border border-zinc-200/80 dark:border-zinc-800 shadow-sm group-hover:scale-[1.01] transition-transform duration-300"
+                                        />
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    )}
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
@@ -216,14 +290,55 @@ const SingleMeetingView: React.FC = () => {
                     </div>
                 </div>
             </div>
-            
+
             {showCheckIn && (
-                    <CheckInModal
+                <CheckInModal
                     meeting={meeting}
                     onClose={() => setShowCheckIn(false)}
                     onSuccess={() => refetch()}
                 />
             )}
+
+            {/* Poster Lightbox Modal */}
+            {showPosterModal && meeting.poster_image_url && (
+                <div
+                    className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm animate-in fade-in duration-200"
+                    onClick={() => setShowPosterModal(false)}
+                >
+                    <div
+                        className="relative max-w-4xl max-h-[90vh] bg-white dark:bg-zinc-900 rounded-3xl overflow-hidden shadow-2xl p-2 border border-zinc-100 dark:border-zinc-800"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-100 dark:border-zinc-800">
+                            <h4 className="text-sm font-black uppercase tracking-widest text-zinc-800 dark:text-zinc-200 truncate pr-4">
+                                {meeting.title}
+                            </h4>
+                            <button
+                                onClick={() => setShowPosterModal(false)}
+                                className="p-1.5 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 transition-colors"
+                            >
+                                <XMarkIcon className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="p-2 flex items-center justify-center max-h-[80vh] overflow-auto">
+                            <img
+                                src={meeting.poster_image_url}
+                                alt={`${meeting.title} Poster Full`}
+                                className="max-h-[75vh] w-auto object-contain rounded-xl"
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* RSVP Confirmation Modal */}
+            <RsvpConfirmationModal
+                isOpen={!!rsvpModalStatus}
+                status={rsvpModalStatus || ''}
+                meetingTitle={meeting.title}
+                memberName={user ? `${user.first_name} ${user.last_name || ''}`.trim() : undefined}
+                onClose={() => setRsvpModalStatus(null)}
+            />
         </DashboardLayout>
     );
 };

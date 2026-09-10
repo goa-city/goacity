@@ -238,3 +238,17 @@ export async function generateUniqueSlug(
         if (!collision) return finalSlug;
     }
 }
+
+/**
+ * Returns canonical base URL (https://goa.city)
+ */
+export const getBaseUrl = (req: any): string => {
+    if (process.env.VITE_API_URL) {
+        return process.env.VITE_API_URL.replace(/\/api\/?$/, '');
+    }
+    const host = req.headers?.host || '';
+    const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
+    const protocol = isLocal ? (req.protocol || 'http') : 'https';
+    return `${protocol}://${host}`;
+};
+

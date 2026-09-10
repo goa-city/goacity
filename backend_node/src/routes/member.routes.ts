@@ -26,7 +26,7 @@ import {
     getMemberMentorshipRequestById
 } from '../controllers/mentorship.controller.js';
 import { 
-    submitIdea, getActiveIdeas, submitFeedback 
+    submitIdea, getActiveIdeas, submitFeedback, getIdeaById 
 } from '../controllers/incubator.controller.js';
 import { 
     getMyPeople, getMemberProfile, 
@@ -98,6 +98,7 @@ router.post('/mentorship/sessions/:sessionId/verify', verifyMentorshipSessionPay
 // Incubator
 router.post('/incubator', submitIdea);
 router.get('/incubator', getActiveIdeas);
+router.get('/incubator/:id', getIdeaById);
 router.post('/incubator/:id/feedback', submitFeedback);
 
 // My People

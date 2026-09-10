@@ -1,5 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchActiveIdeas, submitIdea, submitIdeaFeedback } from '../api/incubator.api';
+import { fetchActiveIdeas, submitIdea, submitIdeaFeedback, fetchIdeaById } from '../api/incubator.api';
+
+export const useIncubatorIdea = (id: string) => {
+    return useQuery({
+        queryKey: ['incubator-idea', id],
+        queryFn: () => fetchIdeaById(id),
+        enabled: !!id
+    });
+};
 
 export const useIncubator = () => {
     const queryClient = useQueryClient();
@@ -17,7 +25,7 @@ export const useIncubator = () => {
     });
 
     const submitFeedbackMutation = useMutation({
-        mutationFn: ({ ideaId, feedback }: { ideaId: number; feedback: any }) => submitIdeaFeedback(ideaId, feedback),
+        mutationFn: ({ ideaId, feedback }: { ideaId: string; feedback: any }) => submitIdeaFeedback(ideaId, feedback),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['incubator-ideas'] });
         }

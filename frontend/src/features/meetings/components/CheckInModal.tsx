@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { XMarkIcon, CheckCircleIcon, BanknotesIcon, CreditCardIcon } from '@heroicons/react/24/solid';
 import Button from '../../../shared/components/ui/Button';
 import api from '../../../api/axios';
@@ -37,7 +38,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ meeting, onClose, onSuccess
     const isPaid = meeting.is_paid == 1 || meeting.is_paid === true;
     const qrUrl = meeting.payment_qr_image_url || (meeting.payment_qr_image ? `${(import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '')}/uploads/${meeting.payment_qr_image}` : null);
 
-    return (
+    return createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm animate-in fade-in duration-300">
             <div className="bg-white dark:bg-zinc-900 rounded-[2.5rem] shadow-2xl w-full max-w-md p-8 relative border border-zinc-100 dark:border-zinc-800 animate-in zoom-in-95 duration-300">
                 <button
@@ -47,11 +48,8 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ meeting, onClose, onSuccess
                     <XMarkIcon className="w-6 h-6" />
                 </button>
 
-                <div className="mb-8">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-[9px] font-black uppercase tracking-widest mb-4">
-                        Meeting Check-in
-                    </div>
-                    <h3 className="text-3xl font-black text-zinc-900 dark:text-white leading-tight tracking-tighter uppercase italic">
+                <div className="mb-2">
+                    <h3 className="text-2xl font-black text-zinc-900 dark:text-white leading-tight tracking-tighter uppercase">
                         {isPaid ? <>Check-in <span className="text-indigo-600">& Pay</span></> : 'Confirm Attendance'}
                     </h3>
                     <p className="text-zinc-500 dark:text-zinc-400 text-sm font-medium mt-2">
@@ -60,17 +58,22 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ meeting, onClose, onSuccess
                 </div>
 
                 {isPaid ? (
-                    <div className="space-y-6">
-                        <div className="bg-zinc-50 dark:bg-zinc-950 p-6 rounded-2xl text-center border border-zinc-100 dark:border-zinc-800">
-                            <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-black uppercase tracking-widest mb-1">Amount Due</p>
-                            <p className="text-4xl font-black text-zinc-900 dark:text-white">₹{meeting.payment_amount}</p>
+                    <div className="space-y-3">
+                        <div className="bg-zinc-50 dark:bg-zinc-950 p-2 rounded-2xl text-center border border-zinc-100 dark:border-zinc-800">
+                            <p className="text-[9px] text-zinc-400 dark:text-zinc-500 font-black uppercase tracking-widest mb-1">Amount Due</p>
+                            <p className="text-2xl font-black text-zinc-900 dark:text-white">₹{meeting.payment_amount}</p>
                         </div>
 
                         {qrUrl ? (
                             <div className="flex flex-col items-center">
-                                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-4">Scan to Pay via UPI</p>
-                                <div className="p-4 bg-white rounded-3xl border border-zinc-100 shadow-xl">
-                                    <img src={qrUrl} alt="Payment QR" className="w-48 h-48 object-contain" />
+                                <div className="p-4 bg-white  ">
+                                    {meeting.upi_link ? (
+                                        <a href={meeting.upi_link} target="_blank" rel="noopener noreferrer">
+                                            <img src={qrUrl} alt="Payment QR" className="w-64 h-64 object-contain cursor-pointer hover:opacity-90 transition-opacity" />
+                                        </a>
+                                    ) : (
+                                        <img src={qrUrl} alt="Payment QR" className="w-64 h-64 object-contain" />
+                                    )}
                                 </div>
                             </div>
                         ) : (
@@ -88,7 +91,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ meeting, onClose, onSuccess
                                 className="w-full justify-center py-4 rounded-2xl shadow-xl shadow-indigo-600/20"
                             >
                                 <CreditCardIcon className="w-5 h-5 mr-2" />
-                                Paid Online (UPI/Bank)
+                                Mark Paid (UPI/Bank)
                             </Button>
                             <Button
                                 variant="secondary"
@@ -97,7 +100,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ meeting, onClose, onSuccess
                                 className="w-full justify-center py-4 rounded-2xl"
                             >
                                 <BanknotesIcon className="w-5 h-5 mr-2" />
-                                Paid Cash at Venue
+                                Mark Paid in Cash
                             </Button>
                         </div>
                     </div>
@@ -113,7 +116,8 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ meeting, onClose, onSuccess
                     </div>
                 )}
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 

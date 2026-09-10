@@ -45,6 +45,10 @@ const assignImage = (resource: any, idxInCategory: number) => {
     return pool[idxInCategory % pool.length];
 };
 
+const stripHtml = (html: string) => {
+    return html ? html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ') : '';
+};
+
 const INITIAL_CATEGORIES = ['All Categories'];
 
 const Resources: React.FC = () => {
@@ -53,6 +57,11 @@ const Resources: React.FC = () => {
     const [categories, setCategories] = useState(INITIAL_CATEGORIES);
     const [resources, setResources] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [visibleCount, setVisibleCount] = useState(6);
+
+    useEffect(() => {
+        setVisibleCount(6);
+    }, [activeCategory]);
 
     useEffect(() => {
         api.get('/member/resources')
@@ -97,7 +106,7 @@ const Resources: React.FC = () => {
         });
 
     // Standard = all filtered resources (we use the standard look and feel as the default)
-    const standardItems = filteredResources;
+    const standardItems = filteredResources.slice(0, visibleCount);
 
     // ResourceCard
     const ResourceCard = ({ item }: { item: any }) => (
@@ -114,11 +123,6 @@ const Resources: React.FC = () => {
                 />
             </div>
             <div className="flex flex-wrap items-center gap-3 mb-4">
-                {item.category && item.category.split(',').map((cat: string) => (
-                    <span key={cat} className="text-[10px] font-black uppercase tracking-widest text-zinc-400 border border-zinc-100 dark:border-zinc-800 px-3 py-1 rounded-lg">
-                        {cat.trim()}
-                    </span>
-                ))}
                 <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400 border border-zinc-100 dark:border-zinc-800 px-3 py-1 rounded-lg">
                     {item.date}
                 </span>
@@ -138,7 +142,7 @@ const Resources: React.FC = () => {
             )}
             {item.description && (
                 <p className="text-sm text-zinc-500 dark:text-zinc-400 line-clamp-3 leading-relaxed font-medium">
-                    {item.description}
+                    {stripHtml(item.description)}
                 </p>
             )}
         </div>
@@ -161,8 +165,23 @@ const Resources: React.FC = () => {
                     </button>
                 </div>
 
-                {/* Categories */}
-                <div className="flex overflow-x-auto gap-3 pb-8 mb-4 scrollbar-hide">
+                {/* Categories - Mobile Dropdown */}
+                <div className="block md:hidden mb-8">
+                    <select
+                        value={activeCategory}
+                        onChange={(e) => setActiveCategory(e.target.value)}
+                        className="w-full bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs font-black uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-indigo-600 animate-fade-in"
+                    >
+                        {categories.map((cat) => (
+                            <option key={cat} value={cat}>
+                                {cat}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
+                {/* Categories - Desktop Tags */}
+                <div className="hidden md:flex flex-wrap gap-3 pb-8 mb-4">
                     {categories.map((cat) => (
                         <button
                             key={cat}
@@ -206,11 +225,16 @@ const Resources: React.FC = () => {
                             )}
                         </div>
 
-                        <div className="py-24 text-center">
-                            <button className="px-10 py-3.5 border border-zinc-100 dark:border-zinc-800 text-[10px] font-black uppercase tracking-widest text-zinc-500 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all">
-                                Load More
-                            </button>
-                        </div>
+                        {visibleCount < filteredResources.length && (
+                            <div className="py-24 text-center">
+                                <button
+                                    onClick={() => setVisibleCount(prev => prev + 3)}
+                                    className="px-10 py-3.5 border border-zinc-100 dark:border-zinc-800 text-[10px] font-black uppercase tracking-widest text-zinc-500 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all"
+                                >
+                                    Load More
+                                </button>
+                            </div>
+                        )}
                     </>
                 )}
             </div>

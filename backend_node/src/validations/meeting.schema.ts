@@ -14,9 +14,13 @@ export const createMeetingSchema = z.object({
         is_paid: z.union([z.string(), z.number(), z.boolean()]).optional().nullable(),
         payment_amount: z.union([z.string(), z.number()]).optional().nullable(),
         feedback_form_id: z.union([z.string(), z.number()]).optional().nullable(),
-        stream_id: z.union([z.string(), z.number()]).optional().nullable(),
+        stream_id: z.union([z.string(), z.number()]).refine(val => val !== undefined && val !== null && val !== '' && val !== 'null', {
+            message: 'Meeting Stream is required'
+        }),
         archived: z.union([z.string(), z.number(), z.boolean()]).optional().nullable(),
         recap_content: z.string().optional().nullable(),
+        upi_link: z.string().optional().nullable(),
+        poster_image: z.union([z.string(), z.any()]).optional().nullable(),
     }),
 });
 

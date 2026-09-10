@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAdminMembers } from '../hooks/useAdminMembers';
+import httpClient from '../../../shared/api/httpClient';
 import { Card, CardContent } from '../../../shared/components/ui/Card';
 import Button from '../../../shared/components/ui/Button';
 import Input from '../../../shared/components/ui/Input';
@@ -11,19 +12,67 @@ import {
     MagnifyingGlassIcon,
     UserCircleIcon,
     PencilSquareIcon,
-    ChevronRightIcon
+    ChevronRightIcon,
+    FunnelIcon
 } from '@heroicons/react/24/solid';
+
+interface StreamOption {
+    id: number;
+    name: string;
+    color?: string;
+}
 
 const MembersListView: React.FC<{ status?: string }> = ({ status }) => {
     const navigate = useNavigate();
     const { members, isLoading } = useAdminMembers(undefined, status);
     const [search, setSearch] = useState('');
+    const [streams, setStreams] = useState<StreamOption[]>([]);
+    const [selectedStreamId, setSelectedStreamId] = useState<string>('all');
+    const [sortBy, setSortBy] = useState<'first_name' | 'last_name' | 'created_at' | 'email'>('first_name');
+    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
     const isRegistrations = status === 'registrations';
 
+    useEffect(() => {
+        const fetchStreams = async () => {
+            try {
+                const { data } = await httpClient.get<StreamOption[]>('/admin/streams');
+                setStreams(data || []);
+            } catch (err) {
+                console.error('Failed to load streams for filter:', err);
+            }
+        };
+        fetchStreams();
+    }, []);
+
     const filtered = members.filter(u => {
+        // Stream filter
+        if (selectedStreamId !== 'all') {
+            const streamIdNum = Number(selectedStreamId);
+            const isInStream = u.streams?.some(s => s.id === streamIdNum);
+            if (!isInStream) return false;
+        }
+
+        // Search text filter
         const full = `${u.first_name || ''} ${u.last_name || ''} ${u.email || ''} ${u.phone || ''}`.toLowerCase();
         return full.includes(search.toLowerCase());
+    });
+
+    const sorted = [...filtered].sort((a, b) => {
+        let valA = a[sortBy] || '';
+        let valB = b[sortBy] || '';
+
+        if (sortBy === 'created_at') {
+            const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+            const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+            return sortOrder === 'asc' ? timeA - timeB : timeB - timeA;
+        } else {
+            valA = String(valA).toLowerCase();
+            valB = String(valB).toLowerCase();
+            if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+            if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+            return 0;
+        }
     });
 
     if (isLoading) return <div className="p-10 animate-pulse text-zinc-400 font-black uppercase text-center tracking-widest">Accessing member directory...</div>;
@@ -49,16 +98,62 @@ const MembersListView: React.FC<{ status?: string }> = ({ status }) => {
                 </Button>
             </div>
 
-            {/* Search Bar */}
-            <div className="mb-8 max-w-md">
-                <div className="relative">
-                    <MagnifyingGlassIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" />
-                    <input
-                        className="admin-input pl-12 h-12 shadow-sm"
-                        placeholder={isRegistrations ? "Search by applicant name..." : "Search by name, email or phone..."}
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                    />
+            {/* Search Bar, Stream Filter & Sort options */}
+            <div className="mb-8 flex flex-col lg:flex-row gap-4 justify-between items-stretch lg:items-center">
+                {/* Left side: Search bar & Stream filter */}
+                <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center flex-1 max-w-2xl">
+                    <div className="relative flex-1">
+                        <MagnifyingGlassIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" />
+                        <input
+                            className="admin-input pl-12 h-12 shadow-sm w-full"
+                            placeholder={isRegistrations ? "Search by applicant name..." : "Search by name, email or phone..."}
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                        />
+                    </div>
+
+                    {/* Stream filter dropdown */}
+                    <div className="relative min-w-[200px]">
+                        <select
+                            className="admin-input h-12 pl-4 pr-10 shadow-sm text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg cursor-pointer outline-none focus:border-indigo-500 w-full appearance-none transition-colors"
+                            value={selectedStreamId}
+                            onChange={(e) => setSelectedStreamId(e.target.value)}
+                        >
+                            <option value="all">All Streams ({members.length})</option>
+                            {streams.map((s) => {
+                                const count = members.filter(m => m.streams?.some(ms => ms.id === s.id)).length;
+                                return (
+                                    <option key={s.id} value={s.id}>
+                                        {s.name} ({count})
+                                    </option>
+                                );
+                            })}
+                        </select>
+                        <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
+                            <FunnelIcon className="w-4 h-4" />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Right side: Sort options */}
+                <div className="flex gap-2 items-center self-end lg:self-auto">
+                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest whitespace-nowrap">Sort By:</label>
+                    <select
+                        className="admin-input h-12 px-4 shadow-sm text-xs font-bold uppercase tracking-widest text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg cursor-pointer outline-none focus:border-indigo-500"
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value as any)}
+                    >
+                        <option value="first_name">First Name</option>
+                        <option value="last_name">Last Name</option>
+                        <option value="email">Email</option>
+                        <option value="created_at">Joined Date</option>
+                    </select>
+                    <button
+                        onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                        className="h-12 px-4 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-sm text-xs font-bold uppercase tracking-widest text-zinc-700 dark:text-zinc-200 transition-colors flex items-center gap-1"
+                    >
+                        {sortOrder === 'asc' ? '▲ ASC' : '▼ DESC'}
+                    </button>
                 </div>
             </div>
 
@@ -75,7 +170,7 @@ const MembersListView: React.FC<{ status?: string }> = ({ status }) => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/50">
-                            {filtered.map((user) => (
+                            {sorted.map((user) => (
                                 <tr
                                     key={user.id}
                                     className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30 transition-colors cursor-pointer group"
@@ -128,7 +223,7 @@ const MembersListView: React.FC<{ status?: string }> = ({ status }) => {
                     </table>
                 </div>
 
-                {filtered.length === 0 && (
+                {sorted.length === 0 && (
                     <div className="py-20 text-center">
                         <p className="text-zinc-400 font-black uppercase tracking-widest text-sm">No members found</p>
                         <p className="text-zinc-500 mt-1">Try adjusting your search filters.</p>

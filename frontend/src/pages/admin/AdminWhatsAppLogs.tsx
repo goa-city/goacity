@@ -8,7 +8,8 @@ import {
     CheckCircleIcon,
     ArrowPathIcon,
     ChevronRightIcon,
-    TrashIcon
+    TrashIcon,
+    PhotoIcon
 } from '@heroicons/react/24/outline';
 import { formatDateTime } from '../../utils/date';
 import { Link } from 'react-router-dom';
@@ -96,11 +97,27 @@ const AdminWhatsAppLogs: React.FC = () => {
                             {broadcasts?.map((b: any) => (
                                 <tr key={b.id} className="group hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30 transition-colors">
                                     <td className="px-8 py-5">
-                                        <div className="flex flex-col">
-                                            <span className="text-sm font-black text-zinc-900 dark:text-white uppercase tracking-tight">
-                                                {b.name?.replace('Broadcast to ', '') || 'Bulk Broadcast'}
-                                            </span>
-                                            <span className="text-[10px] text-zinc-400 font-medium truncate max-w-[200px] italic">{b.content}</span>
+                                        <div className="flex items-center gap-3">
+                                            {b.image_url ? (
+                                                <div className="w-10 h-10 rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-700 shrink-0 bg-zinc-100 dark:bg-zinc-800">
+                                                    <img 
+                                                        src={b.image_url} 
+                                                        alt="Attachment" 
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                </div>
+                                            ) : null}
+                                            <div className="flex flex-col min-w-0">
+                                                <span className="text-sm font-black text-zinc-900 dark:text-white uppercase tracking-tight flex items-center gap-1.5">
+                                                    {b.name?.replace('Broadcast to ', '') || 'Bulk Broadcast'}
+                                                    {b.image_url && (
+                                                        <PhotoIcon className="w-3.5 h-3.5 text-indigo-500 shrink-0" title="Includes photo" />
+                                                    )}
+                                                </span>
+                                                <span className="text-[10px] text-zinc-400 font-medium truncate max-w-[200px] italic">
+                                                    {b.content || (b.image_url ? '[Photo attached]' : '')}
+                                                </span>
+                                            </div>
                                         </div>
                                     </td>
                                     <td className="px-8 py-5">

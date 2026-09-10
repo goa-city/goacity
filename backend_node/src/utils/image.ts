@@ -6,7 +6,7 @@ import path from 'path';
  * Converts an uploaded image to a webp image with optimized size and deletes the original file.
  * Returns the final filename of the processed webp file.
  */
-export const processImageToWebp = async (file: Express.Multer.File): Promise<string> => {
+export const processImageToWebp = async (file: Express.Multer.File, maxWidth = 600): Promise<string> => {
     const originalPath = file.path;
     
     // 1. Secure file type validation
@@ -25,8 +25,11 @@ export const processImageToWebp = async (file: Express.Multer.File): Promise<str
     const outputPath = path.join('uploads', outputFilename);
 
     try {
-        await sharp(originalPath)
-            .resize(600) // Keep QR codes compact
+        let pipeline = sharp(originalPath);
+        if (maxWidth) {
+            pipeline = pipeline.resize({ width: maxWidth, withoutEnlargement: true });
+        }
+        await pipeline
             .webp({ quality: 85 })
             .toFile(outputPath);
 

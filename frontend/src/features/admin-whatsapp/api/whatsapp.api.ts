@@ -15,7 +15,20 @@ export const getWhatsAppLogs = async (memberId: number) => {
     return response.data;
 };
 
-export const broadcastWhatsApp = async (messages: any[], streamNames?: string[]) => {
+export const broadcastWhatsApp = async (messages: any[], streamNames?: string[], imageFile?: File | null) => {
+    if (imageFile) {
+        const formData = new FormData();
+        formData.append('messages', JSON.stringify(messages));
+        if (streamNames) {
+            formData.append('streamNames', JSON.stringify(streamNames));
+        }
+        formData.append('image', imageFile);
+        const response = await axios.post('/admin/whatsapp/broadcast', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        return response.data;
+    }
+
     const response = await axios.post('/admin/whatsapp/broadcast', { messages, streamNames });
     return response.data;
 };
