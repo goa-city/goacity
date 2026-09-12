@@ -16,6 +16,7 @@ import { Card } from '../../shared/components/ui/Card';
 import Button from '../../shared/components/ui/Button';
 import QuillEditor from '../../components/QuillEditor';
 import QRCode from 'react-qr-code';
+import * as XLSX from 'xlsx';
 
 const getLocalYYYYMMDD = (dateInput: any) => {
     const d = new Date(dateInput);
@@ -160,16 +161,51 @@ const AdminMeetingEditor: React.FC = () => {
 
                     setRecapContent(data.recap_content || '');
                     setMeetingResources(data.resources || []);
-                    setMeetingActions(data.meeting_responses || []);
+                    const rawActions = data.meeting_responses || [];
+                    const sortedActions = [...rawActions].sort((a: any, b: any) => {
+                        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+                        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+                        return timeA - timeB;
+                    });
+                    setMeetingActions(sortedActions);
                 })
                 .catch(err => console.error("Failed to fetch meeting", err))
                 .finally(() => setLoading(false));
         }
     }, [id, reset]);
 
-    const showToast = (msg: string) => {
-        setToast(msg);
-        setTimeout(() => setToast(''), 3000);
+    const exportToExcel = () => {
+        if (!meetingActions || meetingActions.length === 0) {
+            showToast('No member actions to export');
+            return;
+        }
+
+        const dataToExport = meetingActions.map((action, idx) => {
+            const row: Record<string, any> = {
+                '#': idx + 1,
+                'Member Name': `${action.first_name || ''} ${action.last_name || ''}`.trim() || 'Unknown',
+                'RSVP Status': action.rsvp_status === 'going' ? 'Going' :
+                    action.rsvp_status === 'not_sure' ? 'Maybe' :
+                        action.rsvp_status === 'cant_go' ? "Can't Go" : (action.rsvp_status || 'None'),
+                'Check-in Status': action.checked_in == 1 ? 'Checked In' : 'Not Checked In',
+            };
+
+            if (isPaid) {
+                row['Payment Status'] = action.payment_status === 'paid_online' ? 'Paid Online' :
+                    action.payment_status === 'paid_cash' ? 'Cash at venue' : (action.payment_status || 'Pending');
+                row['Payment Amount'] = action.paid_amount || '0';
+            }
+
+            return row;
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Member Actions');
+
+        const cleanTitle = (title || 'meeting').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const filename = `${cleanTitle}_member_actions.xlsx`;
+        XLSX.writeFile(workbook, filename);
     };
 
     const onSubmit = async (data: Record<string, unknown>) => {
@@ -363,7 +399,7 @@ const AdminMeetingEditor: React.FC = () => {
     if (loading) return <div className="p-12 text-center text-gray-400">Loading meeting details...</div>;
 
     return (
-        <div className="max-w-7xl mx-auto py-10 px-6">
+        <div className="max-w-7xl mx-auto py-8 px-2 sm:px-4">
             {toast && <div className="fixed bottom-4 right-4 bg-emerald-500 text-white px-6 py-3 rounded-xl font-bold tracking-widest uppercase text-[10px] shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-4">{toast}</div>}
 
             <button
@@ -881,6 +917,15 @@ const AdminMeetingEditor: React.FC = () => {
                     <Card className="border-zinc-100 dark:border-zinc-800 shadow-xl shadow-zinc-200/50 dark:shadow-none overflow-hidden">
                         <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
                             <h2 className="text-xl font-black text-zinc-900 dark:text-white uppercase tracking-widest">Member Actions</h2>
+                            <button
+                                type="button"
+                                onClick={exportToExcel}
+                                disabled={meetingActions.length === 0}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+                            >
+                                <ArrowDownTrayIcon className="w-4 h-4 text-white" />
+                                <span>Export to Excel</span>
+                            </button>
                         </div>
                         {meetingActions.length === 0 ? (
                             <div className="p-8 text-center text-zinc-500 dark:text-zinc-400 font-medium">
@@ -891,49 +936,53 @@ const AdminMeetingEditor: React.FC = () => {
                                 <table className="w-full text-left text-sm whitespace-nowrap">
                                     <thead className="bg-zinc-50 dark:bg-zinc-900/50 text-[10px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-100 dark:border-zinc-800">
                                         <tr>
-                                            <th className="px-6 py-4">Member Name</th>
-                                            <th className="px-6 py-4">RSVP Status</th>
-                                            <th className="px-6 py-4">Check-in Status</th>
-                                            {isPaid && <th className="px-6 py-4">Payment Status</th>}
-                                            {isPaid && <th className="px-6 py-4">Payment Amount</th>}
-                                            {isPaid && <th className="px-6 py-4">Payment Proof</th>}
+                                            <th className="px-3 py-3 w-10 text-center">#</th>
+                                            <th className="px-3.5 py-3">Member Name</th>
+                                            <th className="px-3 py-3">RSVP Status</th>
+                                            <th className="px-3 py-3">Check-in Status</th>
+                                            {isPaid && <th className="px-3.5 py-3">Payment Status</th>}
+                                            {isPaid && <th className="px-3 py-3">Payment Amount</th>}
+                                            {isPaid && <th className="px-3 py-3">Payment Proof</th>}
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/50">
                                         {meetingActions.map((action, idx) => (
                                             <tr key={idx} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30 transition-colors">
-                                                <td className="px-6 py-4 font-black text-zinc-900 dark:text-white">
+                                                <td className="px-3 py-3 text-center text-xs font-bold text-zinc-400">
+                                                    {idx + 1}
+                                                </td>
+                                                <td className="px-3.5 py-3 font-black text-zinc-900 dark:text-white">
                                                     {action.first_name} {action.last_name}
                                                 </td>
-                                                <td className="px-6 py-4">
+                                                <td className="px-3 py-3">
                                                     {action.rsvp_status === 'going' ? <span className="text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">Going</span> :
                                                         action.rsvp_status === 'not_sure' ? <span className="text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 border border-amber-100 dark:border-amber-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">Maybe</span> :
                                                             action.rsvp_status === 'cant_go' ? <span className="text-red-600 bg-red-50 dark:bg-red-950/30 dark:text-red-400 border border-red-100 dark:border-red-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">Can't Go</span> :
                                                                 <span className="text-zinc-400">None</span>}
                                                 </td>
-                                                <td className="px-6 py-4">
+                                                <td className="px-3 py-3">
                                                     {action.checked_in == 1 ? (
                                                         <span className="text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">
-                                                            Checked In
+                                                             Checked In
                                                         </span>
                                                     ) : (
                                                         <span className="text-zinc-400">Not Checked In</span>
                                                     )}
                                                 </td>
                                                 {isPaid && (
-                                                    <td className="px-6 py-4">
+                                                    <td className="px-3.5 py-3">
                                                         {action.payment_status === 'paid_online' ? <span className="text-indigo-600 bg-indigo-50 dark:bg-indigo-950/30 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">Paid Online</span> :
-                                                            action.payment_status === 'paid_cash' ? <span className="text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">Paid Cash</span> :
+                                                            action.payment_status === 'paid_cash' ? <span className="text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">Pay by cash at venue</span> :
                                                                 <span className="text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 border border-amber-100 dark:border-amber-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">{action.payment_status || 'Pending'}</span>}
                                                     </td>
                                                 )}
                                                 {isPaid && (
-                                                    <td className="px-6 py-4 text-zinc-500 font-medium">
+                                                    <td className="px-3 py-3 text-zinc-500 font-medium">
                                                         ₹ {action.paid_amount || '0'}
                                                     </td>
                                                 )}
                                                 {isPaid && (
-                                                    <td className="px-6 py-4">
+                                                    <td className="px-3 py-3">
                                                         {action.payment_proof_url ? (
                                                             <a
                                                                 href={action.payment_proof_url}

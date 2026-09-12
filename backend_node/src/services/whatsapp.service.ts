@@ -513,6 +513,7 @@ export class WhatsAppService {
 
         let sentCount = broadcast.sent_count || 0;
         let failCount = 0;
+        let processedInBatch = 0;
         
         for (const msg of messages) {
             try {
@@ -558,10 +559,19 @@ export class WhatsAppService {
                     data: { sent_count: sentCount }
                 });
 
-                // Randomized delay 8-15 seconds
-                const delay = Math.floor(Math.random() * (15000 - 8000 + 1)) + 8000;
-                console.log(`Message sent to ${msg.to}. Waiting ${delay}ms before next...`);
-                await new Promise(resolve => setTimeout(resolve, delay));
+                // Count attempts within current batch run for pacing
+                processedInBatch++;
+
+                // If we've processed 5 messages in this run and there are more messages left, take a 10-minute break
+                if (processedInBatch % 5 === 0 && processedInBatch < messages.length) {
+                    console.log(`[WhatsApp] 🛑 Batch threshold reached (${processedInBatch}/${messages.length}). Taking a 10-minute break to protect account...`);
+                    await new Promise(resolve => setTimeout(resolve, 10 * 60 * 1000));
+                } else if (processedInBatch < messages.length) {
+                    // 60-second delay with a slight random jitter (55s - 65s)
+                    const delay = Math.floor(Math.random() * (65000 - 55000 + 1)) + 55000;
+                    console.log(`Message sent to ${msg.to}. Waiting ${Math.round(delay / 1000)}s before next...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
             } catch (error: any) {
                 failCount++;
                 console.error(`Bulk send failed for ${msg.to}:`, error);
@@ -579,9 +589,17 @@ export class WhatsAppService {
                     }
                 });
 
-                // COOLDOWN after failure: Wait 15s to let the browser settle
-                console.log(`[WhatsApp] Failure cooldown... waiting 15s before next member.`);
-                await new Promise(resolve => setTimeout(resolve, 15000));
+                processedInBatch++;
+
+                // If 5 messages attempted, pause 10 minutes even if one failed
+                if (processedInBatch % 5 === 0 && processedInBatch < messages.length) {
+                    console.log(`[WhatsApp] 🛑 Batch threshold reached (${processedInBatch}/${messages.length}) after failure. Taking a 10-minute break...`);
+                    await new Promise(resolve => setTimeout(resolve, 10 * 60 * 1000));
+                } else {
+                    // COOLDOWN after failure: Wait 60s before next member
+                    console.log(`[WhatsApp] Failure cooldown... waiting 60s before next member.`);
+                    await new Promise(resolve => setTimeout(resolve, 60000));
+                }
             }
         }
 

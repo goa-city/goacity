@@ -31,9 +31,7 @@ export const getMeetings = async (req: Request, res: Response) => {
                             user: true
                         },
                         orderBy: {
-                            user: {
-                                first_name: 'asc'
-                            }
+                            created_at: 'asc'
                         }
                     }
                 }
