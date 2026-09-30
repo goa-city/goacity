@@ -11,6 +11,7 @@ export interface MeetingResource {
 export interface Meeting {
     id: number;
     title: string;
+    description?: string | null;
     slug?: string | null;
     meeting_date: string;
     location_name: string;
@@ -27,6 +28,9 @@ export interface Meeting {
     stream_name?: string | null;
     stream_color?: string | null;
     is_paid?: number | boolean;
+    is_public?: number | boolean;
+    registration_form_id?: number | null;
+    registration_form?: any;
     payment_amount?: number | string | null;
     payment_qr_image?: string | null;
     payment_qr_image_url?: string | null;

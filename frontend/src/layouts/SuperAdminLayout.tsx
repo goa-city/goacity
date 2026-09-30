@@ -1,7 +1,7 @@
 import React from 'react';
 import { Outlet, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useSuperAdminAuth } from '../context/SuperAdminAuthContext';
-import { PowerIcon, BuildingOffice2Icon, MoonIcon, SunIcon, Squares2X2Icon } from '@heroicons/react/24/outline';
+import { PowerIcon, BuildingOffice2Icon, MoonIcon, SunIcon, Squares2X2Icon, ChartBarIcon } from '@heroicons/react/24/outline';
 import { useTheme } from '../context/ThemeContext';
 
 const SuperAdminLayout: React.FC = () => {
@@ -26,6 +26,7 @@ const SuperAdminLayout: React.FC = () => {
 
     const navItems = [
         { path: '/superadmin/dashboard', label: 'Dashboard', icon: Squares2X2Icon },
+        { path: '/superadmin/analytics', label: 'Platform Analytics', icon: ChartBarIcon },
         { path: '/superadmin/cities', label: 'Cities Management', icon: BuildingOffice2Icon },
     ];
 

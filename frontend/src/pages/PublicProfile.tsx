@@ -46,6 +46,7 @@ interface Member {
         is_approved?: boolean;
     };
     mentorshipsAsMentor?: Array<{ id: string }>;
+    posts?: Array<{ id: number; content?: string; created_at?: string; media_url?: string; [key: string]: any }>;
 }
 
 const PublicProfile: React.FC = () => {

@@ -25,7 +25,7 @@ const getLocalYYYYMMDD = (dateInput: any) => {
 };
 
 type NotifyType = 'email' | 'whatsapp';
-type TargetAudience = 'all' | 'going' | 'maybe' | 'no' | 'paid' | 'checked_in';
+type TargetAudience = 'all' | 'going' | 'going_unpaid' | 'maybe' | 'no' | 'paid' | 'checked_in' | 'no_response';
 
 const AdminMeetingEditor: React.FC = () => {
     const { id } = useParams();
@@ -41,16 +41,23 @@ const AdminMeetingEditor: React.FC = () => {
     const [posterPreview, setPosterPreview] = useState<any>(null); // Poster Invite Preview
     const [posterFile, setPosterFile] = useState<File | null>(null);
     const [removePoster, setRemovePoster] = useState(false);
+    const [streamMemberCount, setStreamMemberCount] = useState<number>(0);
     const apiUrl = import.meta.env.VITE_API_URL || '';
     const baseUrl = apiUrl.replace(/\/api\/?$/, '');
     const [saving, setSaving] = useState(false);
     const [toast, setToast] = useState('');
+    const showToast = (msg: string) => {
+        setToast(msg);
+        setTimeout(() => setToast(''), 4000);
+    };
     const [responses, setResponses] = useState<any[]>([]);
     const [meetingActions, setMeetingActions] = useState<any[]>([]);
+    const [attendeeTab, setAttendeeTab] = useState<'all' | 'members' | 'guests'>('all');
     const [recapContent, setRecapContent] = useState('');
     const [meetingResources, setMeetingResources] = useState<any[]>([]);
     const [uploadingResource, setUploadingResource] = useState(false);
     const [notifying, setNotifying] = useState(false);
+    const [testNotifying, setTestNotifying] = useState(false);
     const [emailTemplates, setEmailTemplates] = useState<any[]>([]);
     const [whatsappTemplates, setWhatsappTemplates] = useState<any[]>([]);
     const [showNotifyMenu, setShowNotifyMenu] = useState(false);
@@ -66,6 +73,39 @@ const AdminMeetingEditor: React.FC = () => {
     const slug = watch('slug');
     const watchedPaymentAmount = watch('payment_amount');
     const isPastDate = meetingDate ? getLocalYYYYMMDD(meetingDate) < getLocalYYYYMMDD(new Date()) : false;
+
+    // Accordion open/close state for each card
+    const [openSections, setOpenSections] = useState<{ [key: string]: boolean }>({
+        details: true,
+        attendees: true,
+        resources: false,
+        recap: false,
+        feedback: false,
+    });
+
+    const toggleSection = (section: string) => {
+        setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
+    };
+
+    const expandAll = () => {
+        setOpenSections({
+            details: true,
+            attendees: true,
+            resources: true,
+            recap: true,
+            feedback: true,
+        });
+    };
+
+    const collapseAll = () => {
+        setOpenSections({
+            details: false,
+            attendees: false,
+            resources: false,
+            recap: false,
+            feedback: false,
+        });
+    };
 
     // Live generated UPI URI
     const generatedUpiUri = React.useMemo(() => {
@@ -131,8 +171,10 @@ const AdminMeetingEditor: React.FC = () => {
                         start_time: data.start_time_display || '',
                         end_time: data.end_time_display || '',
                         is_paid: data.is_paid == 1,
+                        is_public: data.is_public == 1,
                         archived: data.archived == 1,
                         feedback_form_id: data.feedback_form_id ? String(data.feedback_form_id) : '',
+                        registration_form_id: data.registration_form_id ? String(data.registration_form_id) : '',
                         stream_id: data.stream_id ? String(data.stream_id) : '',
                         payment_amount: data.payment_amount || '0',
                     });
@@ -161,6 +203,7 @@ const AdminMeetingEditor: React.FC = () => {
 
                     setRecapContent(data.recap_content || '');
                     setMeetingResources(data.resources || []);
+                    setStreamMemberCount(data.stream_member_count ?? data.stream?.member_count ?? 0);
                     const rawActions = data.meeting_responses || [];
                     const sortedActions = [...rawActions].sort((a: any, b: any) => {
                         const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
@@ -183,7 +226,10 @@ const AdminMeetingEditor: React.FC = () => {
         const dataToExport = meetingActions.map((action, idx) => {
             const row: Record<string, any> = {
                 '#': idx + 1,
-                'Member Name': `${action.first_name || ''} ${action.last_name || ''}`.trim() || 'Unknown',
+                'Attendee Type': action.is_guest ? 'Guest' : 'Member',
+                'Name': action.full_name || `${action.first_name || ''} ${action.last_name || ''}`.trim() || 'Unknown',
+                'Email': action.email || '',
+                'Phone': action.phone || '',
                 'RSVP Status': action.rsvp_status === 'going' ? 'Going' :
                     action.rsvp_status === 'not_sure' ? 'Maybe' :
                         action.rsvp_status === 'cant_go' ? "Can't Go" : (action.rsvp_status || 'None'),
@@ -201,10 +247,10 @@ const AdminMeetingEditor: React.FC = () => {
 
         const worksheet = XLSX.utils.json_to_sheet(dataToExport);
         const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Member Actions');
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Attendees');
 
         const cleanTitle = (title || 'meeting').replace(/[^a-zA-Z0-9_-]/g, '_');
-        const filename = `${cleanTitle}_member_actions.xlsx`;
+        const filename = `${cleanTitle}_attendees.xlsx`;
         XLSX.writeFile(workbook, filename);
     };
 
@@ -273,7 +319,7 @@ const AdminMeetingEditor: React.FC = () => {
                     } else {
                         formData.append(key, '');
                     }
-                } else if (key === 'is_paid' || key === 'archived') {
+                } else if (key === 'is_paid' || key === 'archived' || key === 'is_public') {
                     formData.append(key, value ? '1' : '0');
                 } else {
                     formData.append(key, value === null || value === undefined ? '' : String(value));
@@ -358,8 +404,10 @@ const AdminMeetingEditor: React.FC = () => {
         const audienceLabels: Record<TargetAudience, string> = {
             all: 'Everyone in stream',
             going: 'Said Going',
+            going_unpaid: 'Said Going (Unpaid)',
             maybe: 'Said Maybe',
             no: 'Said No',
+            no_response: 'No RSVP Response',
             paid: 'Paid',
             checked_in: 'Checked In'
         };
@@ -382,6 +430,27 @@ const AdminMeetingEditor: React.FC = () => {
         }
     };
 
+    const executeTestNotify = async () => {
+        const testingStream = streams.find(s => Number(s.id) === 16);
+        const countText = testingStream ? ` (${testingStream.member_count || 0} members)` : '';
+        if (!window.confirm(`Send test ${notifyType.toUpperCase()} notification strictly to all users in the Testing Stream (ID #16)${countText}?`)) return;
+        setTestNotifying(true);
+        try {
+            const res = await api.post(`/admin/meetings/${id}/notify`, {
+                type: notifyType,
+                templateId: selectedTemplateId,
+                isTest: true,
+                targetAudience: 'test_stream'
+            });
+            showToast(res.data?.message || "Test notifications queued successfully!");
+        } catch (e: any) {
+            console.error(e);
+            showToast(e.response?.data?.message || "Failed to send test notifications.");
+        } finally {
+            setTestNotifying(false);
+        }
+    };
+
     const handleResourceDelete = async (resId: number) => {
         if (!window.confirm("Delete this resource?")) return;
         try {
@@ -394,9 +463,16 @@ const AdminMeetingEditor: React.FC = () => {
     };
 
     const isPaid = watch('is_paid');
+    const isPublic = watch('is_public');
     const isArchived = watch('archived');
 
     if (loading) return <div className="p-12 text-center text-gray-400">Loading meeting details...</div>;
+
+    const onError = (formErrors: any) => {
+        if (formErrors.title || formErrors.meeting_date || formErrors.stream_id || formErrors.start_time || formErrors.end_time) {
+            setOpenSections(prev => ({ ...prev, details: true }));
+        }
+    };
 
     return (
         <div className="max-w-7xl mx-auto py-8 px-2 sm:px-4">
@@ -404,13 +480,13 @@ const AdminMeetingEditor: React.FC = () => {
 
             <button
                 onClick={() => navigate('/admin/meetings')}
-                className="flex items-center text-zinc-500 hover:text-zinc-800 transition-colors mb-8 group"
+                className="flex items-center text-zinc-500 hover:text-zinc-800 transition-colors mb-8 group cursor-pointer"
             >
                 <ArrowLeftOutline className="w-6 h-6 mr-2 group-hover:-translate-x-1 transition-transform stroke-[1.5]" />
                 <span className="text-xl font-medium">Back to Meetings</span>
             </button>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={handleSubmit(onSubmit, onError)} className="space-y-6">
                 {/* Header Card */}
                 <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-100 dark:border-zinc-800 overflow-hidden mb-6">
                     <div className="p-6 flex flex-wrap items-start justify-between gap-4 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
@@ -430,7 +506,7 @@ const AdminMeetingEditor: React.FC = () => {
                                         type="button"
                                         onClick={() => handleNotify('email')}
                                         disabled={notifying}
-                                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-indigo-700 transition-all disabled:opacity-50 shadow-lg shadow-indigo-600/20"
+                                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-indigo-700 transition-all disabled:opacity-50 shadow-lg shadow-indigo-600/20 cursor-pointer"
                                     >
                                         <EnvelopeIcon className="w-4 h-4" />
                                         {notifying && notifyType === 'email' ? 'Sending...' : 'Notify: Email'}
@@ -439,7 +515,7 @@ const AdminMeetingEditor: React.FC = () => {
                                         type="button"
                                         onClick={() => handleNotify('whatsapp')}
                                         disabled={notifying}
-                                        className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-emerald-700 transition-all disabled:opacity-50 shadow-lg shadow-emerald-600/20"
+                                        className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-emerald-700 transition-all disabled:opacity-50 shadow-lg shadow-emerald-600/20 cursor-pointer"
                                     >
                                         <ChatBubbleLeftRightIcon className="w-4 h-4" />
                                         {notifying && notifyType === 'whatsapp' ? 'Sending...' : 'Notify: WhatsApp'}
@@ -453,8 +529,61 @@ const AdminMeetingEditor: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Main Form Content */}
-                <Card className="border-zinc-100 dark:border-zinc-800 shadow-xl shadow-zinc-200/50 dark:shadow-none overflow-hidden p-6 space-y-6">
+                {/* Meeting Sections Toolbar */}
+                <div className="flex items-center justify-between px-1">
+                    <span className="text-[11px] font-black uppercase tracking-widest text-zinc-400">Meeting Sections</span>
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={expandAll}
+                            className="px-3 py-1 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-lg transition-colors cursor-pointer"
+                        >
+                            Expand All
+                        </button>
+                        <span className="text-zinc-300 dark:text-zinc-700">•</span>
+                        <button
+                            type="button"
+                            onClick={collapseAll}
+                            className="px-3 py-1 text-xs font-bold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
+                        >
+                            Collapse All
+                        </button>
+                    </div>
+                </div>
+
+                {/* Main Form Content - Meeting Details */}
+                <Card className="border-zinc-100 dark:border-zinc-800 shadow-xl shadow-zinc-200/50 dark:shadow-none overflow-hidden">
+                    <div
+                        onClick={() => toggleSection('details')}
+                        className={`p-5 sm:p-6 flex items-center justify-between cursor-pointer select-none hover:bg-zinc-50/75 dark:hover:bg-zinc-900/50 transition-colors ${openSections.details ? 'border-b border-zinc-100 dark:border-zinc-800' : ''}`}
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-100/80 dark:border-indigo-900/50">
+                                <CalendarDaysIcon className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-black text-zinc-900 dark:text-white uppercase tracking-wider">
+                                    Meeting Details & Settings
+                                </h2>
+                                <p className="text-xs text-zinc-400 font-medium">
+                                    Title, date, timings, venue, stream & ticketing
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                toggleSection('details');
+                            }}
+                            className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 transition-colors cursor-pointer shrink-0"
+                            aria-label="Toggle Meeting Details section"
+                        >
+                            <ChevronDownIcon className={`w-5 h-5 transition-transform duration-200 ${openSections.details ? 'rotate-180' : ''}`} />
+                        </button>
+                    </div>
+
+                    <div className={openSections.details ? 'p-6 space-y-6' : 'hidden'}>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="md:col-span-2">
                             <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Meeting Title <span className="text-red-500">*</span></label>
@@ -552,7 +681,7 @@ const AdminMeetingEditor: React.FC = () => {
                         </div>
 
                         <div>
-                            <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Feedback Form</label>
+                            <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Feedback Form (Post-Event)</label>
                             <div className="relative">
                                 <BeakerIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400 pointer-events-none" />
                                 <select {...register('feedback_form_id')} className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 pl-12 h-14 font-medium appearance-none">
@@ -561,6 +690,31 @@ const AdminMeetingEditor: React.FC = () => {
                                 </select>
                             </div>
                         </div>
+
+                        <div>
+                            <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Custom Registration Form (Optional)</label>
+                            <div className="relative">
+                                <DocumentTextIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400 pointer-events-none" />
+                                <select {...register('registration_form_id')} className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 pl-12 h-14 font-medium appearance-none">
+                                    <option value="">-- Standard Registration (Name, Phone, Email) --</option>
+                                    {forms.map(f => <option key={f.id} value={f.id}>{f.title}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Public / Guest Registration Section */}
+                    <div className="p-4 bg-zinc-50 dark:bg-zinc-900/50 rounded-xl border border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isPublic ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-950/30 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-900/50' : 'bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500'}`}>
+                                <UsersIcon className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-black text-zinc-700 dark:text-zinc-300 uppercase tracking-widest">Public & Guest Registration</p>
+                                <p className="text-[10px] text-zinc-500 font-medium">Allow non-members and the public to register directly on the website</p>
+                            </div>
+                        </div>
+                        <input {...register('is_public')} type="checkbox" className="w-5 h-5 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
                     </div>
 
                     {/* Paid Section */}
@@ -842,17 +996,231 @@ const AdminMeetingEditor: React.FC = () => {
                         </div>
                         <input {...register('archived')} type="checkbox" className="w-5 h-5 rounded border-red-300 text-red-500 focus:ring-red-500" />
                     </div>
+                    </div>
                 </Card>
+
+                {/* Attendees & Member Actions Section */}
+                {isEdit && (() => {
+                    const membersList = meetingActions.filter(a => !a.is_guest);
+                    const guestsList = meetingActions.filter(a => a.is_guest);
+                    const displayedActions = attendeeTab === 'members' ? membersList : attendeeTab === 'guests' ? guestsList : meetingActions;
+
+                    return (
+                        <Card className="border-zinc-100 dark:border-zinc-800 shadow-xl shadow-zinc-200/50 dark:shadow-none overflow-hidden">
+                            {/* Accordion Header */}
+                            <div
+                                onClick={() => toggleSection('attendees')}
+                                className={`p-5 sm:p-6 flex items-center justify-between cursor-pointer select-none hover:bg-zinc-50/75 dark:hover:bg-zinc-900/50 transition-colors ${openSections.attendees ? 'border-b border-zinc-100 dark:border-zinc-800' : ''}`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-100/80 dark:border-indigo-900/50">
+                                        <UsersIcon className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <h2 className="text-lg font-black text-zinc-900 dark:text-white uppercase tracking-wider">
+                                                Attendees & Member Actions
+                                            </h2>
+                                            <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300">
+                                                {meetingActions.length}
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-zinc-400 font-medium">
+                                            Manage RSVPs, payments, check-ins & guests
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleSection('attendees');
+                                    }}
+                                    className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 transition-colors cursor-pointer shrink-0"
+                                    aria-label="Toggle Attendees section"
+                                >
+                                    <ChevronDownIcon className={`w-5 h-5 transition-transform duration-200 ${openSections.attendees ? 'rotate-180' : ''}`} />
+                                </button>
+                            </div>
+
+                            <div className={openSections.attendees ? 'block' : 'hidden'}>
+                                <div className="p-4 sm:p-5 bg-zinc-50/50 dark:bg-zinc-900/30 border-b border-zinc-100 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                    {/* Filter Tabs */}
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setAttendeeTab('all')}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${attendeeTab === 'all' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200'}`}
+                                        >
+                                            All ({meetingActions.length})
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setAttendeeTab('members')}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${attendeeTab === 'members' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200'}`}
+                                        >
+                                            Members ({membersList.length})
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setAttendeeTab('guests')}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${attendeeTab === 'guests' ? 'bg-amber-600 text-white shadow-sm' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200'}`}
+                                        >
+                                            Guests ({guestsList.length})
+                                        </button>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={exportToExcel}
+                                        disabled={meetingActions.length === 0}
+                                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer self-start sm:self-auto"
+                                    >
+                                        <ArrowDownTrayIcon className="w-4 h-4 text-white" />
+                                        <span>Export to Excel</span>
+                                    </button>
+                                </div>
+                            {displayedActions.length === 0 ? (
+                                <div className="p-8 text-center text-zinc-500 dark:text-zinc-400 font-medium">
+                                    No attendees found in this category.
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left text-sm whitespace-nowrap">
+                                        <thead className="bg-zinc-50 dark:bg-zinc-900/50 text-[10px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-100 dark:border-zinc-800">
+                                            <tr>
+                                                <th className="px-2.5 py-2 w-10 text-center">#</th>
+                                                <th className="px-2.5 py-2">Type</th>
+                                                <th className="px-3 py-2">Attendee Name & Contact</th>
+                                                <th className="px-2.5 py-2">RSVP Status</th>
+                                                <th className="px-2.5 py-2">Check-in Status</th>
+                                                {isPaid && <th className="px-2.5 py-2">Payment Status</th>}
+                                                {isPaid && <th className="px-2.5 py-2">Amount</th>}
+                                                {isPaid && <th className="px-2.5 py-2">Payment Proof</th>}
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/50">
+                                            {displayedActions.map((action, idx) => (
+                                                <tr key={idx} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30 transition-colors">
+                                                    <td className="px-2.5 py-2 text-center text-xs font-bold text-zinc-400">
+                                                        {idx + 1}
+                                                    </td>
+                                                    <td className="px-2.5 py-2">
+                                                        {action.is_guest ? (
+                                                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                                                                Guest
+                                                            </span>
+                                                        ) : (
+                                                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                                                                Member
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-3 py-2">
+                                                        <div className="font-black text-zinc-900 dark:text-white">
+                                                            {action.full_name || `${action.first_name || ''} ${action.last_name || ''}`.trim() || 'Unknown'}
+                                                        </div>
+                                                        {(action.email || action.phone) && (
+                                                            <div className="text-[11px] text-zinc-400 flex items-center gap-2 mt-0.5">
+                                                                {action.email && <span>{action.email}</span>}
+                                                                {action.email && action.phone && <span>•</span>}
+                                                                {action.phone && <span>{action.phone}</span>}
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-2.5 py-2">
+                                                        {action.rsvp_status === 'going' ? <span className="text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest">Going</span> :
+                                                            action.rsvp_status === 'not_sure' ? <span className="text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 border border-amber-100 dark:border-amber-900/50 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest">Maybe</span> :
+                                                                action.rsvp_status === 'cant_go' ? <span className="text-red-600 bg-red-50 dark:bg-red-950/30 dark:text-red-400 border border-red-100 dark:border-red-900/50 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest">Can't Go</span> :
+                                                                    <span className="text-zinc-400 text-[10px] font-black uppercase tracking-widest">None</span>}
+                                                    </td>
+                                                    <td className="px-2.5 py-2">
+                                                        {action.checked_in == 1 ? (
+                                                            <span className="text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest">
+                                                                Checked In
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-zinc-400 text-xs">Not Checked In</span>
+                                                        )}
+                                                    </td>
+                                                    {isPaid && (
+                                                        <td className="px-2.5 py-2">
+                                                            {action.payment_status === 'paid_online' ? <span className="text-indigo-600 bg-indigo-50 dark:bg-indigo-950/30 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest">Paid Online</span> :
+                                                                action.payment_status === 'paid_cash' ? <span className="text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest">Pay Cash at venue</span> :
+                                                                    <span className="text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 border border-amber-100 dark:border-amber-900/50 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest">{action.payment_status || 'Pending'}</span>}
+                                                        </td>
+                                                    )}
+                                                    {isPaid && (
+                                                        <td className="px-2.5 py-2 text-zinc-500 font-medium">
+                                                            ₹ {action.paid_amount || '0'}
+                                                        </td>
+                                                    )}
+                                                    {isPaid && (
+                                                        <td className="px-2.5 py-2">
+                                                            {action.payment_proof_url ? (
+                                                                <a
+                                                                    href={action.payment_proof_url}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 hover:underline"
+                                                                >
+                                                                    <span>View Proof</span>
+                                                                    <ArrowTopRightOnSquareIcon className="w-3 h-3" />
+                                                                </a>
+                                                            ) : (
+                                                                <span className="text-zinc-400 text-xs">-</span>
+                                                            )}
+                                                        </td>
+                                                    )}
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                            </div>
+                        </Card>
+                    );
+                })()}
 
                 {/* Presentation & Resources Section */}
                 <Card className="border-zinc-100 dark:border-zinc-800 shadow-xl shadow-zinc-200/50 dark:shadow-none overflow-hidden">
-                    <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 bg-sky-50/20 dark:bg-sky-950/10">
-                        <h2 className="text-lg font-black text-zinc-900 dark:text-white flex items-center gap-2">
-                            <CloudArrowUpIcon className="w-5 h-5 text-sky-500" />
-                            Presentation & Resources
-                        </h2>
+                    <div
+                        onClick={() => toggleSection('resources')}
+                        className={`p-5 sm:p-6 flex items-center justify-between cursor-pointer select-none hover:bg-zinc-50/75 dark:hover:bg-zinc-900/50 transition-colors ${openSections.resources ? 'border-b border-zinc-100 dark:border-zinc-800' : ''}`}
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0 border border-sky-100/80 dark:border-sky-900/50">
+                                <CloudArrowUpIcon className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <h2 className="text-lg font-black text-zinc-900 dark:text-white uppercase tracking-wider">
+                                        Presentation & Resources
+                                    </h2>
+                                    {meetingResources.length > 0 && (
+                                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300">
+                                            {meetingResources.length}
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-xs text-zinc-400 font-medium">
+                                    Upload presentation, slide decks & document attachments
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                toggleSection('resources');
+                            }}
+                            className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 transition-colors cursor-pointer shrink-0"
+                            aria-label="Toggle Presentation & Resources section"
+                        >
+                            <ChevronDownIcon className={`w-5 h-5 transition-transform duration-200 ${openSections.resources ? 'rotate-180' : ''}`} />
+                        </button>
                     </div>
-                    <div className="p-6">
+                    <div className={openSections.resources ? 'p-6' : 'hidden'}>
                         <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Upload Presentation / Notes (PDF, Word, PPT)</label>
                         <div className="mt-2">
                             <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-xl cursor-pointer transition-all ${uploadingResource ? 'bg-gray-50 border-gray-200' : 'bg-sky-50/30 border-sky-200 hover:bg-sky-50 hover:border-sky-300'}`}>
@@ -912,110 +1280,38 @@ const AdminMeetingEditor: React.FC = () => {
                     </div>
                 </Card>
 
-                {/* Member Actions Section */}
-                {isEdit && (
-                    <Card className="border-zinc-100 dark:border-zinc-800 shadow-xl shadow-zinc-200/50 dark:shadow-none overflow-hidden">
-                        <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
-                            <h2 className="text-xl font-black text-zinc-900 dark:text-white uppercase tracking-widest">Member Actions</h2>
-                            <button
-                                type="button"
-                                onClick={exportToExcel}
-                                disabled={meetingActions.length === 0}
-                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
-                            >
-                                <ArrowDownTrayIcon className="w-4 h-4 text-white" />
-                                <span>Export to Excel</span>
-                            </button>
-                        </div>
-                        {meetingActions.length === 0 ? (
-                            <div className="p-8 text-center text-zinc-500 dark:text-zinc-400 font-medium">
-                                No members have RSVP'd or checked in yet.
-                            </div>
-                        ) : (
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left text-sm whitespace-nowrap">
-                                    <thead className="bg-zinc-50 dark:bg-zinc-900/50 text-[10px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-100 dark:border-zinc-800">
-                                        <tr>
-                                            <th className="px-3 py-3 w-10 text-center">#</th>
-                                            <th className="px-3.5 py-3">Member Name</th>
-                                            <th className="px-3 py-3">RSVP Status</th>
-                                            <th className="px-3 py-3">Check-in Status</th>
-                                            {isPaid && <th className="px-3.5 py-3">Payment Status</th>}
-                                            {isPaid && <th className="px-3 py-3">Payment Amount</th>}
-                                            {isPaid && <th className="px-3 py-3">Payment Proof</th>}
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/50">
-                                        {meetingActions.map((action, idx) => (
-                                            <tr key={idx} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30 transition-colors">
-                                                <td className="px-3 py-3 text-center text-xs font-bold text-zinc-400">
-                                                    {idx + 1}
-                                                </td>
-                                                <td className="px-3.5 py-3 font-black text-zinc-900 dark:text-white">
-                                                    {action.first_name} {action.last_name}
-                                                </td>
-                                                <td className="px-3 py-3">
-                                                    {action.rsvp_status === 'going' ? <span className="text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">Going</span> :
-                                                        action.rsvp_status === 'not_sure' ? <span className="text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 border border-amber-100 dark:border-amber-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">Maybe</span> :
-                                                            action.rsvp_status === 'cant_go' ? <span className="text-red-600 bg-red-50 dark:bg-red-950/30 dark:text-red-400 border border-red-100 dark:border-red-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">Can't Go</span> :
-                                                                <span className="text-zinc-400">None</span>}
-                                                </td>
-                                                <td className="px-3 py-3">
-                                                    {action.checked_in == 1 ? (
-                                                        <span className="text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">
-                                                             Checked In
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-zinc-400">Not Checked In</span>
-                                                    )}
-                                                </td>
-                                                {isPaid && (
-                                                    <td className="px-3.5 py-3">
-                                                        {action.payment_status === 'paid_online' ? <span className="text-indigo-600 bg-indigo-50 dark:bg-indigo-950/30 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">Paid Online</span> :
-                                                            action.payment_status === 'paid_cash' ? <span className="text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">Pay by cash at venue</span> :
-                                                                <span className="text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 border border-amber-100 dark:border-amber-900/50 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">{action.payment_status || 'Pending'}</span>}
-                                                    </td>
-                                                )}
-                                                {isPaid && (
-                                                    <td className="px-3 py-3 text-zinc-500 font-medium">
-                                                        ₹ {action.paid_amount || '0'}
-                                                    </td>
-                                                )}
-                                                {isPaid && (
-                                                    <td className="px-3 py-3">
-                                                        {action.payment_proof_url ? (
-                                                            <a
-                                                                href={action.payment_proof_url}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 hover:underline"
-                                                            >
-                                                                <span>View Proof</span>
-                                                                <ArrowTopRightOnSquareIcon className="w-3 h-3" />
-                                                            </a>
-                                                        ) : (
-                                                            <span className="text-zinc-400 text-xs">-</span>
-                                                        )}
-                                                    </td>
-                                                )}
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </Card>
-                )}
-
                 {/* Recap Section */}
                 <Card className="border-zinc-100 dark:border-zinc-800 shadow-xl shadow-zinc-200/50 dark:shadow-none overflow-hidden">
-                    <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 bg-sky-50/20 dark:bg-sky-950/10">
-                        <h2 className="text-lg font-black text-zinc-900 dark:text-white flex items-center gap-2">
-                            <DocumentTextIcon className="w-5 h-5 text-sky-500" />
-                            Meeting Recap & Notes
-                        </h2>
+                    <div
+                        onClick={() => toggleSection('recap')}
+                        className={`p-5 sm:p-6 flex items-center justify-between cursor-pointer select-none hover:bg-zinc-50/75 dark:hover:bg-zinc-900/50 transition-colors ${openSections.recap ? 'border-b border-zinc-100 dark:border-zinc-800' : ''}`}
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 border border-purple-100/80 dark:border-purple-900/50">
+                                <DocumentTextIcon className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-black text-zinc-900 dark:text-white uppercase tracking-wider">
+                                    Meeting Recap & Notes
+                                </h2>
+                                <p className="text-xs text-zinc-400 font-medium">
+                                    Highlights, takeaways and post-event minutes
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                toggleSection('recap');
+                            }}
+                            className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 transition-colors cursor-pointer shrink-0"
+                            aria-label="Toggle Meeting Recap & Notes section"
+                        >
+                            <ChevronDownIcon className={`w-5 h-5 transition-transform duration-200 ${openSections.recap ? 'rotate-180' : ''}`} />
+                        </button>
                     </div>
-                    <div className="p-6">
+                    <div className={openSections.recap ? 'p-6' : 'hidden'}>
                         <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Recap Content (Rich Text)</label>
                         <div className="border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-white dark:bg-zinc-950">
                             <QuillEditor
@@ -1031,43 +1327,78 @@ const AdminMeetingEditor: React.FC = () => {
                 {/* Form Submissions Section */}
                 {isEdit && (
                     <Card className="border-zinc-100 dark:border-zinc-800 shadow-xl shadow-zinc-200/50 dark:shadow-none overflow-hidden">
-                        <div className="p-6 border-b border-zinc-100 dark:border-zinc-800">
-                            <h2 className="text-xl font-black text-zinc-900 dark:text-white uppercase tracking-widest">Form Submissions</h2>
+                        <div
+                            onClick={() => toggleSection('feedback')}
+                            className={`p-5 sm:p-6 flex items-center justify-between cursor-pointer select-none hover:bg-zinc-50/75 dark:hover:bg-zinc-900/50 transition-colors ${openSections.feedback ? 'border-b border-zinc-100 dark:border-zinc-800' : ''}`}
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-100/80 dark:border-amber-900/50">
+                                    <BeakerIcon className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <h2 className="text-lg font-black text-zinc-900 dark:text-white uppercase tracking-wider">
+                                            Feedback Form Submissions
+                                        </h2>
+                                        {responses.length > 0 && (
+                                            <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300">
+                                                {responses.length}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-zinc-400 font-medium">
+                                        Attendee responses collected after event
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleSection('feedback');
+                                }}
+                                className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 transition-colors cursor-pointer shrink-0"
+                                aria-label="Toggle Feedback Form Submissions section"
+                            >
+                                <ChevronDownIcon className={`w-5 h-5 transition-transform duration-200 ${openSections.feedback ? 'rotate-180' : ''}`} />
+                            </button>
                         </div>
-                        {responses.length === 0 ? (
-                            <div className="p-8 text-center text-zinc-500 font-medium">
-                                No form submissions recorded yet.
-                            </div>
-                        ) : (
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left text-sm whitespace-nowrap">
-                                    <thead className="bg-zinc-50 dark:bg-zinc-900/50 text-[10px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-100 dark:border-zinc-800">
-                                        <tr>
-                                            <th className="px-6 py-4">Member Name</th>
-                                            <th className="px-6 py-4">Submission Date</th>
-                                            <th className="px-6 py-4 text-right">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/50">
-                                        {responses.map((resp) => (
-                                            <tr key={resp.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30 transition-colors">
-                                                <td className="px-6 py-4 font-black text-zinc-900 dark:text-white">
-                                                    {resp.first_name} {resp.last_name}
-                                                </td>
-                                                <td className="px-6 py-4 text-zinc-500 font-medium">
-                                                    {new Date(resp.submitted_at).toLocaleString()}
-                                                </td>
-                                                <td className="px-6 py-4 text-right">
-                                                    <button type="button" onClick={() => showToast("Deep view not implemented")} className="text-indigo-600 dark:text-indigo-400 font-black uppercase tracking-widest text-[10px] hover:text-indigo-700 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 px-3 py-1.5 rounded-lg">
-                                                        View Full Response
-                                                    </button>
-                                                </td>
+                        <div className={openSections.feedback ? 'block' : 'hidden'}>
+                            {responses.length === 0 ? (
+                                <div className="p-8 text-center text-zinc-500 font-medium">
+                                    No feedback form submissions recorded yet.
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left text-sm whitespace-nowrap">
+                                        <thead className="bg-zinc-50 dark:bg-zinc-900/50 text-[10px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-100 dark:border-zinc-800">
+                                            <tr>
+                                                <th className="px-6 py-4">Member Name</th>
+                                                <th className="px-6 py-4">Submission Date</th>
+                                                <th className="px-6 py-4 text-right">Actions</th>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
+                                        </thead>
+                                        <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/50">
+                                            {responses.map((resp) => (
+                                                <tr key={resp.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30 transition-colors">
+                                                    <td className="px-6 py-4 font-black text-zinc-900 dark:text-white">
+                                                        {resp.first_name} {resp.last_name}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-zinc-500 font-medium">
+                                                        {new Date(resp.submitted_at).toLocaleString()}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        <button type="button" onClick={() => showToast("Deep view not implemented")} className="text-indigo-600 dark:text-indigo-400 font-black uppercase tracking-widest text-[10px] hover:text-indigo-700 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 px-3 py-1.5 rounded-lg cursor-pointer">
+                                                            View Full Response
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
                     </Card>
                 )}
 
@@ -1124,75 +1455,111 @@ const AdminMeetingEditor: React.FC = () => {
                         <div className="p-8 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
                             {/* Target Audience Selector */}
                             <div>
-                                <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2 flex items-center justify-between">
-                                    <span className="flex items-center gap-1.5">
-                                        <UsersIcon className="w-4 h-4 text-zinc-400" />
-                                        Send To (Recipient Filter)
-                                    </span>
-                                    {targetAudience !== 'all' && (
-                                        <span className="text-[10px] text-zinc-400 font-bold lowercase">
-                                            {meetingActions.filter(a => {
-                                                if (targetAudience === 'going') return a.rsvp_status === 'going';
-                                                if (targetAudience === 'maybe') return a.rsvp_status === 'not_sure';
-                                                if (targetAudience === 'no') return a.rsvp_status === 'cant_go';
-                                                if (targetAudience === 'paid') return ['paid', 'paid_online', 'paid_cash'].includes(a.payment_status) || Number(a.paid_amount) > 0;
-                                                if (targetAudience === 'checked_in') return a.checked_in == 1;
-                                                return true;
-                                            }).length} matching responses recorded
-                                        </span>
-                                    )}
-                                </label>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                                    {[
-                                        { id: 'all', label: 'Everyone in Stream', desc: 'All stream members' },
-                                        { id: 'going', label: 'Going', desc: 'RSVP Going' },
-                                        { id: 'maybe', label: 'Maybe', desc: 'RSVP Maybe' },
-                                        { id: 'no', label: 'No', desc: 'RSVP Can\'t Go' },
-                                        { id: 'paid', label: 'Paid', desc: 'Completed Payment' },
-                                        { id: 'checked_in', label: 'Checked In', desc: 'Checked in at venue' },
-                                    ].map((opt) => {
-                                        const isSelected = targetAudience === opt.id;
-                                        const count = opt.id === 'all'
-                                            ? undefined
-                                            : meetingActions.filter(a => {
-                                                if (opt.id === 'going') return a.rsvp_status === 'going';
-                                                if (opt.id === 'maybe') return a.rsvp_status === 'not_sure';
-                                                if (opt.id === 'no') return a.rsvp_status === 'cant_go';
-                                                if (opt.id === 'paid') return ['paid', 'paid_online', 'paid_cash'].includes(a.payment_status) || Number(a.paid_amount) > 0;
-                                                if (opt.id === 'checked_in') return a.checked_in == 1;
-                                                return true;
-                                            }).length;
+                                {(() => {
+                                    const currentStream = streams.find(s => String(s.id) === String(watch('stream_id')));
+                                    const totalStreamMembers = currentStream?.member_count ?? streamMemberCount;
+                                    const respondedUserIds = new Set(
+                                        meetingActions
+                                            .filter(a => ['going', 'not_sure', 'cant_go'].includes(a.rsvp_status))
+                                            .map(a => a.user_id || a.id)
+                                            .filter(Boolean)
+                                    );
+                                    const noResponseCount = Math.max(0, totalStreamMembers - respondedUserIds.size);
 
-                                        return (
-                                            <button
-                                                key={opt.id}
-                                                type="button"
-                                                onClick={() => setTargetAudience(opt.id as TargetAudience)}
-                                                className={`p-3 rounded-2xl border text-left transition-all relative ${isSelected
-                                                    ? notifyType === 'email'
-                                                        ? 'bg-indigo-50/80 dark:bg-indigo-950/40 border-indigo-500 text-indigo-950 dark:text-indigo-200 ring-2 ring-indigo-500/20'
-                                                        : 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-500 text-emerald-950 dark:text-emerald-200 ring-2 ring-emerald-500/20'
-                                                    : 'bg-zinc-50 dark:bg-zinc-950/50 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-700'
-                                                    }`}
-                                            >
-                                                <div className="flex items-center justify-between gap-1 mb-0.5">
-                                                    <span className="font-bold text-xs">{opt.label}</span>
-                                                    {count !== undefined && (
-                                                        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${isSelected
-                                                            ? notifyType === 'email'
-                                                                ? 'bg-indigo-600 text-white'
-                                                                : 'bg-emerald-600 text-white'
-                                                            : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
-                                                            }`}>
-                                                            {count}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <p className="text-[10px] text-zinc-400 dark:text-zinc-500 truncate">{opt.desc}</p>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
+                                    return (
+                                        <>
+                                            <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2 flex items-center justify-between">
+                                                <span className="flex items-center gap-1.5">
+                                                    <UsersIcon className="w-4 h-4 text-zinc-400" />
+                                                    Send To (Recipient Filter)
+                                                </span>
+                                                {targetAudience === 'all' && totalStreamMembers > 0 ? (
+                                                    <span className="text-[10px] text-zinc-400 font-bold lowercase">
+                                                        {totalStreamMembers} stream members
+                                                    </span>
+                                                ) : targetAudience === 'no_response' ? (
+                                                    <span className="text-[10px] text-zinc-400 font-bold lowercase">
+                                                        {noResponseCount} members with no RSVP response
+                                                    </span>
+                                                ) : targetAudience !== 'all' ? (
+                                                    <span className="text-[10px] text-zinc-400 font-bold lowercase">
+                                                        {meetingActions.filter(a => {
+                                                            if (targetAudience === 'going') return a.rsvp_status === 'going';
+                                                            if (targetAudience === 'going_unpaid') {
+                                                                const isPaid = ['paid', 'paid_online', 'paid_cash'].includes(a.payment_status) || Number(a.paid_amount) > 0;
+                                                                return a.rsvp_status === 'going' && !isPaid;
+                                                            }
+                                                            if (targetAudience === 'maybe') return a.rsvp_status === 'not_sure';
+                                                            if (targetAudience === 'no') return a.rsvp_status === 'cant_go';
+                                                            if (targetAudience === 'paid') return ['paid', 'paid_online', 'paid_cash'].includes(a.payment_status) || Number(a.paid_amount) > 0;
+                                                            if (targetAudience === 'checked_in') return a.checked_in == 1;
+                                                            return true;
+                                                        }).length} matching responses recorded
+                                                    </span>
+                                                ) : null}
+                                            </label>
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                                                {[
+                                                    { id: 'all', label: 'Everyone in Stream', desc: 'All stream members' },
+                                                    { id: 'going', label: 'Going', desc: 'RSVP Going' },
+                                                    { id: 'maybe', label: 'Maybe', desc: 'RSVP Maybe' },
+                                                    { id: 'no', label: 'No', desc: 'RSVP Can\'t Go' },
+                                                    { id: 'no_response', label: 'No Response', desc: 'No RSVP response' },
+                                                    { id: 'going_unpaid', label: 'Going (Unpaid)', desc: 'RSVP Going but unpaid' },
+                                                    { id: 'paid', label: 'Paid', desc: 'Completed Payment' },
+                                                    { id: 'checked_in', label: 'Checked In', desc: 'Checked in at venue' },
+                                                ].map((opt) => {
+                                                    const isSelected = targetAudience === opt.id;
+                                                    const count = opt.id === 'all'
+                                                        ? undefined
+                                                        : opt.id === 'no_response'
+                                                            ? noResponseCount
+                                                            : meetingActions.filter(a => {
+                                                                if (opt.id === 'going') return a.rsvp_status === 'going';
+                                                                if (opt.id === 'going_unpaid') {
+                                                                    const isPaid = ['paid', 'paid_online', 'paid_cash'].includes(a.payment_status) || Number(a.paid_amount) > 0;
+                                                                    return a.rsvp_status === 'going' && !isPaid;
+                                                                }
+                                                                if (opt.id === 'maybe') return a.rsvp_status === 'not_sure';
+                                                                if (opt.id === 'no') return a.rsvp_status === 'cant_go';
+                                                                if (opt.id === 'paid') return ['paid', 'paid_online', 'paid_cash'].includes(a.payment_status) || Number(a.paid_amount) > 0;
+                                                                if (opt.id === 'checked_in') return a.checked_in == 1;
+                                                                return true;
+                                                            }).length;
+
+                                                    return (
+                                                        <button
+                                                            key={opt.id}
+                                                            type="button"
+                                                            onClick={() => setTargetAudience(opt.id as TargetAudience)}
+                                                            className={`p-3 rounded-2xl border text-left transition-all relative ${isSelected
+                                                                ? notifyType === 'email'
+                                                                    ? 'bg-indigo-50/80 dark:bg-indigo-950/40 border-indigo-500 text-indigo-950 dark:text-indigo-200 ring-2 ring-indigo-500/20'
+                                                                    : 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-500 text-emerald-950 dark:text-emerald-200 ring-2 ring-emerald-500/20'
+                                                                : 'bg-zinc-50 dark:bg-zinc-950/50 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-700'
+                                                                }`}
+                                                        >
+                                                            <div className="flex items-center justify-between gap-1 mb-0.5">
+                                                                <span className="font-bold text-xs">{opt.label}</span>
+                                                                {count !== undefined && (
+                                                                    <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${isSelected
+                                                                        ? notifyType === 'email'
+                                                                            ? 'bg-indigo-600 text-white'
+                                                                            : 'bg-emerald-600 text-white'
+                                                                        : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
+                                                                        }`}>
+                                                                        {count}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <p className="text-[10px] text-zinc-400 dark:text-zinc-500 truncate">{opt.desc}</p>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </>
+                                    );
+                                })()}
                             </div>
 
                             <div>
@@ -1241,7 +1608,27 @@ const AdminMeetingEditor: React.FC = () => {
                         </div>
 
                         {/* Fixed Footer */}
-                        <div className="p-6 pt-4 border-t border-zinc-100 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/50 shrink-0 flex gap-3">
+                        <div className="p-6 pt-4 border-t border-zinc-100 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/50 shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={executeTestNotify}
+                                loading={testNotifying}
+                                title="Send test notification strictly to all members in Testing Stream (ID #16)"
+                                className="justify-center py-4 px-5 rounded-2xl border border-amber-300 dark:border-amber-700/70 text-amber-700 dark:text-amber-300 bg-amber-50/60 dark:bg-amber-950/20 hover:bg-amber-100/70 dark:hover:bg-amber-950/40 font-black text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2"
+                            >
+                                <BeakerIcon className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                                <span>Test (Testing Stream #16)</span>
+                                {(() => {
+                                    const testingStream = streams.find(s => Number(s.id) === 16);
+                                    if (!testingStream || testingStream.member_count === undefined) return null;
+                                    return (
+                                        <span className="text-[10px] font-black bg-amber-200/80 dark:bg-amber-900/70 px-2 py-0.5 rounded-full text-amber-900 dark:text-amber-200">
+                                            {testingStream.member_count}
+                                        </span>
+                                    );
+                                })()}
+                            </Button>
                             <Button
                                 onClick={executeNotify}
                                 loading={notifying}

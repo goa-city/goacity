@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './features/auth/context/AuthContext';
 import { AdminAuthProvider, useAdminAuth } from './context/AdminAuthContext';
 import { SuperAdminAuthProvider } from './context/SuperAdminAuthContext';
@@ -45,6 +45,7 @@ const AdminEmailTemplates = lazy(() => import('./pages/admin/AdminEmailTemplates
 const AdminEmailTemplateEditor = lazy(() => import('./pages/admin/AdminEmailTemplateEditor'));
 const AdminCities = lazy(() => import('./pages/admin/AdminCities'));
 const SuperAdminDashboard = lazy(() => import('./pages/superadmin/SuperAdminDashboard'));
+const SuperAdminAnalytics = lazy(() => import('./pages/superadmin/SuperAdminAnalytics'));
 const AdminWhatsAppStatus = lazy(() => import('./pages/admin/AdminWhatsAppStatus'));
 const AdminWhatsAppBroadcasts = lazy(() => import('./pages/admin/AdminWhatsAppBroadcasts'));
 const AdminWhatsAppTemplates = lazy(() => import('./pages/admin/AdminWhatsAppTemplates'));
@@ -54,6 +55,13 @@ const AdminWhatsAppBroadcastDetails = lazy(() => import('./pages/admin/AdminWhat
 const PageView = lazy(() => import('./pages/PageView'));
 const PaymentView = lazy(() => import('./pages/PaymentView'));
 const SuperAdminLogin = lazy(() => import('./pages/superadmin/SuperAdminLogin'));
+
+import { usePageTracking } from './hooks/usePageTracking';
+
+const PageTracker: React.FC = () => {
+    usePageTracking();
+    return null;
+};
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const News = lazy(() => import('./pages/News'));
@@ -97,9 +105,13 @@ const AdminProtectedRoute = () => {
 
 const MemberProtectedRoute = () => {
     const { user, loading } = useAuth();
+    const location = useLocation();
     const hasAuthToken = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('auth_token');
     if (loading || (hasAuthToken && !user)) return <LoadingScreen />;
-    if (!user) return <Navigate to="/" replace />;
+    if (!user) {
+        const fullPath = `${location.pathname}${location.search}${location.hash}`;
+        return <Navigate to="/" state={{ from: fullPath }} replace />;
+    }
     return <Outlet />;
 };
 
@@ -125,12 +137,15 @@ const App: React.FC = () => {
                     <AdminAuthProvider>
                         <SuperAdminAuthProvider>
                         <Router>
+                            <PageTracker />
                             <Suspense fallback={<LoadingScreen />}>
                                 <Routes>
                                     {/* ── Public ─────────────────────────── */}
                                     <Route path="/" element={<Login />} />
+                                    <Route path="/login" element={<Login />} />
                                     <Route path="/pay" element={<PaymentView />} />
                                     <Route path="/pay/:slugOrId" element={<PaymentView />} />
+                                    <Route path="/meetings/:slug" element={<MeetingView />} />
                                     <Route path="/register" element={<Register />} />
                                     <Route path="/home" element={<Home />} />
                                     <Route path="/form/:formId" element={<Onboarding />} />
@@ -145,6 +160,7 @@ const App: React.FC = () => {
                                             <Route path="/superadmin" element={<SuperAdminLayout />}>
                                                 <Route index element={<Navigate to="/superadmin/dashboard" replace />} />
                                                 <Route path="dashboard" element={<SuperAdminDashboard />} />
+                                                <Route path="analytics" element={<SuperAdminAnalytics />} />
                                                 <Route path="cities" element={<AdminCities />} />
                                             </Route>
                                         </>
@@ -217,7 +233,6 @@ const App: React.FC = () => {
                                         <Route path="/my-people" element={<MyPeople />} />
                                         <Route path="/profile/:slug" element={<PublicProfile />} />
                                         <Route path="/meetings" element={<MemberMeetings />} />
-                                        <Route path="/meetings/:slug" element={<MeetingView />} />
                                         <Route path="/incubator/submit" element={<IncubatorSubmit />} />
                                         <Route path="/incubator/explore" element={<IncubatorExplore />} />
                                         <Route path="/incubator/idea/:id" element={<IncubatorDetail />} />

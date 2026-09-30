@@ -30,7 +30,7 @@ import {
 } from '../validations/template.schema.js';
 import { createMemberSchema, updateMemberSchema } from '../validations/member.schema.js';
 import { createAdminSchema, updateAdminSchema } from '../validations/admin.schema.js';
-import { createMeetingSchema, updateMeetingSchema } from '../validations/meeting.schema.js';
+import { createMeetingSchema, updateMeetingSchema, notifyMeetingSchema } from '../validations/meeting.schema.js';
 import { createStreamSchema, updateStreamSchema } from '../validations/stream.schema.js';
 import { createPageSchema, updatePageSchema } from '../validations/page.schema.js';
 import { createJobSchema, updateJobSchema } from '../validations/job.schema.js';
@@ -149,7 +149,7 @@ router.post('/meetings/archive', archiveMeeting);
 router.delete('/meetings', deleteMeeting);
 router.get('/meetings/:id/responses', getMeetingResponses);
 router.get('/meetings/:id/actions', getMeetingActions);
-router.post('/meetings/:id/notify', notifyMeetingMembers);
+router.post('/meetings/:id/notify', validate(notifyMeetingSchema), notifyMeetingMembers);
 router.post('/meetings/:id/resources', upload.single('file'), uploadMeetingResource);
 router.delete('/meetings/resources/:id', deleteMeetingResource);
 

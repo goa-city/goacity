@@ -24,3 +24,12 @@ export const checkInMeeting = async (meetingIdOrSlug: number | string) => {
     const { data } = await api.post(`/member/meeting/${meetingIdOrSlug}/checkin`);
     return data;
 };
+
+export const registerGuestMeeting = async (meetingIdOrSlug: number | string, formData: FormData) => {
+    const { data } = await api.post(`/meetings/${meetingIdOrSlug}/register-guest`, formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data'
+        }
+    });
+    return data;
+};

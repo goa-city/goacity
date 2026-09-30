@@ -402,10 +402,10 @@ export class WhatsAppService {
                     response = await this.client.sendMessage(formattedTo, media, { caption: content });
                 } catch (mediaErr) {
                     console.error('[WhatsApp] Failed to attach media, falling back to text only:', mediaErr);
-                    response = await this.client.sendMessage(formattedTo, content);
+                    response = await this.client.sendMessage(formattedTo, content, { linkPreview: false });
                 }
             } else {
-                response = await this.client.sendMessage(formattedTo, content);
+                response = await this.client.sendMessage(formattedTo, content, { linkPreview: false });
             }
             
             // 5. Save the resolved ID back to the member record for next time
@@ -562,10 +562,12 @@ export class WhatsAppService {
                 // Count attempts within current batch run for pacing
                 processedInBatch++;
 
-                // If we've processed 5 messages in this run and there are more messages left, take a 10-minute break
+                // If we've processed 5 messages in this run and there are more messages left, take a random break between 8 and 10 minutes
                 if (processedInBatch % 5 === 0 && processedInBatch < messages.length) {
-                    console.log(`[WhatsApp] 🛑 Batch threshold reached (${processedInBatch}/${messages.length}). Taking a 10-minute break to protect account...`);
-                    await new Promise(resolve => setTimeout(resolve, 10 * 60 * 1000));
+                    const batchBreakMs = Math.floor(Math.random() * (10 * 60 * 1000 - 8 * 60 * 1000 + 1)) + 8 * 60 * 1000;
+                    const breakMinutes = (batchBreakMs / 60000).toFixed(1);
+                    console.log(`[WhatsApp] 🛑 Batch threshold reached (${processedInBatch}/${messages.length}). Taking a ${breakMinutes}-minute break to protect account...`);
+                    await new Promise(resolve => setTimeout(resolve, batchBreakMs));
                 } else if (processedInBatch < messages.length) {
                     // 60-second delay with a slight random jitter (55s - 65s)
                     const delay = Math.floor(Math.random() * (65000 - 55000 + 1)) + 55000;
@@ -591,10 +593,12 @@ export class WhatsAppService {
 
                 processedInBatch++;
 
-                // If 5 messages attempted, pause 10 minutes even if one failed
+                // If 5 messages attempted, pause between 8 and 10 minutes even if one failed
                 if (processedInBatch % 5 === 0 && processedInBatch < messages.length) {
-                    console.log(`[WhatsApp] 🛑 Batch threshold reached (${processedInBatch}/${messages.length}) after failure. Taking a 10-minute break...`);
-                    await new Promise(resolve => setTimeout(resolve, 10 * 60 * 1000));
+                    const batchBreakMs = Math.floor(Math.random() * (10 * 60 * 1000 - 8 * 60 * 1000 + 1)) + 8 * 60 * 1000;
+                    const breakMinutes = (batchBreakMs / 60000).toFixed(1);
+                    console.log(`[WhatsApp] 🛑 Batch threshold reached (${processedInBatch}/${messages.length}) after failure. Taking a ${breakMinutes}-minute break...`);
+                    await new Promise(resolve => setTimeout(resolve, batchBreakMs));
                 } else {
                     // COOLDOWN after failure: Wait 60s before next member
                     console.log(`[WhatsApp] Failure cooldown... waiting 60s before next member.`);

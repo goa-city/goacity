@@ -40,7 +40,13 @@ const LoginForm: React.FC<LoginFormProps> = ({ backgroundImage }) => {
         const res = await verifyOtp(identifier, otp, rememberMe);
         setLoading(false);
         if (res.success) {
-            navigate('/dashboard');
+            const savedRedirect = sessionStorage.getItem('redirect_after_login');
+            if (savedRedirect && savedRedirect !== '/' && !savedRedirect.startsWith('/admin') && !savedRedirect.startsWith('/superadmin')) {
+                sessionStorage.removeItem('redirect_after_login');
+                navigate(savedRedirect, { replace: true });
+            } else {
+                navigate('/dashboard', { replace: true });
+            }
         } else {
             setError(res.message ?? 'Unable to verify login code.');
         }

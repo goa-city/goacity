@@ -4,6 +4,7 @@ import cors from 'cors';
 import fs from 'fs';
 import apiRoutes from './routes/index.js';
 import { errorHandler } from './middleware/error.handler.js';
+import { serveMeetingHtml, serveMeetingOgImage } from './controllers/meetings.controller.js';
 
 import { whatsapp } from './services/whatsapp.service.js';
 
@@ -26,6 +27,12 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use('/uploads', express.static('uploads'));
+
+// Meeting OG Image endpoint (serves 1200x630 center crop for WhatsApp & social platforms)
+app.get(['/meetings/:slug/og-image.jpg', '/pay/:slug/og-image.jpg'], serveMeetingOgImage);
+
+// Meeting Dynamic HTML (poster icon & rich OpenGraph link previews)
+app.get(['/meetings/:slug', '/pay/:slug'], serveMeetingHtml);
 
 // API Routes
 app.use('/api', apiRoutes);

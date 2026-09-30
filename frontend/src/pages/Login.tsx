@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import { useAuth } from '../features/auth/context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import LoginForm from '../features/auth/components/LoginForm';
 
 // Assets
@@ -14,6 +14,19 @@ const images = [goa1, goa2, goa3, goa4];
 const Login: React.FC = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
+
+    // Determine target redirect url from location state, search param, or existing sessionStorage
+    useEffect(() => {
+        const stateFrom = (location.state as any)?.from;
+        const searchParams = new URLSearchParams(location.search);
+        const queryRedirect = searchParams.get('redirect');
+        const targetUrl = stateFrom || queryRedirect;
+
+        if (targetUrl && targetUrl !== '/' && !targetUrl.startsWith('/admin') && !targetUrl.startsWith('/superadmin')) {
+            sessionStorage.setItem('redirect_after_login', targetUrl);
+        }
+    }, [location]);
 
     // Pick a random image once when the component is first created
     const backgroundImage = useMemo(() => {
@@ -24,7 +37,13 @@ const Login: React.FC = () => {
     // Redirect if already logged in
     useEffect(() => {
         if (user) {
-            navigate('/dashboard');
+            const savedRedirect = sessionStorage.getItem('redirect_after_login');
+            if (savedRedirect && savedRedirect !== '/' && !savedRedirect.startsWith('/admin') && !savedRedirect.startsWith('/superadmin')) {
+                sessionStorage.removeItem('redirect_after_login');
+                navigate(savedRedirect, { replace: true });
+            } else {
+                navigate('/dashboard', { replace: true });
+            }
         }
     }, [user, navigate]);
 

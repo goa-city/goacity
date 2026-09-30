@@ -121,7 +121,8 @@ const AdminStreams: React.FC = () => {
 
     const filtered = streams.filter(s => 
         s.name?.toLowerCase().includes(search.toLowerCase()) ||
-        s.description?.toLowerCase().includes(search.toLowerCase())
+        s.description?.toLowerCase().includes(search.toLowerCase()) ||
+        String(s.id).includes(search.trim())
     );
 
     return (
@@ -171,6 +172,7 @@ const AdminStreams: React.FC = () => {
                         <table className="w-full text-left">
                             <thead>
                                 <tr className="border-b border-zinc-50 dark:border-zinc-800">
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400">Stream ID</th>
                                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400">Stream Name</th>
                                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400 hidden md:table-cell">Color</th>
                                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400 hidden lg:table-cell">Linked Form</th>
@@ -181,6 +183,11 @@ const AdminStreams: React.FC = () => {
                             <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/50">
                                 {filtered.map(stream => (
                                     <tr key={stream.id} className="transition-colors cursor-pointer group hover:bg-zinc-50 dark:hover:bg-zinc-800/30" onClick={() => handleOpenModal(stream)}>
+                                        <td className="px-8 py-5 whitespace-nowrap">
+                                            <span className="font-mono text-xs font-bold text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800/80 px-2.5 py-1 rounded-md border border-zinc-200/80 dark:border-zinc-700/80">
+                                                #{stream.id}
+                                            </span>
+                                        </td>
                                         <td className="px-8 py-5">
                                             <div className="flex items-center gap-4">
                                                 <div className="w-12 h-12 rounded-xl flex items-center justify-center border shadow-sm overflow-hidden relative" style={{ borderColor: stream.color ? `${stream.color}40` : undefined, backgroundColor: stream.color ? `${stream.color}15` : undefined }}>
@@ -234,7 +241,7 @@ const AdminStreams: React.FC = () => {
                         <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center bg-zinc-50 dark:bg-zinc-900/50">
                             <Dialog.Title className="text-xl font-black text-zinc-900 dark:text-white flex items-center gap-3">
                                 <SwatchIcon className="w-6 h-6 text-indigo-500" />
-                                {editingStream ? 'Edit Stream' : 'Add New Stream'}
+                                {editingStream ? `Edit Stream #${editingStream.id}` : 'Add New Stream'}
                             </Dialog.Title>
                             <button onClick={() => setIsModalOpen(false)} className="p-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
                                 <XMarkIcon className="w-5 h-5" />

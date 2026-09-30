@@ -18,6 +18,7 @@ import {
     ArrowUpTrayIcon,
     BanknotesIcon
 } from '@heroicons/react/24/solid';
+import { useMeetingPosterFavicon } from '../features/meetings/hooks/useMeetingPosterFavicon';
 
 interface MeetingPaymentInfo {
     id: number;
@@ -30,6 +31,7 @@ interface MeetingPaymentInfo {
     payment_amount?: number | string;
     upi_link?: string;
     payment_qr_image_url?: string | null;
+    poster_image_url?: string | null;
     my_payment_status?: string | null;
     my_payment_proof?: string | null;
     my_payment_proof_url?: string | null;
@@ -42,6 +44,7 @@ export const PaymentView: React.FC = () => {
 
     const [loading, setLoading] = useState<boolean>(!!slugOrId);
     const [meeting, setMeeting] = useState<MeetingPaymentInfo | null>(null);
+    useMeetingPosterFavicon(meeting);
     const [copied, setCopied] = useState<boolean>(false);
     const [autoRedirectAttempted, setAutoRedirectAttempted] = useState<boolean>(false);
 

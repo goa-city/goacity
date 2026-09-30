@@ -1,4 +1,7 @@
 import type { Request, Response } from 'express';
+import fs from 'fs';
+import path from 'path';
+import sharp from 'sharp';
 import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import { whatsapp } from '../services/whatsapp.service.js';
@@ -24,7 +27,13 @@ export const getMeetings = async (req: Request, res: Response) => {
                 where: { id: meetingId },
                 include: { 
                     city: true, 
-                    stream: true,
+                    stream: {
+                        include: {
+                            _count: {
+                                select: { members: true }
+                            }
+                        }
+                    },
                     resources: true,
                     meeting_responses: {
                         include: {
@@ -44,6 +53,7 @@ export const getMeetings = async (req: Request, res: Response) => {
             // Format single meeting
             const formatted = {
                 ...meeting,
+                stream_member_count: meeting.stream?._count?.members || 0,
                 payment_qr_image_url: meeting.payment_qr_image ? `${baseUrl}/uploads/${meeting.payment_qr_image}` : null,
                 poster_image_url: meeting.poster_image ? `${baseUrl}/uploads/${meeting.poster_image}` : null,
                 meeting_date_display: formatDateDDMMYYYY(meeting.meeting_date),
@@ -55,9 +65,12 @@ export const getMeetings = async (req: Request, res: Response) => {
                 })),
                 meeting_responses: meeting.meeting_responses.map((mr: any) => ({
                     ...mr,
-                    first_name: mr.user?.first_name,
-                    last_name: mr.user?.last_name,
-                    email: mr.user?.email,
+                    is_guest: !mr.user_id,
+                    first_name: mr.user?.first_name || (mr.guest_name ? mr.guest_name.split(' ')[0] : 'Guest'),
+                    last_name: mr.user?.last_name || (mr.guest_name ? mr.guest_name.split(' ').slice(1).join(' ') : ''),
+                    full_name: mr.user ? `${mr.user.first_name || ''} ${mr.user.last_name || ''}`.trim() : (mr.guest_name || 'Guest'),
+                    email: mr.user?.email || mr.guest_email,
+                    phone: mr.user?.phone || mr.guest_phone,
                     payment_proof_url: mr.payment_proof ? `${baseUrl}/uploads/${mr.payment_proof}` : null
                 }))
             };
@@ -284,6 +297,18 @@ export const getMeeting = async (req: Request, res: Response) => {
             url_display: `${baseUrl}/uploads/${r.url}`
         }));
 
+        if (m.registration_form_id) {
+            const regForm = await prisma.forms.findUnique({
+                where: { id: Number(m.registration_form_id) },
+                include: {
+                    fields: {
+                        orderBy: { sort_order: 'asc' }
+                    }
+                }
+            });
+            formatted.registration_form = regForm;
+        }
+
         return res.json(formatted);
     } catch (error: any) {
         console.error('getMeeting Error:', error);
@@ -296,7 +321,7 @@ import { createGoogleCalendarEvent } from '../utils/google-calendar.js';
 // POST /api/admin/meetings (Create/Update meeting)
 export const saveMeeting = async (req: Request, res: Response) => {
     try {
-        let { id, title, slug, description, meeting_date, start_time, end_time, location_name, map_link, is_paid, payment_amount, feedback_form_id, stream_id, archived, recap_content, zoom_link, upi_link, remove_poster_image, remove_payment_qr } = req.body;
+        let { id, title, slug, description, meeting_date, start_time, end_time, location_name, map_link, is_paid, payment_amount, feedback_form_id, stream_id, archived, recap_content, zoom_link, upi_link, remove_poster_image, remove_payment_qr, is_public, registration_form_id } = req.body;
         
         // Handle files from upload.fields or upload.single
         const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
@@ -317,8 +342,10 @@ export const saveMeeting = async (req: Request, res: Response) => {
             location_name: location_name || null,
             map_link: map_link || null,
             is_paid: (is_paid === 'true' || is_paid === true || is_paid === '1' || Number(is_paid) === 1) ? 1 : 0,
+            is_public: (is_public === 'true' || is_public === true || is_public === '1' || Number(is_public) === 1) ? 1 : 0,
             payment_amount: new Prisma.Decimal(payment_amount && payment_amount !== '' ? payment_amount : 0),
             feedback_form_id: (feedback_form_id && feedback_form_id !== 'null' && feedback_form_id !== '') ? Number(feedback_form_id) : null,
+            registration_form_id: (registration_form_id && registration_form_id !== 'null' && registration_form_id !== '') ? Number(registration_form_id) : null,
             stream_id: (stream_id && stream_id !== 'null' && stream_id !== '') ? Number(stream_id) : null,
             archived: (archived === 'true' || archived === true || archived === '1' || Number(archived) === 1) ? 1 : 0,
             recap_content: recap_content || null,
@@ -431,19 +458,31 @@ export const getMeetingActions = async (req: Request, res: Response) => {
                 mr.payment_status,
                 mr.paid_amount,
                 mr.payment_proof,
+                mr.guest_name,
+                mr.guest_email,
+                mr.guest_phone,
+                mr.form_response_id,
+                mr.created_at,
                 m.first_name, 
                 m.last_name, 
-                m.email 
+                m.email,
+                m.phone
             FROM meeting_responses mr
             LEFT JOIN members m ON m.id = mr.user_id
             WHERE mr.meeting_id = ${id}
-            ORDER BY m.first_name ASC
+            ORDER BY mr.created_at ASC
         `;
         const apiUrl = process.env.VITE_API_URL || '';
         const baseUrl = apiUrl.replace(/\/api\/?$/, '');
 
         const formatted = actions.map(a => ({
             ...a,
+            is_guest: !a.first_name && Boolean(a.guest_name),
+            first_name: a.first_name || (a.guest_name ? a.guest_name.split(' ')[0] : 'Guest'),
+            last_name: a.last_name || (a.guest_name ? a.guest_name.split(' ').slice(1).join(' ') : ''),
+            full_name: a.first_name ? `${a.first_name} ${a.last_name || ''}`.trim() : (a.guest_name || 'Guest'),
+            email: a.email || a.guest_email,
+            phone: a.phone || a.guest_phone,
             payment_proof_url: a.payment_proof ? `${baseUrl}/uploads/${a.payment_proof}` : null
         }));
 
@@ -806,6 +845,177 @@ export const payMeeting = async (req: Request, res: Response) => {
     }
 };
 
+// POST /api/meetings/:id/register-guest (Public guest registration)
+export const registerGuestMeeting = async (req: Request, res: Response) => {
+    try {
+        const idOrSlug = req.params.id as string;
+        const { name, email, phone, payment_status, paid_amount, form_answers } = req.body;
+        
+        if (!name || !email || !phone) {
+            return res.status(400).json({ message: 'Name, email, and phone number are required.' });
+        }
+
+        const isNumeric = !isNaN(Number(idOrSlug));
+        const meeting = await prisma.meetings.findFirst({
+            where: {
+                OR: [
+                    { id: isNumeric ? Number(idOrSlug) : -1 },
+                    { slug: idOrSlug }
+                ]
+            }
+        });
+
+        if (!meeting) {
+            return res.status(404).json({ message: 'Meeting not found.' });
+        }
+
+        const cleanEmail = String(email).trim().toLowerCase();
+        const cleanPhone = String(phone).trim();
+        const cleanName = String(name).trim();
+
+        // Handle uploaded payment proof
+        let proofFilename: string | null = null;
+        if (req.file) {
+            proofFilename = await processImageToWebp(req.file, 1200);
+        }
+
+        // Handle optional custom form answers
+        let formResponseId: number | null = null;
+        if (meeting.registration_form_id && form_answers) {
+            try {
+                let parsedAnswers: Record<string, any> = {};
+                if (typeof form_answers === 'string') {
+                    parsedAnswers = JSON.parse(form_answers);
+                } else if (typeof form_answers === 'object') {
+                    parsedAnswers = form_answers;
+                }
+
+                if (Object.keys(parsedAnswers).length > 0) {
+                    const formResponse = await prisma.formResponse.create({
+                        data: {
+                            form_id: Number(meeting.registration_form_id),
+                            meeting_id: meeting.id,
+                            status: 'completed',
+                            submitted_at: new Date()
+                        }
+                    });
+                    formResponseId = formResponse.id;
+
+                    const answerRecords = Object.entries(parsedAnswers).map(([k, v]) => ({
+                        response_id: formResponse.id,
+                        field_key: k,
+                        answer_value: typeof v === 'object' ? JSON.stringify(v) : String(v),
+                        is_answered: true
+                    }));
+                    if (answerRecords.length > 0) {
+                        await prisma.formAnswer.createMany({ data: answerRecords });
+                    }
+                }
+            } catch (err) {
+                console.error('[GUEST REGISTRATION] Error parsing form answers:', err);
+            }
+        }
+
+        // Check if this guest or member is already registered for this meeting
+        const existingGuest = await prisma.meeting_responses.findFirst({
+            where: {
+                meeting_id: meeting.id,
+                OR: [
+                    { guest_email: cleanEmail },
+                    { guest_phone: cleanPhone }
+                ]
+            }
+        });
+
+        const existingMember = await prisma.member.findFirst({
+            where: {
+                OR: [
+                    { email: cleanEmail },
+                    { phone: cleanPhone }
+                ]
+            },
+            include: {
+                meeting_responses: {
+                    where: { meeting_id: meeting.id }
+                }
+            }
+        });
+
+        const existingResponse = existingGuest || (existingMember?.meeting_responses && existingMember.meeting_responses.length > 0 ? existingMember.meeting_responses[0] : null);
+
+        if (existingResponse) {
+            const isPaymentComplete = existingResponse.payment_status === 'paid_online' || 
+                existingResponse.payment_status === 'paid_cash' || 
+                existingResponse.payment_status === 'completed' || 
+                existingResponse.payment_status === 'paid' || 
+                Boolean(existingResponse.payment_proof);
+
+            const memberName = existingMember ? [existingMember.first_name, existingMember.last_name].filter(Boolean).join(' ') : null;
+
+            return res.status(409).json({
+                success: false,
+                already_registered: true,
+                message: 'You are already registered for this event with this email address or phone number.',
+                meeting_title: meeting.title,
+                slug: meeting.slug || meeting.id,
+                is_paid: Boolean(meeting.is_paid),
+                payment_amount: meeting.payment_amount,
+                payment_status: existingResponse.payment_status || 'pending',
+                is_payment_complete: isPaymentComplete,
+                guest_name: existingResponse.guest_name || memberName || cleanName,
+                guest_email: cleanEmail,
+                guest_phone: cleanPhone
+            });
+        }
+
+        let targetPaymentStatus = payment_status;
+        if (!targetPaymentStatus) {
+            if (meeting.is_paid) {
+                targetPaymentStatus = proofFilename ? 'paid_online' : 'pending';
+            } else {
+                targetPaymentStatus = 'none';
+            }
+        }
+
+        const targetAmount = meeting.is_paid 
+            ? new Prisma.Decimal(paid_amount && Number(paid_amount) > 0 ? paid_amount : (meeting.payment_amount || 0)) 
+            : new Prisma.Decimal(0);
+
+        const responseRecord = await prisma.meeting_responses.create({
+            data: {
+                meeting_id: meeting.id,
+                user_id: null,
+                guest_name: cleanName,
+                guest_email: cleanEmail,
+                guest_phone: cleanPhone,
+                rsvp_status: 'going',
+                checked_in: 0,
+                payment_status: targetPaymentStatus,
+                paid_amount: targetAmount,
+                payment_proof: proofFilename,
+                form_response_id: formResponseId
+            }
+        });
+
+        const apiUrl = process.env.VITE_API_URL || '';
+        const baseUrl = apiUrl.replace(/\/api\/?$/, '');
+
+        return res.json({
+            success: true,
+            message: 'Registration successful! See you at the meeting.',
+            response_id: responseRecord.id,
+            guest_name: cleanName,
+            guest_email: cleanEmail,
+            guest_phone: cleanPhone,
+            payment_status: targetPaymentStatus,
+            payment_proof_url: proofFilename ? `${baseUrl}/uploads/${proofFilename}` : null
+        });
+    } catch (error: any) {
+        console.error('registerGuestMeeting Error:', error);
+        return res.status(500).json({ message: 'Failed to process registration. Please try again.' });
+    }
+};
+
 // POST /api/admin/meetings/archive
 export const archiveMeeting = async (req: Request, res: Response) => {
     try {
@@ -887,7 +1097,7 @@ import { sendEmail } from '../utils/email.js';
 export const notifyMeetingMembers = async (req: Request, res: Response) => {
     try {
         const id = Number(req.params.id);
-        const { type, templateId, targetAudience = 'all' } = req.body;
+        const { type, templateId, targetAudience = 'all', isTest = false } = req.body;
 
         const meeting: any = await prisma.meetings.findUnique({
             where: { id },
@@ -895,49 +1105,103 @@ export const notifyMeetingMembers = async (req: Request, res: Response) => {
         });
 
         if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
-        if (!meeting.stream_id) return res.status(400).json({ message: 'Meeting is not linked to any stream. Please link a stream first.' });
 
-        // Get members in stream
+        const isTestingStream = Boolean(isTest || targetAudience === 'test_stream');
+        const targetStreamId = isTestingStream ? 16 : meeting.stream_id;
+
+        if (!isTestingStream && !meeting.stream_id) {
+            return res.status(400).json({ message: 'Meeting is not linked to any stream. Please link a stream first.' });
+        }
+
+        // Get members in stream (strictly stream 16 if testing)
         let members: any[] = await prisma.member.findMany({
             where: {
                 streams: {
-                    some: { stream_id: meeting.stream_id }
+                    some: { stream_id: targetStreamId }
                 }
             }
         });
 
         if (members.length === 0) {
-            return res.status(400).json({ message: 'No members found in the linked stream' });
+            return res.status(400).json({ 
+                message: isTestingStream 
+                    ? 'No members found in the Testing Stream (ID #16)' 
+                    : 'No members found in the linked stream' 
+            });
         }
 
-        // Apply recipient audience filtering
-        if (targetAudience && targetAudience !== 'all') {
-            let whereClause: any = { meeting_id: id };
-            if (targetAudience === 'going') {
-                whereClause.rsvp_status = 'going';
-            } else if (targetAudience === 'maybe') {
-                whereClause.rsvp_status = 'not_sure';
-            } else if (targetAudience === 'no') {
-                whereClause.rsvp_status = 'cant_go';
-            } else if (targetAudience === 'paid') {
-                whereClause.OR = [
-                    { payment_status: { in: ['paid', 'paid_online', 'paid_cash'] } },
-                    { paid_amount: { gt: 0 } }
-                ];
-            } else if (targetAudience === 'checked_in') {
-                whereClause.checked_in = 1;
+        // Apply recipient audience filtering (strictly bypassed for testing stream)
+        if (!isTestingStream && targetAudience && targetAudience !== 'all') {
+            if (targetAudience === 'no_response') {
+                const respondedUsers = await prisma.meeting_responses.findMany({
+                    where: {
+                        meeting_id: id,
+                        rsvp_status: { in: ['going', 'not_sure', 'cant_go'] }
+                    },
+                    select: { user_id: true }
+                });
+                const respondedUserIds = new Set(respondedUsers.map(r => r.user_id).filter(Boolean));
+                members = members.filter(m => !respondedUserIds.has(m.id));
+            } else {
+                let whereClause: any = { meeting_id: id };
+                if (targetAudience === 'going') {
+                    whereClause.rsvp_status = 'going';
+                } else if (targetAudience === 'going_unpaid') {
+                    whereClause.rsvp_status = 'going';
+                    whereClause.AND = [
+                        {
+                            OR: [
+                                { payment_status: null },
+                                { payment_status: { notIn: ['paid', 'paid_online', 'paid_cash'] } }
+                            ]
+                        },
+                        {
+                            OR: [
+                                { paid_amount: null },
+                                { paid_amount: { lte: 0 } }
+                            ]
+                        }
+                    ];
+                } else if (targetAudience === 'maybe') {
+                    whereClause.rsvp_status = 'not_sure';
+                } else if (targetAudience === 'no') {
+                    whereClause.rsvp_status = 'cant_go';
+                } else if (targetAudience === 'paid') {
+                    whereClause.OR = [
+                        { payment_status: { in: ['paid', 'paid_online', 'paid_cash'] } },
+                        { paid_amount: { gt: 0 } }
+                    ];
+                } else if (targetAudience === 'checked_in') {
+                    whereClause.checked_in = 1;
+                }
+
+                const matchingResponses = await prisma.meeting_responses.findMany({
+                    where: whereClause,
+                    select: { user_id: true }
+                });
+
+                const targetUserIds = new Set(matchingResponses.map(r => r.user_id).filter(Boolean));
+                members = members.filter(m => targetUserIds.has(m.id));
+
+                const guestResponses = await prisma.meeting_responses.findMany({
+                    where: {
+                        ...whereClause,
+                        user_id: null
+                    }
+                });
+                const guestMembers = guestResponses.map(g => ({
+                    id: 0,
+                    first_name: g.guest_name ? g.guest_name.split(' ')[0] : 'Guest',
+                    last_name: g.guest_name ? g.guest_name.split(' ').slice(1).join(' ') : '',
+                    email: g.guest_email,
+                    phone: g.guest_phone,
+                    is_guest: true
+                })).filter(g => g.email || g.phone);
+                members = [...members, ...guestMembers];
             }
 
-            const matchingResponses = await prisma.meeting_responses.findMany({
-                where: whereClause,
-                select: { user_id: true }
-            });
-
-            const targetUserIds = new Set(matchingResponses.map(r => r.user_id).filter(Boolean));
-            members = members.filter(m => targetUserIds.has(m.id));
-
             if (members.length === 0) {
-                return res.status(400).json({ message: `No members found matching '${targetAudience}' filter for this meeting` });
+                return res.status(400).json({ message: `No members or guests found matching '${targetAudience}' filter for this meeting` });
             }
         }
 
@@ -951,14 +1215,21 @@ export const notifyMeetingMembers = async (req: Request, res: Response) => {
 
         const getReplacements = async (m: any) => {
             const meetingTarget = meeting.slug || meeting.id;
-            const [goingUrl, maybeUrl, noUrl] = await Promise.all([
-                ShortLinkService.getOrCreateRsvpLink(meeting.id, m.id, 'going', meetingTarget, baseUrl),
-                ShortLinkService.getOrCreateRsvpLink(meeting.id, m.id, 'not_sure', meetingTarget, baseUrl),
-                ShortLinkService.getOrCreateRsvpLink(meeting.id, m.id, 'cant_go', meetingTarget, baseUrl)
-            ]);
+            let goingUrl = meetingUrl;
+            let maybeUrl = meetingUrl;
+            let noUrl = meetingUrl;
+            let payUrl = `${baseUrl}/pay/${meetingTarget}`;
+
+            if (m.id && m.id > 0) {
+                [goingUrl, maybeUrl, noUrl] = await Promise.all([
+                    ShortLinkService.getOrCreateRsvpLink(meeting.id, m.id, 'going', meetingTarget, baseUrl),
+                    ShortLinkService.getOrCreateRsvpLink(meeting.id, m.id, 'not_sure', meetingTarget, baseUrl),
+                    ShortLinkService.getOrCreateRsvpLink(meeting.id, m.id, 'cant_go', meetingTarget, baseUrl)
+                ]);
+                payUrl = `${baseUrl}/pay/${meetingTarget}?m=${m.id}`;
+            }
 
             const rsvpOptionsBlock = `*Going:* ${goingUrl}\n\n*Maybe:* ${maybeUrl}\n\n*No:* ${noUrl}`;
-            const payUrl = `${baseUrl}/pay/${meetingTarget}?m=${m.id}`;
 
             return {
                 '{first_name}': m.first_name || 'Member',
@@ -1035,7 +1306,8 @@ export const notifyMeetingMembers = async (req: Request, res: Response) => {
                 }
             })().catch(err => console.error('Email background send error:', err));
 
-            return res.json({ success: true, message: `Email notifications queued for ${emailMembers.length} members` });
+            const targetDesc = isTestingStream ? 'members in Testing Stream (ID #16)' : 'members';
+            return res.json({ success: true, message: `Email notifications queued for ${emailMembers.length} ${targetDesc}` });
         } else if (type === 'whatsapp') {
             const effectiveTemplateId = templateId ? Number(templateId) : SYSTEM_TEMPLATES.WHATSAPP.DEFAULT.ID;
             const template = await prisma.whatsAppTemplate.findUnique({ where: { id: effectiveTemplateId } });
@@ -1061,13 +1333,14 @@ export const notifyMeetingMembers = async (req: Request, res: Response) => {
 
             whatsapp.sendBulk(
                 bulkMessages, 
-                `Meeting Notify: ${meeting.title}`,
+                isTestingStream ? `[TEST] Meeting Notify: ${meeting.title}` : `Meeting Notify: ${meeting.title}`,
                 undefined,
                 templateImagePath,
                 templateImageUrl
             ).catch((err: any) => console.error('WhatsApp bulk notify failed:', err));
 
-            return res.json({ success: true, message: `WhatsApp notifications queued for ${whatsappMembers.length} members` });
+            const targetDesc = isTestingStream ? 'members in Testing Stream (ID #16)' : 'members';
+            return res.json({ success: true, message: `WhatsApp notifications queued for ${whatsappMembers.length} ${targetDesc}` });
         }
 
         return res.status(400).json({ message: 'Invalid notification type' });
@@ -1076,3 +1349,201 @@ export const notifyMeetingMembers = async (req: Request, res: Response) => {
         return res.status(500).json({ message: error.message });
     }
 };
+
+let cachedIndexHtml: string | null = null;
+let lastIndexHtmlCheck = 0;
+
+const getIndexHtmlTemplate = (): string => {
+    const now = Date.now();
+    if (cachedIndexHtml && (now - lastIndexHtmlCheck < 30000)) {
+        return cachedIndexHtml;
+    }
+
+    const candidatePaths = [
+        process.env.FRONTEND_DIST_PATH,
+        '/home/ubuntu/frontend_dist/index.html',
+        path.resolve(process.cwd(), '../frontend/dist/index.html'),
+        path.resolve(process.cwd(), '../frontend/index.html'),
+        path.resolve(process.cwd(), 'dist/index.html')
+    ].filter(Boolean) as string[];
+
+    for (const p of candidatePaths) {
+        try {
+            if (fs.existsSync(p)) {
+                cachedIndexHtml = fs.readFileSync(p, 'utf-8');
+                lastIndexHtmlCheck = now;
+                return cachedIndexHtml;
+            }
+        } catch {
+            // ignore
+        }
+    }
+
+    return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/goa-city-icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Goa.City</title>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>`;
+};
+
+/**
+ * Serves meeting-related public pages (such as /meetings/:slug and /pay/:slug)
+ * with the meeting's poster invite image dynamically injected into <link rel="icon">,
+ * <link rel="apple-touch-icon">, and OpenGraph/Twitter meta tags.
+ * This ensures that when posting the URL link on WhatsApp, Telegram, or social platforms,
+ * the poster image is displayed rather than the default Goa.City logo.
+ */
+export const serveMeetingHtml = async (req: Request, res: Response) => {
+    try {
+        const idOrSlug = (req.params.slug || req.params.id) as string;
+        const baseUrl = getBaseUrl(req);
+        let template = getIndexHtmlTemplate();
+
+        if (!idOrSlug) {
+            res.setHeader('Content-Type', 'text/html; charset=utf-8');
+            return res.send(template);
+        }
+
+        const isNumeric = !isNaN(Number(idOrSlug));
+        const meeting = await prisma.meetings.findFirst({
+            where: {
+                OR: [
+                    { id: isNumeric ? Number(idOrSlug) : -1 },
+                    { slug: idOrSlug }
+                ]
+            }
+        });
+
+        if (!meeting) {
+            res.setHeader('Content-Type', 'text/html; charset=utf-8');
+            return res.send(template);
+        }
+
+        const title = meeting.title ? `${meeting.title} | Goa.City` : 'Goa.City';
+        const posterUrl = meeting.poster_image 
+            ? (meeting.poster_image.startsWith('http') ? meeting.poster_image : `${baseUrl}/uploads/${meeting.poster_image}`)
+            : null;
+
+        const dateStr = meeting.meeting_date ? formatDateDDMMYYYY(meeting.meeting_date) : '';
+        const locStr = meeting.location_name || '';
+        const rawDesc = meeting.description ? meeting.description.replace(/<[^>]*>/g, '').trim() : '';
+        const description = rawDesc
+            ? (rawDesc.length > 160 ? rawDesc.slice(0, 157) + '...' : rawDesc)
+            : `Join us for ${meeting.title}${dateStr ? ` on ${dateStr}` : ''}${locStr ? ` at ${locStr}` : ''}.`;
+
+        const currentUrl = `${baseUrl}${req.originalUrl || req.url}`;
+        const userAgent = req.headers['user-agent'] || '';
+        const isCrawler = /facebookexternalhit|whatsapp|twitterbot|telegrambot|linkedinbot|slackbot|discordbot|applebot/i.test(userAgent);
+
+        // 1. Update <title>
+        if (template.includes('<title>')) {
+            template = template.replace(/<title>.*?<\/title>/is, `<title>${title}</title>`);
+        } else {
+            template = template.replace('</head>', `  <title>${title}</title>\n</head>`);
+        }
+
+        // 2. Favicon handling:
+        // Strip any poster icon links from raw server-rendered HTML so WhatsApp, WhatsApp Web,
+        // and link scrapers NEVER generate a narrow poster preview image.
+        // The browser tab icon is set dynamically on the client by React's useMeetingPosterFavicon hook.
+        template = template.replace(/<link[^>]+rel=["'][^"']*icon[^"']*["'][^>]*>/gi, '');
+        template = template.replace('</head>', `  <link rel="icon" type="image/png" href="/goa-city-icon.png" />\n</head>`);
+
+        // 3. Inject text-only OpenGraph & Twitter Card tags (Option 2: Zero preview images in WhatsApp)
+        const escapeAttr = (s: string) => s.replace(/"/g, '&quot;');
+        const metaTags = [
+            `<meta property="og:title" content="${escapeAttr(title)}" />`,
+            `<meta property="og:description" content="${escapeAttr(description)}" />`,
+            `<meta property="og:url" content="${escapeAttr(currentUrl)}" />`,
+            `<meta property="og:type" content="website" />`,
+            `<meta property="og:site_name" content="Goa.City" />`,
+            `<meta name="twitter:card" content="summary" />`,
+            `<meta name="twitter:title" content="${escapeAttr(title)}" />`,
+            `<meta name="twitter:description" content="${escapeAttr(description)}" />`
+        ].filter(Boolean).join('\n    ');
+
+        template = template.replace('</head>', `  ${metaTags}\n</head>`);
+
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.send(template);
+    } catch (error) {
+        console.error('serveMeetingHtml Error:', error);
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.send(getIndexHtmlTemplate());
+    }
+};
+
+/**
+ * Serves a 1200x630 center-cropped JPEG image for a meeting poster.
+ * Cached to disk in uploads/og_cache/ for maximum performance.
+ * This guarantees WhatsApp and social platforms render a full-width preview card.
+ */
+export const serveMeetingOgImage = async (req: Request, res: Response) => {
+    try {
+        const idOrSlug = (req.params.slug || req.params.id) as string;
+        if (!idOrSlug) {
+            return res.status(404).send('Not found');
+        }
+
+        const isNumeric = !isNaN(Number(idOrSlug));
+        const meeting = await prisma.meetings.findFirst({
+            where: {
+                OR: [
+                    { id: isNumeric ? Number(idOrSlug) : -1 },
+                    { slug: idOrSlug }
+                ]
+            }
+        });
+
+        if (!meeting || !meeting.poster_image) {
+            const defaultLogo = path.resolve(process.cwd(), '../frontend/public/goa-city-icon.png');
+            if (fs.existsSync(defaultLogo)) {
+                return res.sendFile(defaultLogo);
+            }
+            return res.status(404).send('No poster image');
+        }
+
+        const posterFilename = path.basename(meeting.poster_image);
+        const posterPath = path.resolve(process.cwd(), 'uploads', posterFilename);
+
+        if (!fs.existsSync(posterPath)) {
+            return res.status(404).send('Poster file not found on disk');
+        }
+
+        const cacheDir = path.resolve(process.cwd(), 'uploads', 'og_cache');
+        if (!fs.existsSync(cacheDir)) {
+            fs.mkdirSync(cacheDir, { recursive: true });
+        }
+
+        const cachedFilename = `og_crop_${posterFilename}.jpg`;
+        const cachedPath = path.join(cacheDir, cachedFilename);
+
+        if (fs.existsSync(cachedPath)) {
+            res.setHeader('Content-Type', 'image/jpeg');
+            res.setHeader('Cache-Control', 'public, max-age=86400');
+            return res.sendFile(cachedPath);
+        }
+
+        // Generate 1200x630 center crop
+        await sharp(posterPath)
+            .resize(1200, 630, { fit: 'cover', position: 'center' })
+            .jpeg({ quality: 85 })
+            .toFile(cachedPath);
+
+        res.setHeader('Content-Type', 'image/jpeg');
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        return res.sendFile(cachedPath);
+    } catch (error) {
+        console.error('serveMeetingOgImage Error:', error);
+        return res.status(500).send('Error generating OG image');
+    }
+};
+
+

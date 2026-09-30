@@ -68,7 +68,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ meeting, onClose, onSuccess
                                     <div className="flex flex-col items-center">
                                         <div className="p-4 bg-white rounded-2xl shadow-inner border border-zinc-200 dark:border-zinc-700">
                                             <a href={`/pay/${meeting.slug || meeting.id}`} target="_blank" rel="noopener noreferrer" title="Click to pay via UPI app or open payment page">
-                                                <img src={qrUrl} alt="Payment QR" className="w-64 h-64 object-contain cursor-pointer hover:opacity-90 transition-opacity" />
+                                                <img src={qrUrl || undefined} alt="Payment QR" className="w-64 h-64 object-contain cursor-pointer hover:opacity-90 transition-opacity" />
                                             </a>
                                         </div>
                                         <a 
