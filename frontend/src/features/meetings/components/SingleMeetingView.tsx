@@ -16,6 +16,8 @@ import CheckInModal from './CheckInModal';
 import RsvpConfirmationModal from './RsvpConfirmationModal';
 import GuestRegistrationModal from './GuestRegistrationModal';
 import GuestRegistrationForm from './GuestRegistrationForm';
+import MeetingRecapVideos from './MeetingRecapVideos';
+import MeetingRecapGallery from './MeetingRecapGallery';
 
 const MeetingPageWrapper: React.FC<{ user: any; children: React.ReactNode }> = ({ user, children }) => {
     const { theme, toggleTheme } = useTheme();
@@ -109,6 +111,12 @@ const SingleMeetingView: React.FC = () => {
 
     const isDev = import.meta.env.MODE === 'development' || window.location.hostname === 'localhost';
     const isPast = meeting ? getLocalYYYYMMDD(meeting.meeting_date) < getLocalYYYYMMDD(new Date()) : false;
+    const hasRecapContent = Boolean(
+        (meeting?.recap_videos && meeting.recap_videos.length > 0) ||
+        (meeting?.recap_gallery && meeting.recap_gallery.length > 0) ||
+        (meeting?.recap_content && meeting.recap_content.trim().length > 10)
+    );
+    const isCompleted = isPast || hasRecapContent;
 
     const handleDevTest = async () => {
         if (!meeting) return;
@@ -203,8 +211,8 @@ const SingleMeetingView: React.FC = () => {
                         </p>
                     </div>
 
-                    {/* Member RSVP Buttons directly below the meeting date and time row (ONLY for logged-in members) */}
-                    {user && (
+                    {/* Member RSVP Buttons directly below the meeting date and time row (ONLY for upcoming meetings & logged-in members) */}
+                    {user && !isCompleted && (
                         <div className="pt-2 flex flex-wrap items-center gap-3 w-full">
                             {Boolean(meeting.is_paid) && (
                                 meeting.my_payment_status === 'paid_online' || 
@@ -289,7 +297,170 @@ const SingleMeetingView: React.FC = () => {
                     )}
                 </div>
 
-                {!user ? (
+                {isCompleted ? (
+                    /* ── Completed Meeting / Post-Event Recap Hub ── */
+                    <div className="space-y-10">
+                        {/* Status Alert Banner */}
+                        <div className="flex flex-wrap items-center justify-between gap-4 p-5 rounded-3xl bg-zinc-900 text-white dark:bg-zinc-800/90 border border-zinc-800 shadow-xl">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shrink-0 shadow-md shadow-indigo-600/30">
+                                    <SparklesIcon className="w-5 h-5 text-amber-300" />
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">
+                                            Event Concluded
+                                        </span>
+                                        <span className="text-[10px] text-zinc-500">•</span>
+                                        <span className="text-[10px] font-bold text-zinc-300 uppercase tracking-wider">
+                                            {formatDate(meeting.meeting_date)}
+                                        </span>
+                                    </div>
+                                    <h3 className="text-sm font-black uppercase tracking-tight text-white mt-0.5">
+                                        Meeting Highlights, Recordings & Gallery
+                                    </h3>
+                                </div>
+                            </div>
+
+                            {user && (meeting.checked_in == 1 || meeting.my_payment_status === 'paid_online' || meeting.my_payment_status === 'paid_cash' || meeting.my_payment_status === 'completed') && (
+                                <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-black uppercase tracking-widest">
+                                    <CheckCircleIcon className="w-4 h-4" />
+                                    <span>You Attended</span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Video Clips Hub */}
+                        {meeting.recap_videos && meeting.recap_videos.length > 0 && (
+                            <div className="bg-gradient-to-b from-zinc-50 to-white dark:from-zinc-900/40 dark:to-zinc-900/10 p-6 sm:p-8 rounded-3xl border border-zinc-200/80 dark:border-zinc-800 shadow-sm">
+                                <MeetingRecapVideos
+                                    meetingId={meeting.id}
+                                    videos={meeting.recap_videos}
+                                    initialReactions={meeting.video_reactions}
+                                    isAuthenticated={Boolean(user)}
+                                />
+                            </div>
+                        )}
+
+                        {/* Main Grid: Left Column (Gallery + Minutes) / Right Column (Poster + Resources + Feedback) */}
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                            <div className="lg:col-span-8 space-y-10">
+                                {/* Photo Gallery */}
+                                {meeting.recap_gallery && meeting.recap_gallery.length > 0 && (
+                                    <MeetingRecapGallery
+                                        photos={meeting.recap_gallery}
+                                        isAuthenticated={Boolean(user)}
+                                    />
+                                )}
+
+                                {/* Recap Minutes & Rich Text */}
+                                {meeting.recap_content && meeting.recap_content.length > 10 && (
+                                    <Card className="overflow-hidden relative group border-zinc-200/80 dark:border-zinc-800 shadow-sm">
+                                        <div className="absolute top-0 left-0 w-full h-1 bg-indigo-600"></div>
+                                        <CardContent className="p-8 md:p-10">
+                                            <div className="flex items-center gap-3 mb-6">
+                                                <div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center">
+                                                    <DocumentTextIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+                                                </div>
+                                                <div>
+                                                    <h2 className="text-lg font-black text-zinc-900 dark:text-white uppercase tracking-tight">Meeting Recap & Notes</h2>
+                                                    <p className="text-[10px] text-zinc-400 uppercase font-black tracking-widest mt-0.5">Highlights & Minutes</p>
+                                                </div>
+                                            </div>
+                                            <div
+                                                className="prose prose-zinc dark:prose-invert max-w-none text-zinc-600 dark:text-zinc-400 font-medium leading-relaxed prose-headings:font-black prose-headings:uppercase prose-headings:italic prose-a:text-indigo-600"
+                                                dangerouslySetInnerHTML={{ __html: meeting.recap_content }}
+                                            />
+                                        </CardContent>
+                                    </Card>
+                                )}
+                            </div>
+
+                            <div className="lg:col-span-4 space-y-6">
+                                {/* Minimized Official Event Poster */}
+                                {meeting.poster_image_url && (
+                                    <Card className="overflow-hidden border-zinc-200/80 dark:border-zinc-800 p-4">
+                                        <div className="flex items-center justify-between mb-3 px-1">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                                                Event Poster
+                                            </span>
+                                            <span className="text-[9px] font-black uppercase text-indigo-600 dark:text-indigo-400 cursor-pointer hover:underline" onClick={() => setShowPosterModal(true)}>
+                                                View Full
+                                            </span>
+                                        </div>
+                                        <div
+                                            onClick={() => setShowPosterModal(true)}
+                                            className="relative group cursor-pointer rounded-2xl overflow-hidden shadow-md border border-zinc-200/60 dark:border-zinc-800 bg-white dark:bg-zinc-900 transition-all hover:border-indigo-500/50"
+                                        >
+                                            <img
+                                                src={meeting.poster_image_url}
+                                                alt={`${meeting.title} Poster`}
+                                                className="w-full h-auto object-contain rounded-2xl group-hover:scale-102 transition-transform duration-300 block"
+                                            />
+                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                                <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/80 text-white text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl backdrop-blur-md">
+                                                    Click to Enlarge
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </Card>
+                                )}
+
+                                {/* Feedback Form Prompt */}
+                                {meeting.feedback_form_id && (
+                                    <a
+                                        href={`/onboarding/form/${meeting.feedback_form_id}?meeting_id=${meeting.id}`}
+                                        className="group block"
+                                    >
+                                        <Card className="p-5 hover:border-indigo-600 border border-zinc-200/80 dark:border-zinc-800 transition-all flex items-center gap-4 bg-gradient-to-br from-indigo-50/50 to-white dark:from-indigo-950/20 dark:to-zinc-900">
+                                            <div className="w-1.5 h-10 rounded-full bg-indigo-600 shrink-0 group-hover:scale-y-110 transition-transform" />
+                                            <div>
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400">Attendee Survey</span>
+                                                <h4 className="font-black text-xs text-zinc-900 dark:text-white leading-tight mt-0.5">Share Your Feedback</h4>
+                                            </div>
+                                        </Card>
+                                    </a>
+                                )}
+
+                                {/* Meeting Resources */}
+                                {meeting.resources && meeting.resources.length > 0 && (
+                                    <Card className="overflow-hidden relative border-zinc-200/80 dark:border-zinc-800">
+                                        <CardContent className="p-6">
+                                            <div className="flex items-center gap-3 mb-4">
+                                                <div className="w-9 h-9 bg-emerald-500/10 rounded-xl flex items-center justify-center">
+                                                    <LinkIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                                                </div>
+                                                <div>
+                                                    <h4 className="font-black text-xs text-zinc-900 dark:text-white uppercase tracking-wider">Resources & Decks</h4>
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col gap-2.5">
+                                                {meeting.resources.map((res: any) => (
+                                                    <a
+                                                        key={res.id}
+                                                        href={res.url_display || `${(import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '')}/uploads/${res.url}`}
+                                                        download={res.title || 'download'}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="flex items-center gap-3 p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all border border-transparent hover:border-indigo-500/20 group"
+                                                    >
+                                                        <div className="w-7 h-7 bg-white dark:bg-zinc-900 rounded-lg flex items-center justify-center text-[9px] font-black uppercase text-zinc-400 group-hover:text-indigo-600 transition-colors shadow-xs shrink-0">
+                                                            {res.url.split('.').pop()?.toUpperCase()}
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-[11px] font-black text-zinc-900 dark:text-white uppercase tracking-widest truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{res.title}</p>
+                                                            <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest mt-0.5">Download</p>
+                                                        </div>
+                                                    </a>
+                                                ))}
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                ) : !user ? (
                     /* ── Public / Guest View: Sleek Poster on Left, Inline Registration Form & Payment on Right ── */
                     <div className="space-y-12">
                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">

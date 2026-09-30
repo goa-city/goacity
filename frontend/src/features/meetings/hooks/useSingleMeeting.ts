@@ -14,9 +14,11 @@ export interface Meeting {
     description?: string | null;
     slug?: string | null;
     meeting_date: string;
+    meeting_date_display?: string;
     location_name: string;
     zoom_link?: string;
     recap_content?: string;
+    minutes?: string | null;
     resources?: MeetingResource[];
     feedback_form_id?: number;
     checked_in?: number;
@@ -40,6 +42,21 @@ export interface Meeting {
     my_payment_status?: string | null;
     my_payment_proof?: string | null;
     my_payment_proof_url?: string | null;
+    recap_videos?: Array<{
+        id: string;
+        title: string;
+        youtube_url: string;
+        youtube_id: string;
+        description?: string;
+        duration?: string;
+    }>;
+    recap_gallery?: Array<{
+        id: string;
+        image_url: string;
+        image_url_display?: string;
+        caption?: string;
+    }>;
+    video_reactions?: Record<string, { likes: number; loves: number; my_reaction?: string | null }>;
 }
 
 export const useSingleMeeting = (id: string | undefined) => {

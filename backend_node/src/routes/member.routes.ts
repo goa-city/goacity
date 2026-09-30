@@ -12,8 +12,10 @@ import {
 } from '../controllers/stewardship.controller.js';
 import { 
     getUpcomingMeetings, getPastMeetings, getMeeting, rsvpMeeting,
-    checkInMeeting, payMeeting
+    checkInMeeting, payMeeting, toggleVideoReaction, logVideoWatch
 } from '../controllers/meetings.controller.js';
+import { validate } from '../middleware/validate.js';
+import { videoReactionSchema, videoAnalyticsSchema } from '../validations/meeting.schema.js';
 import { 
     requestMentorship, getMyMentorships, 
     getMentorshipById, addMentorshipGoal, updateMentorshipGoal,
@@ -61,6 +63,8 @@ router.get('/meeting/:id', getMeeting);
 router.post('/meeting/:id/rsvp', rsvpMeeting);
 router.post('/meeting/:id/checkin', checkInMeeting);
 router.post('/meeting/:id/pay', upload.single('payment_proof'), payMeeting);
+router.post('/meetings/:id/videos/:clipId/react', validate(videoReactionSchema), toggleVideoReaction);
+router.post('/meetings/:id/videos/:clipId/analytics', validate(videoAnalyticsSchema), logVideoWatch);
 
 // Stewardship
 router.get('/stewardship/summary', getStewardshipSummary);

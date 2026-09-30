@@ -21,6 +21,8 @@ export const createMeetingSchema = z.object({
         }),
         archived: z.union([z.string(), z.number(), z.boolean()]).optional().nullable(),
         recap_content: z.string().optional().nullable(),
+        recap_videos: z.union([z.string(), z.array(z.any())]).optional().nullable(),
+        recap_gallery: z.union([z.string(), z.array(z.any())]).optional().nullable(),
         upi_link: z.string().optional().nullable(),
         poster_image: z.union([z.string(), z.any()]).optional().nullable(),
     }),
@@ -47,3 +49,23 @@ export const notifyMeetingSchema = z.object({
         isTest: z.boolean().optional()
     })
 });
+
+export const videoReactionSchema = z.object({
+    body: z.object({
+        reaction_type: z.enum(['like', 'love'])
+    })
+});
+
+export const videoAnalyticsSchema = z.object({
+    body: z.object({
+        action: z.enum(['play', 'heartbeat', 'ended', 'pause']).optional().default('play'),
+        duration_seconds: z.number().min(0).max(86400).optional().default(0)
+    })
+});
+
+export const publishRecapNewsSchema = z.object({
+    body: z.object({
+        custom_note: z.string().optional().nullable()
+    }).optional()
+});
+

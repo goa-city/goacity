@@ -14,7 +14,10 @@ import PullToRefresh from '../../../components/mobile/PullToRefresh';
 import {
     PlusIcon,
     SparklesIcon,
-    ArrowPathIcon
+    ArrowPathIcon,
+    PlayIcon,
+    FilmIcon,
+    PhotoIcon
 } from '@heroicons/react/24/solid';
 
 import { formatDate } from '../../../utils/date';
@@ -22,9 +25,16 @@ const DashboardView: React.FC = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const { data, collabs, isLoading, refetch } = useDashboard();
-    const { checkIn } = useMeetings();
+    const { checkIn, past: pastMeetings } = useMeetings();
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [checkInMeeting, setCheckInMeeting] = useState<any>(null);
+
+    const latestRecap = pastMeetings?.find((m: any) => {
+        const hasVideos = Array.isArray(m.recap_videos) && m.recap_videos.length > 0;
+        const hasPhotos = Array.isArray(m.recap_gallery) && m.recap_gallery.length > 0;
+        const hasMinutes = Boolean(m.minutes && m.minutes.trim());
+        return hasVideos || hasPhotos || hasMinutes;
+    });
 
     const handleManualRefresh = async () => {
         setIsRefreshing(true);
@@ -77,6 +87,69 @@ const DashboardView: React.FC = () => {
 
                         {/* Main Content Area */}
                         <div className="xl:col-span-8 space-y-12">
+                            {/* Latest Meeting Recap Spotlight */}
+                            {latestRecap && (
+                                <section className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-zinc-950 via-zinc-900 to-indigo-950 text-white p-6 sm:p-8 shadow-xl border border-indigo-500/20 group">
+                                    <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20 group-hover:bg-indigo-500/15 transition-all duration-700" />
+                                    
+                                    <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                                        <div className="space-y-3 max-w-xl">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-amber-400 text-zinc-950 shadow-sm">
+                                                    <PlayIcon className="w-3 h-3" />
+                                                    Meeting Recap Ready
+                                                </span>
+                                                {latestRecap.stream_name && (
+                                                    <span
+                                                        className="px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white uppercase tracking-wider"
+                                                        style={{ backgroundColor: latestRecap.stream_color || '#4f46e5' }}
+                                                    >
+                                                        {latestRecap.stream_name}
+                                                    </span>
+                                                )}
+                                                <span className="text-[11px] text-zinc-400 font-semibold">
+                                                    {latestRecap.meeting_date_display || (latestRecap.meeting_date ? formatDate(latestRecap.meeting_date) : '')}
+                                                </span>
+                                            </div>
+
+                                            <h3 className="text-xl sm:text-2xl font-black text-white leading-tight font-display">
+                                                {latestRecap.title}
+                                            </h3>
+
+                                            <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-300">
+                                                {latestRecap.recap_videos && latestRecap.recap_videos.length > 0 && (
+                                                    <span className="flex items-center gap-1.5 font-bold">
+                                                        <FilmIcon className="w-4 h-4 text-indigo-400" />
+                                                        {latestRecap.recap_videos.length} Video Clip{latestRecap.recap_videos.length > 1 ? 's' : ''}
+                                                    </span>
+                                                )}
+                                                {latestRecap.recap_gallery && latestRecap.recap_gallery.length > 0 && (
+                                                    <span className="flex items-center gap-1.5 font-bold">
+                                                        <PhotoIcon className="w-4 h-4 text-emerald-400" />
+                                                        {latestRecap.recap_gallery.length} Photo{latestRecap.recap_gallery.length > 1 ? 's' : ''}
+                                                    </span>
+                                                )}
+                                                {latestRecap.minutes && (
+                                                    <span className="text-zinc-400 text-[11px]">
+                                                        • Includes Meeting Minutes
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="shrink-0 flex items-center">
+                                            <Button
+                                                onClick={() => navigate(`/meetings/${latestRecap.slug || latestRecap.id}`)}
+                                                className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-2xl px-6 py-3.5 text-xs uppercase tracking-wider shadow-lg shadow-indigo-600/30 border-none flex items-center gap-2 group-hover:scale-105 transition-all"
+                                            >
+                                                <PlayIcon className="w-4 h-4 fill-current" />
+                                                Watch Highlights & Gallery
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </section>
+                            )}
+
                             {/* Streams Section */}
                             <section>
                                 <div className="flex justify-between items-center mb-6 px-2">

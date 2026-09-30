@@ -173,6 +173,17 @@ export const getPastMeetings = async (req: Request, res: Response) => {
             });
             const apiUrl = process.env.VITE_API_URL || '';
             const baseUrl = apiUrl.replace(/\/api\/?$/, '');
+
+            let recapVideos = m.recap_videos;
+            if (typeof recapVideos === 'string') {
+                try { recapVideos = JSON.parse(recapVideos); } catch (e) { recapVideos = []; }
+            }
+
+            let recapGallery = m.recap_gallery;
+            if (typeof recapGallery === 'string') {
+                try { recapGallery = JSON.parse(recapGallery); } catch (e) { recapGallery = []; }
+            }
+
             return {
                 ...m,
                 meeting_date_display: formatDateDDMMYYYY(m.meeting_date),
@@ -184,7 +195,12 @@ export const getPastMeetings = async (req: Request, res: Response) => {
                 })),
                 payment_qr_image_url: m.payment_qr_image ? `${baseUrl}/uploads/${m.payment_qr_image}` : null,
                 poster_image_url: m.poster_image ? `${baseUrl}/uploads/${m.poster_image}` : null,
-                my_payment_proof_url: m.my_payment_proof ? `${baseUrl}/uploads/${m.my_payment_proof}` : null
+                my_payment_proof_url: m.my_payment_proof ? `${baseUrl}/uploads/${m.my_payment_proof}` : null,
+                recap_videos: Array.isArray(recapVideos) ? recapVideos : [],
+                recap_gallery: Array.isArray(recapGallery) ? recapGallery.map((img: any) => ({
+                    ...img,
+                    image_url_display: img.image_url?.startsWith('http') ? img.image_url : `${baseUrl}/uploads/${img.image_url}`
+                })) : []
             };
         }));
 
@@ -297,6 +313,43 @@ export const getMeeting = async (req: Request, res: Response) => {
             url_display: `${baseUrl}/uploads/${r.url}`
         }));
 
+        // Parse recap_videos and recap_gallery
+        let recapVideos = m.recap_videos;
+        if (typeof recapVideos === 'string') {
+            try { recapVideos = JSON.parse(recapVideos); } catch (e) { recapVideos = []; }
+        }
+        formatted.recap_videos = Array.isArray(recapVideos) ? recapVideos : [];
+
+        let recapGallery = m.recap_gallery;
+        if (typeof recapGallery === 'string') {
+            try { recapGallery = JSON.parse(recapGallery); } catch (e) { recapGallery = []; }
+        }
+        if (Array.isArray(recapGallery)) {
+            formatted.recap_gallery = recapGallery.map((img: any) => ({
+                ...img,
+                image_url_display: img.image_url?.startsWith('http') ? img.image_url : `${baseUrl}/uploads/${img.image_url}`
+            }));
+        } else {
+            formatted.recap_gallery = [];
+        }
+
+        // Fetch video reactions summary & user's reaction
+        const videoReactions = await (prisma as any).meetingVideoReaction.findMany({
+            where: { meeting_id: id }
+        });
+
+        const reactionsMap: Record<string, { likes: number; loves: number; my_reaction?: string | null }> = {};
+        videoReactions.forEach((vr: any) => {
+            const entry = reactionsMap[vr.video_id] || { likes: 0, loves: 0, my_reaction: null };
+            if (vr.reaction_type === 'like') entry.likes += 1;
+            if (vr.reaction_type === 'love') entry.loves += 1;
+            if (userId && vr.member_id === userId) {
+                entry.my_reaction = vr.reaction_type;
+            }
+            reactionsMap[vr.video_id] = entry;
+        });
+        formatted.video_reactions = reactionsMap;
+
         if (m.registration_form_id) {
             const regForm = await prisma.forms.findUnique({
                 where: { id: Number(m.registration_form_id) },
@@ -352,6 +405,22 @@ export const saveMeeting = async (req: Request, res: Response) => {
             zoom_link: zoom_link || null,
             upi_link: upi_link || null
         };
+
+        if (req.body.recap_videos !== undefined) {
+            let parsed = req.body.recap_videos;
+            if (typeof parsed === 'string') {
+                try { parsed = JSON.parse(parsed); } catch (e) { parsed = []; }
+            }
+            meetingData.recap_videos = parsed;
+        }
+
+        if (req.body.recap_gallery !== undefined) {
+            let parsed = req.body.recap_gallery;
+            if (typeof parsed === 'string') {
+                try { parsed = JSON.parse(parsed); } catch (e) { parsed = []; }
+            }
+            meetingData.recap_gallery = parsed;
+        }
 
         const cityId = (req as any).cityId || 1;
 
@@ -1543,6 +1612,300 @@ export const serveMeetingOgImage = async (req: Request, res: Response) => {
     } catch (error) {
         console.error('serveMeetingOgImage Error:', error);
         return res.status(500).send('Error generating OG image');
+    }
+};
+
+// POST /api/member/meetings/:id/videos/:clipId/react
+export const toggleVideoReaction = async (req: Request, res: Response) => {
+    try {
+        const meetingId = Number(req.params.id);
+        const clipId = String(req.params.clipId);
+        const memberId = (req as any).userId;
+        const { reaction_type } = req.body; // 'like' | 'love'
+
+        if (!memberId) {
+            return res.status(401).json({ message: 'Authentication required' });
+        }
+
+        const existing = await (prisma as any).meetingVideoReaction.findFirst({
+            where: {
+                meeting_id: meetingId,
+                video_id: clipId,
+                member_id: memberId
+            }
+        });
+
+        if (existing) {
+            if (existing.reaction_type === reaction_type) {
+                // Toggle off
+                await (prisma as any).meetingVideoReaction.delete({
+                    where: { id: existing.id }
+                });
+            } else {
+                // Switch reaction
+                await (prisma as any).meetingVideoReaction.update({
+                    where: { id: existing.id },
+                    data: { reaction_type }
+                });
+            }
+        } else {
+            await (prisma as any).meetingVideoReaction.create({
+                data: {
+                    meeting_id: meetingId,
+                    video_id: clipId,
+                    member_id: memberId,
+                    reaction_type
+                }
+            });
+        }
+
+        // Return updated counts
+        const allReactions = await (prisma as any).meetingVideoReaction.findMany({
+            where: { meeting_id: meetingId, video_id: clipId }
+        });
+
+        const likes = allReactions.filter((r: any) => r.reaction_type === 'like').length;
+        const loves = allReactions.filter((r: any) => r.reaction_type === 'love').length;
+        const current = allReactions.find((r: any) => r.member_id === memberId);
+
+        return res.json({
+            success: true,
+            reactions: {
+                likes,
+                loves,
+                my_reaction: current ? current.reaction_type : null
+            }
+        });
+    } catch (error: any) {
+        console.error('toggleVideoReaction Error:', error);
+        return res.status(500).json({ message: error.message });
+    }
+};
+
+// POST /api/member/meetings/:id/videos/:clipId/analytics
+export const logVideoWatch = async (req: Request, res: Response) => {
+    try {
+        const meetingId = Number(req.params.id);
+        const clipId = String(req.params.clipId);
+        const memberId = (req as any).userId;
+        const { action = 'play', duration_seconds = 0 } = req.body;
+
+        if (!memberId) {
+            return res.status(401).json({ message: 'Authentication required' });
+        }
+
+        const durSec = Math.max(0, Math.floor(Number(duration_seconds) || 0));
+
+        const existing = await (prisma as any).meetingVideoView.findUnique({
+            where: {
+                meeting_id_video_id_member_id: {
+                    meeting_id: meetingId,
+                    video_id: clipId,
+                    member_id: memberId
+                }
+            }
+        });
+
+        if (existing) {
+            await (prisma as any).meetingVideoView.update({
+                where: { id: existing.id },
+                data: {
+                    play_count: action === 'play' ? { increment: 1 } : undefined,
+                    duration_seconds: { increment: durSec },
+                    last_watched_at: new Date()
+                }
+            });
+        } else {
+            await (prisma as any).meetingVideoView.create({
+                data: {
+                    meeting_id: meetingId,
+                    video_id: clipId,
+                    member_id: memberId,
+                    play_count: 1,
+                    duration_seconds: durSec,
+                    last_watched_at: new Date()
+                }
+            });
+        }
+
+        return res.json({ success: true });
+    } catch (error: any) {
+        console.error('logVideoWatch Error:', error);
+        return res.status(500).json({ message: error.message });
+    }
+};
+
+// GET /api/admin/meetings/:id/video-analytics
+export const getVideoAnalytics = async (req: Request, res: Response) => {
+    try {
+        const meetingId = Number(req.params.id);
+
+        const meeting = await prisma.meetings.findUnique({
+            where: { id: meetingId },
+            select: { id: true, title: true, recap_videos: true }
+        });
+
+        if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
+
+        const views = await (prisma as any).meetingVideoView.findMany({
+            where: { meeting_id: meetingId },
+            include: {
+                member: {
+                    select: {
+                        id: true,
+                        first_name: true,
+                        last_name: true,
+                        email: true,
+                        phone: true,
+                        profile_photo: true
+                    }
+                }
+            },
+            orderBy: { last_watched_at: 'desc' }
+        });
+
+        const reactions = await (prisma as any).meetingVideoReaction.findMany({
+            where: { meeting_id: meetingId }
+        });
+
+        const apiUrl = process.env.VITE_API_URL || '';
+        const baseUrl = apiUrl.replace(/\/api\/?$/, '');
+
+        const clips = (Array.isArray(meeting.recap_videos) ? meeting.recap_videos : []) as any[];
+
+        const analyticsPerClip = clips.map((clip: any) => {
+            const clipViews = views.filter((v: any) => v.video_id === clip.id || v.video_id === clip.youtube_id);
+            const clipReactions = reactions.filter((r: any) => r.video_id === clip.id || r.video_id === clip.youtube_id);
+
+            const totalPlays = clipViews.reduce((sum: number, v: any) => sum + (v.play_count || 1), 0);
+            const totalDurationSeconds = clipViews.reduce((sum: number, v: any) => sum + (v.duration_seconds || 0), 0);
+            const uniqueViewers = clipViews.length;
+
+            const viewers = clipViews.map((v: any) => {
+                const userReactions = clipReactions.filter((r: any) => r.member_id === v.member_id).map((r: any) => r.reaction_type);
+                return {
+                    member_id: v.member_id,
+                    name: v.member ? `${v.member.first_name || ''} ${v.member.last_name || ''}`.trim() : 'Unknown Member',
+                    email: v.member?.email,
+                    phone: v.member?.phone,
+                    profile_photo_url: v.member?.profile_photo ? (v.member.profile_photo.startsWith('http') ? v.member.profile_photo : `${baseUrl}/uploads/${v.member.profile_photo}`) : null,
+                    play_count: v.play_count,
+                    duration_seconds: v.duration_seconds,
+                    last_watched_at: v.last_watched_at,
+                    reactions: userReactions
+                };
+            });
+
+            return {
+                clip_id: clip.id,
+                youtube_id: clip.youtube_id,
+                title: clip.title,
+                total_plays: totalPlays,
+                unique_viewers: uniqueViewers,
+                total_duration_seconds: totalDurationSeconds,
+                viewers
+            };
+        });
+
+        return res.json({
+            success: true,
+            meeting: { id: meeting.id, title: meeting.title },
+            analytics: analyticsPerClip
+        });
+    } catch (error: any) {
+        console.error('getVideoAnalytics Error:', error);
+        return res.status(500).json({ message: error.message });
+    }
+};
+
+// POST /api/admin/meetings/:id/recap-gallery
+export const uploadRecapGalleryPhotos = async (req: Request, res: Response) => {
+    try {
+        const meetingId = Number(req.params.id);
+        const files = req.files as Express.Multer.File[];
+
+        if (!files || files.length === 0) {
+            return res.status(400).json({ message: 'No photo files uploaded' });
+        }
+
+        const meeting = await prisma.meetings.findUnique({
+            where: { id: meetingId }
+        });
+
+        if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
+
+        const currentGallery = (Array.isArray(meeting.recap_gallery) ? meeting.recap_gallery : []) as any[];
+
+        const newPhotos: any[] = [];
+        for (const file of files) {
+            const filename = await processImageToWebp(file, 1920);
+            if (filename) {
+                newPhotos.push({
+                    id: `photo_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+                    image_url: filename,
+                    caption: '',
+                    created_at: new Date().toISOString()
+                });
+            }
+        }
+
+        const updatedGallery = [...currentGallery, ...newPhotos];
+
+        await prisma.meetings.update({
+            where: { id: meetingId },
+            data: { recap_gallery: updatedGallery }
+        });
+
+        const apiUrl = process.env.VITE_API_URL || '';
+        const baseUrl = apiUrl.replace(/\/api\/?$/, '');
+
+        const formattedGallery = updatedGallery.map((p: any) => ({
+            ...p,
+            image_url_display: `${baseUrl}/uploads/${p.image_url}`
+        }));
+
+        return res.json({
+            success: true,
+            recap_gallery: formattedGallery
+        });
+    } catch (error: any) {
+        console.error('uploadRecapGalleryPhotos Error:', error);
+        return res.status(500).json({ message: error.message });
+    }
+};
+
+// POST /api/admin/meetings/:id/publish-recap-to-news
+export const publishRecapToNews = async (req: Request, res: Response) => {
+    try {
+        const meetingId = Number(req.params.id);
+        const adminId = (req as any).adminId || (req as any).userId;
+        const { custom_note } = req.body;
+
+        const meeting = await prisma.meetings.findUnique({
+            where: { id: meetingId }
+        });
+
+        if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
+
+        const cleanRecap = meeting.recap_content ? meeting.recap_content.replace(/<[^>]*>?/gm, ' ').slice(0, 300) : '';
+        const postContent = custom_note || `🎉 Meeting Recap & Highlights are now live: "${meeting.title}"!\n\n${cleanRecap ? `${cleanRecap}...\n\n` : ''}Watch the video recordings and view the photo gallery on Goa.City.`;
+
+        const newPost = await (prisma as any).post.create({
+            data: {
+                user_id: adminId || null,
+                content: postContent,
+                media_url: meeting.poster_image ? (meeting.poster_image.startsWith('http') ? meeting.poster_image : `${process.env.VITE_API_URL?.replace(/\/api\/?$/, '') || ''}/uploads/${meeting.poster_image}`) : null,
+                media_type: meeting.poster_image ? 'image' : 'none',
+                link_title: `${process.env.VITE_APP_URL || 'https://goa.city'}/meetings/${meeting.slug || meeting.id}`,
+                link_desc: `View video recordings, photo gallery and takeaways`,
+                city_id: meeting.city_id || 1
+            }
+        });
+
+        return res.json({ success: true, post: newPost });
+    } catch (error: any) {
+        console.error('publishRecapToNews Error:', error);
+        return res.status(500).json({ message: error.message });
     }
 };
 

@@ -14,7 +14,7 @@ import {
     getMeetings, uploadMeetingResource, createMeeting, 
     archiveMeeting, deleteMeeting, getMeetingResponses, 
     getMeetingActions, notifyMeetingMembers, deleteMeetingResource,
-    getStats
+    getStats, getVideoAnalytics, uploadRecapGalleryPhotos, publishRecapToNews
 } from '../controllers/meetings.controller.js';
 import { getAdminPages, createPage, updatePage, getAdminPageById, deletePage } from '../controllers/pages.controller.js';
 import { getWhatsAppStatus, sendWhatsAppMessage, getWhatsAppLogs, broadcastWhatsApp, sendMeetingAlert, refreshWhatsApp, restartWhatsApp, getWhatsAppBroadcasts, getWhatsAppBroadcastById, hideWhatsAppBroadcast, retryWhatsAppBroadcast } from '../controllers/whatsapp.controller.js';
@@ -30,7 +30,7 @@ import {
 } from '../validations/template.schema.js';
 import { createMemberSchema, updateMemberSchema } from '../validations/member.schema.js';
 import { createAdminSchema, updateAdminSchema } from '../validations/admin.schema.js';
-import { createMeetingSchema, updateMeetingSchema, notifyMeetingSchema } from '../validations/meeting.schema.js';
+import { createMeetingSchema, updateMeetingSchema, notifyMeetingSchema, publishRecapNewsSchema } from '../validations/meeting.schema.js';
 import { createStreamSchema, updateStreamSchema } from '../validations/stream.schema.js';
 import { createPageSchema, updatePageSchema } from '../validations/page.schema.js';
 import { createJobSchema, updateJobSchema } from '../validations/job.schema.js';
@@ -152,6 +152,9 @@ router.get('/meetings/:id/actions', getMeetingActions);
 router.post('/meetings/:id/notify', validate(notifyMeetingSchema), notifyMeetingMembers);
 router.post('/meetings/:id/resources', upload.single('file'), uploadMeetingResource);
 router.delete('/meetings/resources/:id', deleteMeetingResource);
+router.get('/meetings/:id/video-analytics', getVideoAnalytics);
+router.post('/meetings/:id/recap-gallery', upload.array('photos', 30), uploadRecapGalleryPhotos);
+router.post('/meetings/:id/publish-recap-to-news', validate(publishRecapNewsSchema), publishRecapToNews);
 
 // Stats
 router.get('/stats', getStats);

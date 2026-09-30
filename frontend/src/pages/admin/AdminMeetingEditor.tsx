@@ -9,7 +9,8 @@ import {
     CurrencyRupeeIcon, BeakerIcon, SwatchIcon, ClockIcon,
     CloudArrowUpIcon, TrashIcon, DocumentIcon, DocumentTextIcon,
     VideoCameraIcon, EnvelopeIcon, ChevronDownIcon, ChatBubbleLeftRightIcon, EyeIcon, ArrowDownTrayIcon,
-    XMarkIcon, PhotoIcon, UsersIcon, LinkIcon, ArrowTopRightOnSquareIcon
+    XMarkIcon, PhotoIcon, UsersIcon, LinkIcon, ArrowTopRightOnSquareIcon,
+    PlayIcon, ArrowUpIcon, ArrowDownIcon, ChartBarIcon, MegaphoneIcon, PlusIcon
 } from '@heroicons/react/24/solid';
 import { ArrowLeftIcon as ArrowLeftOutline } from '@heroicons/react/24/outline';
 import { Card } from '../../shared/components/ui/Card';
@@ -17,6 +18,9 @@ import Button from '../../shared/components/ui/Button';
 import QuillEditor from '../../components/QuillEditor';
 import QRCode from 'react-qr-code';
 import * as XLSX from 'xlsx';
+import MeetingVideoAnalyticsModal from '../../features/meetings/components/MeetingVideoAnalyticsModal';
+import { extractYouTubeId } from '../../features/meetings/components/MeetingRecapVideos';
+import { uploadRecapGallery, publishRecapToNews } from '../../features/meetings/api/meetings.api';
 
 const getLocalYYYYMMDD = (dateInput: any) => {
     const d = new Date(dateInput);
@@ -54,6 +58,15 @@ const AdminMeetingEditor: React.FC = () => {
     const [meetingActions, setMeetingActions] = useState<any[]>([]);
     const [attendeeTab, setAttendeeTab] = useState<'all' | 'members' | 'guests'>('all');
     const [recapContent, setRecapContent] = useState('');
+    const [recapVideos, setRecapVideos] = useState<any[]>([]);
+    const [recapGallery, setRecapGallery] = useState<any[]>([]);
+    const [recapStudioTab, setRecapStudioTab] = useState<'videos' | 'gallery' | 'notes'>('videos');
+    const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
+    const [isPublishingNews, setIsPublishingNews] = useState(false);
+    const [isUploadingGallery, setIsUploadingGallery] = useState(false);
+    const [newVideoUrl, setNewVideoUrl] = useState('');
+    const [newVideoTitle, setNewVideoTitle] = useState('');
+    const [newVideoDesc, setNewVideoDesc] = useState('');
     const [meetingResources, setMeetingResources] = useState<any[]>([]);
     const [uploadingResource, setUploadingResource] = useState(false);
     const [notifying, setNotifying] = useState(false);
@@ -202,6 +215,12 @@ const AdminMeetingEditor: React.FC = () => {
                     else if (data.poster_image) setPosterPreview(`${baseUrl}/uploads/${data.poster_image}`);
 
                     setRecapContent(data.recap_content || '');
+                    if (data.recap_videos) {
+                        setRecapVideos(Array.isArray(data.recap_videos) ? data.recap_videos : []);
+                    }
+                    if (data.recap_gallery) {
+                        setRecapGallery(Array.isArray(data.recap_gallery) ? data.recap_gallery : []);
+                    }
                     setMeetingResources(data.resources || []);
                     setStreamMemberCount(data.stream_member_count ?? data.stream?.member_count ?? 0);
                     const rawActions = data.meeting_responses || [];
@@ -341,6 +360,8 @@ const AdminMeetingEditor: React.FC = () => {
             }
 
             formData.append('recap_content', recapContent);
+            formData.append('recap_videos', JSON.stringify(recapVideos));
+            formData.append('recap_gallery', JSON.stringify(recapGallery));
             formData.delete('description'); // Explicitly ensure description is not sent
 
             const res = await api.post('/admin/meetings', formData);
@@ -1311,18 +1332,414 @@ const AdminMeetingEditor: React.FC = () => {
                             <ChevronDownIcon className={`w-5 h-5 transition-transform duration-200 ${openSections.recap ? 'rotate-180' : ''}`} />
                         </button>
                     </div>
-                    <div className={openSections.recap ? 'p-6' : 'hidden'}>
-                        <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Recap Content (Rich Text)</label>
-                        <div className="border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-white dark:bg-zinc-950">
-                            <QuillEditor
-                                value={recapContent}
-                                onChange={setRecapContent}
-                                placeholder="Summarize the meeting highlights, decisions, and next steps..."
-                                style={{ minHeight: '300px' }}
-                            />
+                    <div className={openSections.recap ? 'p-6 space-y-6' : 'hidden'}>
+                        {/* Sub-header Bar: Tab Switcher + Action Buttons */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-100 dark:border-zinc-800">
+                            {/* Tab Switcher */}
+                            <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-zinc-100 dark:bg-zinc-800/80 w-fit">
+                                <button
+                                    type="button"
+                                    onClick={() => setRecapStudioTab('videos')}
+                                    className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
+                                        recapStudioTab === 'videos'
+                                            ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                                            : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
+                                    }`}
+                                >
+                                    <VideoCameraIcon className="w-4 h-4" />
+                                    <span>Video Clips ({recapVideos.length})</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setRecapStudioTab('gallery')}
+                                    className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
+                                        recapStudioTab === 'gallery'
+                                            ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                                            : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
+                                    }`}
+                                >
+                                    <PhotoIcon className="w-4 h-4" />
+                                    <span>Photo Gallery ({recapGallery.length})</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setRecapStudioTab('notes')}
+                                    className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
+                                        recapStudioTab === 'notes'
+                                            ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                                            : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
+                                    }`}
+                                >
+                                    <DocumentTextIcon className="w-4 h-4" />
+                                    <span>Minutes & Notes</span>
+                                </button>
+                            </div>
+
+                            {/* Actions: Analytics & News Broadcast */}
+                            {isEdit && (
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAnalyticsModal(true)}
+                                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 hover:bg-purple-100 transition-colors cursor-pointer"
+                                        title="View Watch Time & Member Analytics"
+                                    >
+                                        <ChartBarIcon className="w-4 h-4" />
+                                        <span>Video Analytics</span>
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={async () => {
+                                            if (!id) return;
+                                            if (!window.confirm("Publish this meeting's recap and highlights to the Community News feed?")) return;
+                                            setIsPublishingNews(true);
+                                            try {
+                                                await publishRecapToNews(id);
+                                                showToast('Recap published to Community News Feed successfully! 🎉');
+                                            } catch (err: any) {
+                                                console.error(err);
+                                                showToast('Failed to publish recap to news feed');
+                                            } finally {
+                                                setIsPublishingNews(false);
+                                            }
+                                        }}
+                                        disabled={isPublishingNews}
+                                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 transition-colors cursor-pointer disabled:opacity-50"
+                                        title="Publish Recap Post to Community News Feed"
+                                    >
+                                        <MegaphoneIcon className="w-4 h-4" />
+                                        <span>{isPublishingNews ? 'Publishing...' : 'Share to News'}</span>
+                                    </button>
+                                </div>
+                            )}
                         </div>
+
+                        {/* Tab 1: Video Clips */}
+                        {recapStudioTab === 'videos' && (
+                            <div className="space-y-6">
+                                {/* Add Video Clip Form */}
+                                <div className="p-5 rounded-2xl bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-200/80 dark:border-zinc-800 space-y-4">
+                                    <h4 className="text-xs font-black uppercase tracking-widest text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
+                                        <PlusIcon className="w-4 h-4 text-indigo-600" />
+                                        <span>Add YouTube Video Clip</span>
+                                    </h4>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                                        <div className="md:col-span-6">
+                                            <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-1">
+                                                YouTube URL or Video ID *
+                                            </label>
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. https://www.youtube.com/watch?v=dQw4w9WgXcQ or youtu.be/..."
+                                                value={newVideoUrl}
+                                                onChange={(e) => setNewVideoUrl(e.target.value)}
+                                                className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-medium text-zinc-900 dark:text-white outline-none focus:border-indigo-500"
+                                            />
+                                        </div>
+
+                                        <div className="md:col-span-6">
+                                            <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-1">
+                                                Clip Title *
+                                            </label>
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. Keynote: The Big Vision with Viren Dsilva"
+                                                value={newVideoTitle}
+                                                onChange={(e) => setNewVideoTitle(e.target.value)}
+                                                className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-medium text-zinc-900 dark:text-white outline-none focus:border-indigo-500"
+                                            />
+                                        </div>
+
+                                        <div className="md:col-span-12">
+                                            <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-1">
+                                                Short Description / Speaker Notes (Optional)
+                                            </label>
+                                            <input
+                                                type="text"
+                                                placeholder="Brief 1-2 sentence context or takeaway..."
+                                                value={newVideoDesc}
+                                                onChange={(e) => setNewVideoDesc(e.target.value)}
+                                                className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-medium text-zinc-900 dark:text-white outline-none focus:border-indigo-500"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Live Thumbnail Preview if valid URL */}
+                                    {newVideoUrl && extractYouTubeId(newVideoUrl) && (
+                                        <div className="flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 w-fit">
+                                            <img
+                                                src={`https://img.youtube.com/vi/${extractYouTubeId(newVideoUrl)}/hqdefault.jpg`}
+                                                alt="Preview"
+                                                className="w-20 h-14 object-cover rounded-lg"
+                                            />
+                                            <div>
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+                                                    ✓ YouTube ID: {extractYouTubeId(newVideoUrl)}
+                                                </span>
+                                                <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200 truncate max-w-xs">
+                                                    {newVideoTitle || 'Ready to add'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="flex justify-end pt-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const ytId = extractYouTubeId(newVideoUrl);
+                                                if (!ytId) {
+                                                    showToast('Please enter a valid YouTube URL or video ID');
+                                                    return;
+                                                }
+                                                const newClip = {
+                                                    id: `clip_${Date.now()}`,
+                                                    title: newVideoTitle.trim() || `Meeting Clip #${recapVideos.length + 1}`,
+                                                    youtube_url: newVideoUrl.trim(),
+                                                    youtube_id: ytId,
+                                                    description: newVideoDesc.trim()
+                                                };
+                                                setRecapVideos([...recapVideos, newClip]);
+                                                setNewVideoUrl('');
+                                                setNewVideoTitle('');
+                                                setNewVideoDesc('');
+                                                showToast('Video clip added! Click Save Changes below to persist.');
+                                            }}
+                                            disabled={!newVideoUrl.trim()}
+                                            className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-black text-xs uppercase tracking-wider transition-all shadow-md shadow-indigo-600/20 active:scale-95 cursor-pointer"
+                                        >
+                                            Add Clip to Recap
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* List of Existing Clips */}
+                                <div className="space-y-3">
+                                    <h4 className="text-xs font-black uppercase tracking-widest text-zinc-500">
+                                        Attached Video Clips ({recapVideos.length})
+                                    </h4>
+
+                                    {recapVideos.length === 0 ? (
+                                        <div className="p-8 text-center rounded-2xl border-2 border-dashed border-zinc-200 dark:border-zinc-800 text-zinc-400 text-xs font-medium">
+                                            No YouTube clips added yet. Use the form above to embed recordings.
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {recapVideos.map((clip, idx) => (
+                                                <div
+                                                    key={clip.id || idx}
+                                                    className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 shadow-sm"
+                                                >
+                                                    <div className="flex items-center gap-3.5 min-w-0">
+                                                        <div className="relative w-24 h-16 rounded-xl overflow-hidden bg-black shrink-0 border border-zinc-200 dark:border-zinc-800">
+                                                            <img
+                                                                src={`https://img.youtube.com/vi/${clip.youtube_id || extractYouTubeId(clip.youtube_url)}/hqdefault.jpg`}
+                                                                alt=""
+                                                                className="w-full h-full object-cover"
+                                                            />
+                                                            <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                                                                <PlayIcon className="w-5 h-5 text-white/90" />
+                                                            </div>
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
+                                                                    Clip #{idx + 1}
+                                                                </span>
+                                                                <span className="text-[10px] text-zinc-400">ID: {clip.youtube_id}</span>
+                                                            </div>
+                                                            <h5 className="text-xs font-bold text-zinc-900 dark:text-white truncate mt-0.5">
+                                                                {clip.title}
+                                                            </h5>
+                                                            {clip.description && (
+                                                                <p className="text-[11px] text-zinc-400 truncate mt-0.5 max-w-md">
+                                                                    {clip.description}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-1.5 shrink-0">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                if (idx <= 0) return;
+                                                                const updated = [...recapVideos];
+                                                                const [moved] = updated.splice(idx, 1);
+                                                                updated.splice(idx - 1, 0, moved);
+                                                                setRecapVideos(updated);
+                                                            }}
+                                                            disabled={idx === 0}
+                                                            className="p-2 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-white disabled:opacity-30 cursor-pointer"
+                                                            title="Move Up"
+                                                        >
+                                                            <ArrowUpIcon className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                if (idx >= recapVideos.length - 1) return;
+                                                                const updated = [...recapVideos];
+                                                                const [moved] = updated.splice(idx, 1);
+                                                                updated.splice(idx + 1, 0, moved);
+                                                                setRecapVideos(updated);
+                                                            }}
+                                                            disabled={idx === recapVideos.length - 1}
+                                                            className="p-2 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-white disabled:opacity-30 cursor-pointer"
+                                                            title="Move Down"
+                                                        >
+                                                            <ArrowDownIcon className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setRecapVideos(recapVideos.filter((_, i) => i !== idx))}
+                                                            className="p-2 rounded-lg text-zinc-400 hover:text-rose-600 transition-colors cursor-pointer"
+                                                            title="Remove Clip"
+                                                        >
+                                                            <TrashIcon className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Tab 2: Photo Gallery */}
+                        {recapStudioTab === 'gallery' && (
+                            <div className="space-y-6">
+                                <div className="p-6 rounded-2xl bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-200/80 dark:border-zinc-800 text-center">
+                                    <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto mb-3">
+                                        <CloudArrowUpIcon className="w-6 h-6" />
+                                    </div>
+                                    <h4 className="text-xs font-black uppercase tracking-wider text-zinc-800 dark:text-zinc-200 mb-1">
+                                        Upload Event Pictures
+                                    </h4>
+                                    <p className="text-[11px] text-zinc-400 mb-4 max-w-sm mx-auto">
+                                        Select multiple JPG, PNG, or WebP event photos. Automatically optimized with Sharp.
+                                    </p>
+
+                                    <label className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider cursor-pointer shadow-md shadow-indigo-600/20 active:scale-95 transition-all">
+                                        <span>{isUploadingGallery ? 'Uploading & Optimizing...' : 'Select Photos'}</span>
+                                        <input
+                                            type="file"
+                                            multiple
+                                            accept="image/*"
+                                            onChange={async (e) => {
+                                                const files = e.target.files;
+                                                if (!files || files.length === 0 || !id) {
+                                                    if (!id) showToast('Please save the meeting first before uploading gallery photos.');
+                                                    return;
+                                                }
+                                                const form = new FormData();
+                                                for (let i = 0; i < files.length; i++) {
+                                                    form.append('photos', files[i]);
+                                                }
+                                                setIsUploadingGallery(true);
+                                                try {
+                                                    const res = await uploadRecapGallery(id, form);
+                                                    if (res && res.recap_gallery) {
+                                                        setRecapGallery(res.recap_gallery);
+                                                        showToast(`Uploaded ${files.length} event photo(s) successfully!`);
+                                                    }
+                                                } catch (err: any) {
+                                                    console.error(err);
+                                                    showToast('Failed to upload photos');
+                                                } finally {
+                                                    setIsUploadingGallery(false);
+                                                    e.target.value = '';
+                                                }
+                                            }}
+                                            disabled={isUploadingGallery}
+                                            className="hidden"
+                                        />
+                                    </label>
+                                </div>
+
+                                {/* Gallery Grid */}
+                                <div className="space-y-3">
+                                    <h4 className="text-xs font-black uppercase tracking-widest text-zinc-500">
+                                        Current Photo Gallery ({recapGallery.length})
+                                    </h4>
+
+                                    {recapGallery.length === 0 ? (
+                                        <div className="p-8 text-center rounded-2xl border-2 border-dashed border-zinc-200 dark:border-zinc-800 text-zinc-400 text-xs font-medium">
+                                            No event photos uploaded yet.
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                            {recapGallery.map((photo, idx) => {
+                                                const src = photo.image_url_display || (photo.image_url?.startsWith('http') ? photo.image_url : `${apiUrl.replace(/\/api\/?$/, '')}/uploads/${photo.image_url}`);
+                                                return (
+                                                    <div
+                                                        key={photo.id || idx}
+                                                        className="group rounded-2xl overflow-hidden bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 shadow-sm flex flex-col"
+                                                    >
+                                                        <div className="relative aspect-square overflow-hidden bg-zinc-100 dark:bg-zinc-800">
+                                                            <img src={src} alt="" className="w-full h-full object-cover" />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setRecapGallery(recapGallery.filter((_, i) => i !== idx))}
+                                                                className="absolute top-2 right-2 p-1.5 rounded-xl bg-black/70 hover:bg-rose-600 text-white transition-colors cursor-pointer"
+                                                                title="Delete Photo"
+                                                            >
+                                                                <TrashIcon className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        </div>
+                                                        <div className="p-2.5">
+                                                            <input
+                                                                type="text"
+                                                                placeholder="Add caption..."
+                                                                value={photo.caption || ''}
+                                                                onChange={(e) => {
+                                                                    const updated = [...recapGallery];
+                                                                    updated[idx] = { ...updated[idx], caption: e.target.value };
+                                                                    setRecapGallery(updated);
+                                                                }}
+                                                                className="w-full px-2 py-1 text-[11px] rounded-lg border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700 bg-transparent text-zinc-800 dark:text-zinc-200 focus:bg-white dark:focus:bg-zinc-950 focus:border-indigo-500 outline-none"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Tab 3: Rich Text Minutes & Notes */}
+                        {recapStudioTab === 'notes' && (
+                            <div>
+                                <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">
+                                    Recap Content (Rich Text)
+                                </label>
+                                <div className="border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-white dark:bg-zinc-950">
+                                    <QuillEditor
+                                        value={recapContent}
+                                        onChange={setRecapContent}
+                                        placeholder="Summarize the meeting highlights, decisions, and next steps..."
+                                        style={{ minHeight: '300px' }}
+                                    />
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </Card>
+
+                {/* Video Analytics Modal */}
+                {showAnalyticsModal && id && (
+                    <MeetingVideoAnalyticsModal
+                        meetingId={id}
+                        onClose={() => setShowAnalyticsModal(false)}
+                    />
+                )}
 
                 {/* Form Submissions Section */}
                 {isEdit && (
