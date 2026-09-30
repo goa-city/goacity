@@ -325,7 +325,7 @@ const AdminMeetingEditor: React.FC = () => {
             if (isEdit && id) formData.append('id', String(id));
 
             Object.keys(data).forEach(key => {
-                if (key === 'id' || key === 'payment_qr_image_url' || key === 'poster_image_url' || key === 'resources' || key === 'description' || key === 'recap_content' || key === 'payment_qr_image' || key === 'poster_image') return;
+                if (key === 'id' || key === 'payment_qr_image_url' || key === 'poster_image_url' || key === 'resources' || key === 'description' || key === 'recap_content' || key === 'payment_qr_image' || key === 'poster_image' || key === 'recap_videos' || key === 'recap_gallery') return;
 
                 const value = data[key];
 

@@ -34,6 +34,10 @@ const UNSCOPED_MODELS = new Set([
     'VerificationOrg',
     'ResourceCategory',
     'ShortLink',
+    'MeetingVideoReaction',
+    'MeetingVideoView',
+    'meeting_video_reactions',
+    'meeting_video_views',
 ]);
 
 // Extension logic

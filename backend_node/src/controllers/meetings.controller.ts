@@ -11,6 +11,41 @@ import { processImageToWebp } from '../utils/image.js';
 import { ShortLinkService } from '../services/short-link.service.js';
 import { generateToken } from '../utils/jwt.js';
 
+export const normalizeJsonArray = (val: any): any[] => {
+    if (!val) return [];
+    if (typeof val === 'string') {
+        try {
+            const parsed = JSON.parse(val);
+            return normalizeJsonArray(parsed);
+        } catch (e) {
+            return [];
+        }
+    }
+    if (Array.isArray(val)) {
+        const result: any[] = [];
+        for (const item of val) {
+            if (!item) continue;
+            if (typeof item === 'string') {
+                const trimmed = item.trim();
+                if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+                    try {
+                        const parsed = JSON.parse(trimmed);
+                        if (Array.isArray(parsed)) {
+                            result.push(...normalizeJsonArray(parsed));
+                        } else if (parsed && typeof parsed === 'object') {
+                            result.push(parsed);
+                        }
+                    } catch (e) {}
+                }
+            } else if (typeof item === 'object') {
+                result.push(item);
+            }
+        }
+        return result;
+    }
+    return [];
+};
+
 // GET /api/admin/meetings
 export const getMeetings = async (req: Request, res: Response) => {
     try {
@@ -72,6 +107,11 @@ export const getMeetings = async (req: Request, res: Response) => {
                     email: mr.user?.email || mr.guest_email,
                     phone: mr.user?.phone || mr.guest_phone,
                     payment_proof_url: mr.payment_proof ? `${baseUrl}/uploads/${mr.payment_proof}` : null
+                })),
+                recap_videos: normalizeJsonArray(meeting.recap_videos),
+                recap_gallery: normalizeJsonArray(meeting.recap_gallery).map((img: any) => ({
+                    ...img,
+                    image_url_display: img.image_url?.startsWith('http') ? img.image_url : `${baseUrl}/uploads/${img.image_url}`
                 }))
             };
             return res.json(formatted);
@@ -174,16 +214,6 @@ export const getPastMeetings = async (req: Request, res: Response) => {
             const apiUrl = process.env.VITE_API_URL || '';
             const baseUrl = apiUrl.replace(/\/api\/?$/, '');
 
-            let recapVideos = m.recap_videos;
-            if (typeof recapVideos === 'string') {
-                try { recapVideos = JSON.parse(recapVideos); } catch (e) { recapVideos = []; }
-            }
-
-            let recapGallery = m.recap_gallery;
-            if (typeof recapGallery === 'string') {
-                try { recapGallery = JSON.parse(recapGallery); } catch (e) { recapGallery = []; }
-            }
-
             return {
                 ...m,
                 meeting_date_display: formatDateDDMMYYYY(m.meeting_date),
@@ -196,11 +226,11 @@ export const getPastMeetings = async (req: Request, res: Response) => {
                 payment_qr_image_url: m.payment_qr_image ? `${baseUrl}/uploads/${m.payment_qr_image}` : null,
                 poster_image_url: m.poster_image ? `${baseUrl}/uploads/${m.poster_image}` : null,
                 my_payment_proof_url: m.my_payment_proof ? `${baseUrl}/uploads/${m.my_payment_proof}` : null,
-                recap_videos: Array.isArray(recapVideos) ? recapVideos : [],
-                recap_gallery: Array.isArray(recapGallery) ? recapGallery.map((img: any) => ({
+                recap_videos: normalizeJsonArray(m.recap_videos),
+                recap_gallery: normalizeJsonArray(m.recap_gallery).map((img: any) => ({
                     ...img,
                     image_url_display: img.image_url?.startsWith('http') ? img.image_url : `${baseUrl}/uploads/${img.image_url}`
-                })) : []
+                }))
             };
         }));
 
@@ -314,24 +344,11 @@ export const getMeeting = async (req: Request, res: Response) => {
         }));
 
         // Parse recap_videos and recap_gallery
-        let recapVideos = m.recap_videos;
-        if (typeof recapVideos === 'string') {
-            try { recapVideos = JSON.parse(recapVideos); } catch (e) { recapVideos = []; }
-        }
-        formatted.recap_videos = Array.isArray(recapVideos) ? recapVideos : [];
-
-        let recapGallery = m.recap_gallery;
-        if (typeof recapGallery === 'string') {
-            try { recapGallery = JSON.parse(recapGallery); } catch (e) { recapGallery = []; }
-        }
-        if (Array.isArray(recapGallery)) {
-            formatted.recap_gallery = recapGallery.map((img: any) => ({
-                ...img,
-                image_url_display: img.image_url?.startsWith('http') ? img.image_url : `${baseUrl}/uploads/${img.image_url}`
-            }));
-        } else {
-            formatted.recap_gallery = [];
-        }
+        formatted.recap_videos = normalizeJsonArray(m.recap_videos);
+        formatted.recap_gallery = normalizeJsonArray(m.recap_gallery).map((img: any) => ({
+            ...img,
+            image_url_display: img.image_url?.startsWith('http') ? img.image_url : `${baseUrl}/uploads/${img.image_url}`
+        }));
 
         // Fetch video reactions summary & user's reaction
         const videoReactions = await (prisma as any).meetingVideoReaction.findMany({
@@ -407,19 +424,11 @@ export const saveMeeting = async (req: Request, res: Response) => {
         };
 
         if (req.body.recap_videos !== undefined) {
-            let parsed = req.body.recap_videos;
-            if (typeof parsed === 'string') {
-                try { parsed = JSON.parse(parsed); } catch (e) { parsed = []; }
-            }
-            meetingData.recap_videos = parsed;
+            meetingData.recap_videos = normalizeJsonArray(req.body.recap_videos);
         }
 
         if (req.body.recap_gallery !== undefined) {
-            let parsed = req.body.recap_gallery;
-            if (typeof parsed === 'string') {
-                try { parsed = JSON.parse(parsed); } catch (e) { parsed = []; }
-            }
-            meetingData.recap_gallery = parsed;
+            meetingData.recap_gallery = normalizeJsonArray(req.body.recap_gallery);
         }
 
         const cityId = (req as any).cityId || 1;
