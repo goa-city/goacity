@@ -2,26 +2,85 @@ import prisma from '../lib/prisma.js';
 import { generateToken } from '../utils/jwt.js';
 import { sendEmail } from '../utils/email.js';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { AppError } from '../utils/errors.js';
 import { SYSTEM_TEMPLATES } from '../config/constants.js';
 import { whatsapp } from './whatsapp.service.js';
 
+function normalizePhone(raw: string): string {
+    let digits = raw.replace(/\D/g, '');
+    if (digits.length === 11 && digits.startsWith('0')) digits = digits.slice(1);
+    if (digits.length === 12 && digits.startsWith('91')) digits = digits.slice(2);
+    return digits;
+}
+
+function maskEmail(email: string): string {
+    const atIndex = email.indexOf('@');
+    if (atIndex <= 0) return email;
+    const name = email.slice(0, atIndex);
+    const domain = email.slice(atIndex);
+    const masked = name.length <= 2 ? `${name[0] || ''}*` : `${name[0] || ''}${'*'.repeat(Math.max(1, name.length - 2))}${name.slice(-1)}`;
+    return `${masked}${domain}`;
+}
+
 export class AuthService {
+    static async sendOtpViaEmail(email: string, otpCode: string, firstName: string, lastName: string) {
+        let emailSubject = 'Your Goa.City Login Code';
+        let emailContent = `<p>Your login code is: <strong>${otpCode}</strong></p><p>This code will expire in 10 minutes.</p>`;
+
+        try {
+            const template = await prisma.emailTemplate.findUnique({
+                where: { id: SYSTEM_TEMPLATES.EMAIL.OTP.ID }
+            });
+
+            if (template) {
+                emailSubject = template.subject;
+                const replacements: Record<string, string> = {
+                    '{otp_code}': otpCode,
+                    '{{otp_code}}': otpCode,
+                    '{first_name}': firstName || '',
+                    '{{first_name}}': firstName || '',
+                    '{last_name}': lastName || '',
+                    '{{last_name}}': lastName || ''
+                };
+                
+                emailContent = template.message;
+                for (const key in replacements) {
+                    const val = replacements[key] ?? '';
+                    const regex = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+                    emailContent = emailContent.replace(regex, val);
+                    emailSubject = emailSubject.replace(regex, val);
+                }
+            }
+        } catch (err) {
+            console.warn('[AUTH SERVICE] Could not fetch OTP email template, using default:', err);
+        }
+
+        const emailSent = await sendEmail(email, emailSubject, emailContent);
+        if (!emailSent) {
+            throw new AppError('Failed to send verification code email.', 500);
+        }
+        return true;
+    }
+
     static async sendOtp(identifier: string) {
-        console.log(`[AUTH] Direct Login/OTP requested for: ${identifier}`);
-        // 1. Check if member exists
+        console.log(`[AUTH] Sending OTP to: ${identifier}`);
         const isEmail = identifier.includes('@');
-        const digits = identifier.replace(/\D/g, '');
+        const cleanIdentifier = isEmail ? identifier.trim().toLowerCase() : normalizePhone(identifier);
+
+        if (!cleanIdentifier) {
+            throw new AppError('Please provide a valid phone number or email address.', 400);
+        }
+
+        // 1. Check if member exists
         const member = await prisma.member.findFirst({
             where: {
                 OR: [
-                    { email: identifier },
-                    { phone: identifier },
-                    ...(isEmail ? [] : [
-                        { phone: digits },
-                        { phone: `+${digits}` },
-                        ...(digits.length >= 10 ? [{ phone: { contains: digits.slice(-10) } }] : [])
-                    ])
+                    { email: { equals: cleanIdentifier, mode: 'insensitive' } },
+                    { phone: cleanIdentifier },
+                    { phone: `+91${cleanIdentifier}` },
+                    { phone: `91${cleanIdentifier}` },
+                    ...(cleanIdentifier.length >= 10 ? [{ phone: { contains: cleanIdentifier.slice(-10) } }] : [])
                 ]
             },
             include: {
@@ -30,73 +89,123 @@ export class AuthService {
         });
 
         if (!member) {
-            console.log(`[AUTH] Member not found for identifier: ${identifier}`);
-            throw new AppError('No account found with this phone number or email. Please contact admin.', 404);
+            console.log(`[AUTH] Member not found for identifier: ${identifier} (clean: ${cleanIdentifier})`);
+            throw new AppError('No account found with this phone number or email. Please check your input or contact admin.', 404);
         }
 
-        // Check for stream assignment
+        // 2. Check for stream assignment
         const streamCount = await prisma.streamMember.count({
             where: { user_id: member.id }
         });
- 
+
         if (streamCount === 0) {
             throw new AppError('Your registration is pending approval. You will be notified once you are assigned to a stream.', 403);
         }
 
-        console.log(`[AUTH] Member found: ${member.first_name} ${member.last_name} (ID: ${member.id}). Direct login active.`);
+        console.log(`[AUTH] Member found: ${member.first_name} ${member.last_name} (ID: ${member.id}). Generating OTP...`);
 
-        // Direct instant login without OTP
-        const streamMembers = await prisma.streamMember.findMany({
-            where: { user_id: member.id },
-            include: { stream: true }
+        // 3. Generate cryptographic 6-digit OTP
+        const otpCode = crypto.randomInt(100000, 999999).toString();
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+        // 4. Clear existing OTPs and persist new record
+        await prisma.otp.deleteMany({
+            where: {
+                OR: [
+                    { email_or_phone: cleanIdentifier },
+                    { email_or_phone: identifier },
+                    ...(member.email ? [{ email_or_phone: member.email.toLowerCase() }] : []),
+                    ...(member.phone ? [{ email_or_phone: member.phone }] : [])
+                ]
+            }
+        }).catch(() => {});
+
+        await prisma.otp.create({
+            data: {
+                email_or_phone: cleanIdentifier,
+                otp_code: otpCode,
+                expires_at: expiresAt,
+                attempts: 0
+            }
         });
 
-        const streams = streamMembers.map((sm: any) => ({
-            id: sm.stream.id,
-            name: sm.stream.name,
-            color: sm.stream.color
-        }));
+        const firstName = member.first_name || 'Member';
+        const lastName = member.last_name || '';
 
-        const token = generateToken({ id: member.id, role: member.role }, '30d');
+        // 5. Dispatch OTP
+        if (isEmail) {
+            await AuthService.sendOtpViaEmail(member.email || cleanIdentifier, otpCode, firstName, lastName);
+            return {
+                success: true,
+                channel: 'EMAIL',
+                message: `Verification code sent to ${cleanIdentifier}`
+            };
+        }
 
-        const userData = {
-            id: member.id,
-            first_name: member.first_name,
-            last_name: member.last_name,
-            full_name: `${member.first_name || ''} ${member.last_name || ''}`.trim(),
-            email: member.email,
-            phone: member.phone,
-            role: member.role,
-            is_onboarded: member.is_onboarded,
-            profile_photo: member.profile_photo,
-            slug: member.slug,
-            city_id: member.city_id,
-            city: (member as any).city,
-            streams
-        };
-
-        return {
-            success: true,
-            instantLogin: true,
-            token,
-            user: userData
-        };
+        // Phone: Try WhatsApp with automatic Email fallback if WhatsApp is unreachable
+        const targetPhone = member.phone || cleanIdentifier;
+        try {
+            const whatsappMessage = `Hello ${firstName}, your Goa.City login code is: *${otpCode}*. This code will expire in 10 minutes.`;
+            await whatsapp.sendMessage(targetPhone, whatsappMessage, member.id);
+            return {
+                success: true,
+                channel: 'WHATSAPP',
+                message: `Verification code sent via WhatsApp to ${targetPhone}`
+            };
+        } catch (whatsappErr: any) {
+            console.warn(`[AUTH] WhatsApp send failed for ${targetPhone}:`, whatsappErr?.message || whatsappErr);
+            if (member.email) {
+                console.log(`[AUTH] Falling back to email OTP for member ${member.id} (${member.email})`);
+                await AuthService.sendOtpViaEmail(member.email, otpCode, firstName, lastName);
+                return {
+                    success: true,
+                    channel: 'EMAIL_FALLBACK',
+                    message: `WhatsApp service is temporarily unavailable. We sent your login code to your registered email (${maskEmail(member.email)}).`
+                };
+            }
+            throw new AppError(
+                whatsappErr?.message && whatsappErr.message.includes('reconnecting')
+                    ? whatsappErr.message
+                    : 'WhatsApp service is temporarily unavailable. Please try again shortly or sign in with your email address.',
+                503
+            );
+        }
     }
 
     static async verifyOtp(identifier: string, otp: string, rememberMe: boolean = false) {
-        // Direct verification fallback: find member and log in
+        if (!otp || otp.trim().length !== 6) {
+            throw new AppError('Please enter a valid 6-digit verification code.', 400);
+        }
+
         const isEmail = identifier.includes('@');
-        const digits = identifier.replace(/\D/g, '');
+        const cleanIdentifier = isEmail ? identifier.trim().toLowerCase() : normalizePhone(identifier);
+
+        // 1. Verify OTP from database
+        const otpRecord = await prisma.otp.findFirst({
+            where: {
+                OR: [
+                    { email_or_phone: cleanIdentifier },
+                    { email_or_phone: identifier }
+                ],
+                otp_code: otp.trim(),
+                expires_at: { gt: new Date() }
+            },
+            orderBy: { created_at: 'desc' }
+        });
+
+        if (!otpRecord) {
+            throw new AppError('Invalid or expired verification code. Please request a new code.', 400);
+        }
+
+        // 2. Find Member
         const member = await prisma.member.findFirst({
             where: {
                 OR: [
-                    { email: identifier },
-                    { phone: identifier },
-                    ...(isEmail ? [] : [
-                        { phone: digits },
-                        { phone: `+${digits}` },
-                        ...(digits.length >= 10 ? [{ phone: { contains: digits.slice(-10) } }] : [])
-                    ])
+                    { email: { equals: cleanIdentifier, mode: 'insensitive' } },
+                    { phone: cleanIdentifier },
+                    { phone: `+91${cleanIdentifier}` },
+                    { phone: `91${cleanIdentifier}` },
+                    ...(cleanIdentifier.length >= 10 ? [{ phone: { contains: cleanIdentifier.slice(-10) } }] : [])
                 ]
             },
             include: {
@@ -105,9 +214,10 @@ export class AuthService {
         });
 
         if (!member) {
-            throw new AppError('Member not found. Please contact admin.', 404);
+            throw new AppError('Member account not found. Please contact admin.', 404);
         }
 
+        // 3. Fetch stream membership
         const streamMembers = await prisma.streamMember.findMany({
             where: { user_id: member.id },
             include: { stream: true }
@@ -121,13 +231,13 @@ export class AuthService {
 
         const token = generateToken({ id: member.id, role: member.role }, rememberMe ? '30d' : '7d');
 
-        // Clean up any remaining OTPs
+        // 4. Invalidate used OTPs
         await prisma.otp.deleteMany({
             where: {
                 OR: [
+                    { email_or_phone: cleanIdentifier },
                     { email_or_phone: identifier },
-                    ...(member.email ? [{ email_or_phone: member.email }] : []),
-                    ...(member.phone ? [{ email_or_phone: member.phone }] : [])
+                    { id: otpRecord.id }
                 ]
             }
         }).catch(() => {});

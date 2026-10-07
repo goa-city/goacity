@@ -99,20 +99,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const sendOtp = async (identifier: string) => {
         try {
             const data = await authApi.sendOtp(identifier);
-            if (data?.instantLogin && data?.token && data?.user) {
-                const userString = JSON.stringify(data.user);
-                localStorage.setItem('token', data.token);
-                localStorage.setItem('user', userString);
-                sessionStorage.setItem('token', data.token);
-                sessionStorage.setItem('user', userString);
-                setUser(data.user);
-                return { success: true, instantLogin: true, token: data.token, user: data.user };
-            }
-            return { success: true, message: (data as any)?.message };
+            return { 
+                success: true, 
+                message: (data as any)?.message,
+                channel: (data as any)?.channel
+            };
         } catch (error: any) {
             return { 
                 success: false, 
-                message: error.response?.data?.message || error.message || 'Failed to send OTP' 
+                message: error.response?.data?.message || error.message || 'Failed to send verification code.' 
             };
         }
     };

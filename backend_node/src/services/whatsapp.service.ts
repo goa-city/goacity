@@ -443,19 +443,30 @@ export class WhatsAppService {
                     select: { whatsapp_id: true }
                 });
                 if (member?.whatsapp_id) {
-                    formattedTo = member.whatsapp_id.includes('@') 
-                        ? member.whatsapp_id 
-                        : `${member.whatsapp_id}@lid`;
-                    console.log(`[WhatsApp] Using saved WhatsApp ID: ${formattedTo}`);
+                    if (member.whatsapp_id.includes('@')) {
+                        formattedTo = member.whatsapp_id;
+                    } else if (member.whatsapp_id.length >= 14) {
+                        formattedTo = `${member.whatsapp_id}@lid`;
+                    } else {
+                        formattedTo = `${member.whatsapp_id}@c.us`;
+                    }
+                    console.log(`[WhatsApp] Using resolved member destination: ${formattedTo}`);
                 }
             }
 
             // 3. Fallback to getNumberId if no ID saved
             if (!formattedTo) {
                 console.log(`[WhatsApp] Resolving WhatsApp ID for: ${cleanTo}`);
-                const numberId = await this.client.getNumberId(cleanTo);
-                if (!numberId) throw new Error(`Number ${to} is not on WhatsApp.`);
-                formattedTo = numberId._serialized;
+                try {
+                    const numberId = await this.client.getNumberId(cleanTo);
+                    if (numberId?._serialized) {
+                        formattedTo = numberId._serialized;
+                    } else {
+                        formattedTo = `${cleanTo}@c.us`;
+                    }
+                } catch {
+                    formattedTo = `${cleanTo}@c.us`;
+                }
             }
 
             // 4. Send (with media if mediaPath is provided)
@@ -469,15 +480,25 @@ export class WhatsAppService {
                     response = await this.client.sendMessage(formattedTo, content, { linkPreview: false });
                 }
             } else {
-                response = await this.client.sendMessage(formattedTo, content, { linkPreview: false });
+                try {
+                    response = await this.client.sendMessage(formattedTo, content, { linkPreview: false });
+                } catch (sendErr: any) {
+                    if (formattedTo !== `${cleanTo}@c.us`) {
+                        console.log(`[WhatsApp] Delivery to ${formattedTo} failed, retrying with direct phone ${cleanTo}@c.us...`);
+                        formattedTo = `${cleanTo}@c.us`;
+                        response = await this.client.sendMessage(formattedTo, content, { linkPreview: false });
+                    } else {
+                        throw sendErr;
+                    }
+                }
             }
             
             // 5. Save the resolved ID back to the member record for next time
             if (memberId && formattedTo) {
-                const lid = formattedTo.split('@')[0];
+                const idToSave = formattedTo.includes('@lid') ? formattedTo.split('@')[0] : cleanTo;
                 await prisma.member.update({
                     where: { id: memberId },
-                    data: { whatsapp_id: lid }
+                    data: { whatsapp_id: idToSave }
                 }).catch(() => {});
             }
 
