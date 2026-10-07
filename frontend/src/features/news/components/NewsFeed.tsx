@@ -13,28 +13,59 @@ const NewsFeed: React.FC = () => {
     const [mediaPreview, setMediaPreview] = useState<string | null>(null);
     const [showLinkInput, setShowLinkInput] = useState(false);
     const [linkUrl, setLinkUrl] = useState('');
+    const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+    const [uploadError, setUploadError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleCreatePost = async () => {
         if (!newPostContent.trim() && !mediaFile) return;
 
-        await createPost({
-            content: newPostContent,
-            media: mediaFile,
-            media_type: mediaFile?.type.startsWith('video/') ? 'video' : 'image',
-            link_title: linkUrl // Simple implementation for now
-        });
+        try {
+            setUploadError(null);
+            if (mediaFile && mediaFile.type.startsWith('video/')) {
+                setUploadProgress(0);
+            }
 
-        setNewPostContent('');
-        setMediaFile(null);
-        setMediaPreview(null);
-        setLinkUrl('');
-        setShowLinkInput(false);
+            await createPost(
+                {
+                    content: newPostContent,
+                    media: mediaFile,
+                    media_type: mediaFile?.type.startsWith('video/') ? 'video' : 'image',
+                    link_title: linkUrl
+                },
+                (progressEvent) => {
+                    if (progressEvent && progressEvent.total) {
+                        const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                        setUploadProgress(percent);
+                    }
+                }
+            );
+
+            setNewPostContent('');
+            setMediaFile(null);
+            setMediaPreview(null);
+            setLinkUrl('');
+            setShowLinkInput(false);
+            setUploadProgress(null);
+        } catch (err: any) {
+            console.error("Failed to post:", err);
+            const msg = err.response?.data?.message || err.response?.data?.error || err.message || "Failed to upload post. Please try again.";
+            setUploadError(msg);
+        } finally {
+            setUploadProgress(null);
+        }
     };
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
+            // 500MB limit check
+            const maxSizeBytes = 500 * 1024 * 1024;
+            if (file.size > maxSizeBytes) {
+                setUploadError("The selected file exceeds the 500MB limit. Please choose a smaller video or image.");
+                return;
+            }
+            setUploadError(null);
             setMediaFile(file);
             setMediaPreview(URL.createObjectURL(file));
         }
@@ -97,6 +128,33 @@ const NewsFeed: React.FC = () => {
                             </div>
                         )}
 
+                        {uploadError && (
+                            <div className="mb-4 p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-xs font-semibold text-red-600 dark:text-red-400 flex items-center justify-between">
+                                <span>{uploadError}</span>
+                                <button onClick={() => setUploadError(null)} className="text-red-400 hover:text-red-600">
+                                    <XMarkIcon className="w-4 h-4" />
+                                </button>
+                            </div>
+                        )}
+
+                        {uploadProgress !== null && (
+                            <div className="mb-4 p-3 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50">
+                                <div className="flex justify-between items-center text-xs font-bold text-indigo-900 dark:text-indigo-200 mb-1.5">
+                                    <span className="flex items-center gap-1.5">
+                                        <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse" />
+                                        Uploading media...
+                                    </span>
+                                    <span>{uploadProgress}%</span>
+                                </div>
+                                <div className="w-full bg-indigo-200/50 dark:bg-indigo-900/50 h-2 rounded-full overflow-hidden">
+                                    <div 
+                                        className="bg-indigo-600 h-2 rounded-full transition-all duration-200 ease-out" 
+                                        style={{ width: `${uploadProgress}%` }}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
                         <div className="flex items-center justify-between pt-4 border-t border-zinc-50 dark:border-zinc-800">
                             <div className="flex items-center gap-1">
                                 <input
@@ -131,7 +189,8 @@ const NewsFeed: React.FC = () => {
                             <Button
                                 onClick={handleCreatePost}
                                 isLoading={isCreating}
-                                disabled={!newPostContent.trim() && !mediaFile}
+                                loadingText={uploadProgress !== null ? `Uploading (${uploadProgress}%)...` : 'Sharing update...'}
+                                disabled={(!newPostContent.trim() && !mediaFile) || isCreating}
                                 className="rounded-xl px-8"
                             >
                                 Share Update

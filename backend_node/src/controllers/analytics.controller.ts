@@ -3,6 +3,7 @@ import { AnalyticsService } from '../services/analytics.service.js';
 
 export const trackEvent = async (req: Request, res: Response) => {
     try {
+        const hitTime = new Date(); // Exact server timestamp when the hit is received
         const { path, sessionId, entityType, entityId, referrer, deviceType, durationSeconds } = req.body;
         const userId = (req as any).userId ? Number((req as any).userId) : null;
         const userRole = (req as any).userRole;
@@ -23,7 +24,8 @@ export const trackEvent = async (req: Request, res: Response) => {
             referrer,
             deviceType,
             durationSeconds,
-            ipAddress
+            ipAddress,
+            createdAt: hitTime
         });
 
         return res.status(200).json({ ok: true });

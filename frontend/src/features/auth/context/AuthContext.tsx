@@ -98,8 +98,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const sendOtp = async (identifier: string) => {
         try {
-            await authApi.sendOtp(identifier);
-            return { success: true };
+            const data = await authApi.sendOtp(identifier);
+            if (data?.instantLogin && data?.token && data?.user) {
+                const userString = JSON.stringify(data.user);
+                localStorage.setItem('token', data.token);
+                localStorage.setItem('user', userString);
+                sessionStorage.setItem('token', data.token);
+                sessionStorage.setItem('user', userString);
+                setUser(data.user);
+                return { success: true, instantLogin: true, token: data.token, user: data.user };
+            }
+            return { success: true, message: (data as any)?.message };
         } catch (error: any) {
             return { 
                 success: false, 

@@ -43,7 +43,9 @@ export const createPost = async (req: Request, res: Response, next: NextFunction
         if (req.file) {
             postData.media_url = `/uploads/${req.file.filename}`;
             const ext = path.extname(req.file.originalname).toLowerCase();
-            if (['.mp4', '.webm', '.mov', '.avi'].includes(ext)) {
+            const isVideoMime = req.file.mimetype?.startsWith('video/');
+            const isVideoExt = ['.mp4', '.webm', '.mov', '.avi', '.m4v', '.mkv', '.3gp', '.quicktime'].includes(ext);
+            if (isVideoMime || isVideoExt) {
                 postData.media_type = 'video';
             } else {
                 postData.media_type = 'image';

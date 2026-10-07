@@ -24,6 +24,7 @@ interface PageViewPayload {
     deviceType?: string | null;
     durationSeconds?: number | null;
     ipAddress?: string | null;
+    createdAt?: Date;
 }
 
 export class AnalyticsService {
@@ -32,15 +33,83 @@ export class AnalyticsService {
     private static isFlushing = false;
 
     /**
-     * Extracts client IP address safely considering reverse proxies
+     * Extracts client IP address safely considering reverse proxies (Nginx, Cloudflare, etc.)
      */
     public static getClientIp(req: Request): string {
+        const cleanIp = (raw: string | null | undefined): string | null => {
+            if (!raw) return null;
+            let ip = raw.trim();
+            if (ip.startsWith('::ffff:')) {
+                ip = ip.substring(7);
+            }
+            return ip || null;
+        };
+
+        // 1. Cloudflare / CDN headers
+        const cfIp = req.headers['cf-connecting-ip'] || req.headers['true-client-ip'];
+        if (typeof cfIp === 'string') {
+            const cleaned = cleanIp(cfIp);
+            if (cleaned) return cleaned;
+        }
+
+        // 2. X-Real-IP (standard Nginx proxy header)
+        const realIp = req.headers['x-real-ip'];
+        if (typeof realIp === 'string') {
+            const cleaned = cleanIp(realIp);
+            if (cleaned) return cleaned;
+        }
+
+        // 3. X-Forwarded-For (client, proxy1, proxy2)
         const forwarded = req.headers['x-forwarded-for'];
         if (typeof forwarded === 'string') {
             const first = forwarded.split(',')[0];
-            if (first) return first.trim();
+            const cleaned = cleanIp(first);
+            if (cleaned) return cleaned;
+        } else if (Array.isArray(forwarded) && forwarded.length > 0 && typeof forwarded[0] === 'string') {
+            const first = forwarded[0].split(',')[0];
+            const cleaned = cleanIp(first);
+            if (cleaned) return cleaned;
         }
-        return req.socket.remoteAddress || req.ip || 'unknown';
+
+        // 4. Express req.ip (when trust proxy is configured)
+        if (req.ip) {
+            const cleaned = cleanIp(req.ip);
+            if (cleaned && cleaned !== '127.0.0.1' && cleaned !== '::1') {
+                return cleaned;
+            }
+        }
+
+        // 5. Remote socket fallback
+        const remote = cleanIp(req.socket?.remoteAddress);
+        return remote || req.ip || 'unknown';
+    }
+
+    /**
+     * Converts a Date or ISO timestamp to Indian Standard Time (Asia/Kolkata, UTC+5:30)
+     */
+    public static toISTString(date: Date | string | null | undefined): string {
+        if (!date) return '—';
+        let d: Date;
+        if (typeof date === 'string') {
+            let s = date.trim();
+            if (!s.endsWith('Z') && !s.includes('+') && !/[0-9]-[0-9]{2}:[0-9]{2}$/.test(s)) {
+                s = s.replace(' ', 'T') + 'Z';
+            }
+            d = new Date(s);
+        } else {
+            d = date;
+        }
+        if (isNaN(d.getTime())) return '—';
+        return d.toLocaleString('en-IN', {
+            timeZone: 'Asia/Kolkata',
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+        });
     }
 
     /**
@@ -70,6 +139,9 @@ export class AnalyticsService {
      * Queues a page view event in the micro-batch buffer
      */
     public static queuePageView(payload: PageViewPayload): void {
+        if (!payload.createdAt) {
+            payload.createdAt = new Date();
+        }
         this.pageViewBuffer.push(payload);
 
         if (this.pageViewBuffer.length >= 10) {
@@ -110,7 +182,7 @@ export class AnalyticsService {
                     device_type: item.deviceType?.slice(0, 30) || null,
                     ip_address: item.ipAddress?.slice(0, 45) || null,
                     duration_seconds: item.durationSeconds || 0,
-                    created_at: new Date()
+                    created_at: item.createdAt || new Date()
                 }))
             });
         } catch (error) {
@@ -286,6 +358,7 @@ export class AnalyticsService {
             ipAddress: log.ip_address,
             userAgent: log.user_agent,
             createdAt: log.created_at,
+            createdAtIST: AnalyticsService.toISTString(log.created_at),
             cityName: log.city?.name || 'All Cities',
             userName: log.member 
                 ? `${log.member.first_name || ''} ${log.member.last_name || ''}`.trim() || log.member.email || log.member.phone || `Member #${log.member.id}`
@@ -300,6 +373,7 @@ export class AnalyticsService {
             ipAddress: log.ip_address,
             userAgent: log.user_agent,
             createdAt: log.created_at,
+            createdAtIST: AnalyticsService.toISTString(log.created_at),
             cityName: log.city?.name || 'All Cities',
             userName: log.admin?.full_name || log.admin?.email || 'Admin',
             adminRole: log.admin?.role || (log.admin?.is_super_admin ? 'Super Admin' : 'Admin')
@@ -401,6 +475,7 @@ export class AnalyticsService {
                     referrer: v.referrer || null,
                     durationSeconds: v.duration_seconds || 0,
                     createdAt: v.created_at,
+                    createdAtIST: AnalyticsService.toISTString(v.created_at),
                     cityName: v.city?.name || 'All Cities'
                 };
             })

@@ -13,8 +13,12 @@ import {
     XMarkIcon,
     ClockIcon,
     UserIcon,
-    GlobeAltIcon
+    GlobeAltIcon,
+    VideoCameraIcon,
+    PlayCircleIcon
 } from '@heroicons/react/24/outline';
+import MeetingVideoAnalyticsModal from '../../features/meetings/components/MeetingVideoAnalyticsModal';
+import { fetchMeetingsWithVideos } from '../../features/meetings/api/meetings.api';
 
 interface AuthLogItem {
     id: number;
@@ -24,6 +28,7 @@ interface AuthLogItem {
     ipAddress: string;
     userAgent: string;
     createdAt: string;
+    createdAtIST?: string;
     cityName: string;
     userName: string;
     adminRole?: string;
@@ -68,6 +73,7 @@ interface PageVisitor {
     referrer: string | null;
     durationSeconds: number;
     createdAt: string;
+    createdAtIST?: string;
     cityName: string;
 }
 
@@ -82,8 +88,33 @@ interface CityOption {
     name: string;
 }
 
+function parseServerDate(dateString: string): Date {
+    if (!dateString) return new Date();
+    let s = dateString.trim();
+    if (!s.endsWith('Z') && !s.includes('+') && !/[0-9]-[0-9]{2}:[0-9]{2}$/.test(s)) {
+        s = s.replace(' ', 'T') + 'Z';
+    }
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? new Date(dateString) : d;
+}
+
+function formatIST(dateString: string): string {
+    const d = parseServerDate(dateString);
+    return d.toLocaleString('en-GB', {
+        timeZone: 'Asia/Kolkata',
+        day: '2-digit',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+    });
+}
+
 function formatRelativeTime(dateString: string): string {
-    const diff = Math.floor((Date.now() - new Date(dateString).getTime()) / 1000);
+    const d = parseServerDate(dateString);
+    const diff = Math.floor((Date.now() - d.getTime()) / 1000);
+    if (diff < 0) return 'just now';
     if (diff < 60) return 'just now';
     if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
     if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
@@ -107,11 +138,26 @@ const SuperAdminAnalytics: React.FC = () => {
     const [pageDetails, setPageDetails] = useState<PageDetailsResponse | null>(null);
     const [loadingDetails, setLoadingDetails] = useState(false);
 
+    // Video Analytics State
+    const [videoMeetings, setVideoMeetings] = useState<Array<{ id: number; title: string; date: string; videoCount: number }>>([]);
+    const [loadingVideoMeetings, setLoadingVideoMeetings] = useState(false);
+    const [selectedVideoMeetingId, setSelectedVideoMeetingId] = useState<number | string | null>(null);
+    const [manualMeetingIdInput, setManualMeetingIdInput] = useState<string>('');
+
     // Fetch cities for filtering
     useEffect(() => {
-        api.get('/cities')
+        api.get('/superadmin/cities')
             .then(res => setCities(res.data || []))
             .catch(err => console.error('Failed to load cities:', err));
+    }, []);
+
+    // Fetch meetings with recap videos for SuperAdmin Video Analytics
+    useEffect(() => {
+        setLoadingVideoMeetings(true);
+        fetchMeetingsWithVideos()
+            .then(res => setVideoMeetings(res || []))
+            .catch(err => console.error('Failed to load meetings with videos:', err))
+            .finally(() => setLoadingVideoMeetings(false));
     }, []);
 
     // Fetch analytics overview
@@ -511,7 +557,7 @@ const SuperAdminAnalytics: React.FC = () => {
                                 <th className="pb-3 px-3">Channel / Role</th>
                                 <th className="pb-3 px-3">City</th>
                                 <th className="pb-3 px-3">IP & Client</th>
-                                <th className="pb-3 px-3 text-right">Timestamp</th>
+                                <th className="pb-3 px-3 text-right">Timestamp (IST)</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/[0.02] text-xs">
@@ -546,14 +592,9 @@ const SuperAdminAnalytics: React.FC = () => {
                                         </div>
                                     </td>
                                     <td className="py-3 px-3 text-right font-mono text-slate-400 whitespace-nowrap">
-                                        <div>
-                                            {new Date(log.createdAt).toLocaleString('en-GB', {
-                                                day: '2-digit',
-                                                month: 'short',
-                                                hour: '2-digit',
-                                                minute: '2-digit',
-                                                second: '2-digit'
-                                            })}
+                                        <div className="flex items-center justify-end gap-1.5">
+                                            <span>{formatIST(log.createdAt)}</span>
+                                            <span className="text-[9px] px-1 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-sans font-bold">IST</span>
                                         </div>
                                         <div className="text-[10px] text-slate-600">
                                             {formatRelativeTime(log.createdAt)}
@@ -571,6 +612,97 @@ const SuperAdminAnalytics: React.FC = () => {
                         </tbody>
                     </table>
                 </div>
+            </Card>
+
+            {/* Meeting Video Analytics Section */}
+            <Card className="bg-[#0f0f18] border-white/5 rounded-2xl p-6">
+                <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
+                    <div>
+                        <div className="flex items-center gap-2 mb-1">
+                            <VideoCameraIcon className="h-5 w-5 text-purple-400" />
+                            <h3 className="text-lg font-bold text-white tracking-tight">Meeting Recap Video Analytics</h3>
+                            <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 bg-purple-500/20 text-purple-300 rounded-full border border-purple-500/30">
+                                Super Admin Exclusive
+                            </span>
+                        </div>
+                        <p className="text-xs text-slate-400">
+                            Monitor member watch times, video completion rates, unique viewers, and clip reactions across all meetings.
+                        </p>
+                    </div>
+
+                    {/* Quick ID lookup form */}
+                    <form
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            if (manualMeetingIdInput.trim()) {
+                                setSelectedVideoMeetingId(manualMeetingIdInput.trim());
+                            }
+                        }}
+                        className="flex items-center gap-2"
+                    >
+                        <input
+                            type="text"
+                            placeholder="Enter Meeting ID (e.g. 24)"
+                            value={manualMeetingIdInput}
+                            onChange={(e) => setManualMeetingIdInput(e.target.value)}
+                            className="bg-[#12121c] border border-white/10 text-white rounded-xl px-3.5 py-2 text-xs font-semibold focus:ring-2 focus:ring-purple-600 focus:outline-none w-52 placeholder:text-slate-500"
+                        />
+                        <button
+                            type="submit"
+                            disabled={!manualMeetingIdInput.trim()}
+                            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-purple-900/30 flex items-center gap-1.5 cursor-pointer"
+                        >
+                            <PlayCircleIcon className="w-4 h-4" />
+                            <span>View Analytics</span>
+                        </button>
+                    </form>
+                </div>
+
+                {loadingVideoMeetings ? (
+                    <div className="py-8 text-center text-slate-500 text-xs">
+                        Loading meetings with video recap clips...
+                    </div>
+                ) : videoMeetings.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {videoMeetings.map((m) => (
+                            <div
+                                key={m.id}
+                                className="p-4 rounded-xl bg-white/[0.02] border border-white/5 hover:border-purple-500/40 hover:bg-white/[0.04] transition-all flex flex-col justify-between gap-3 group"
+                            >
+                                <div>
+                                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                                        <span className="text-[10px] font-mono text-purple-400 font-bold bg-purple-950/60 border border-purple-800/40 px-2 py-0.5 rounded">
+                                            Meeting #{m.id}
+                                        </span>
+                                        <span className="text-[11px] text-slate-400 font-medium">
+                                            {m.date ? new Date(m.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Date TBD'}
+                                        </span>
+                                    </div>
+                                    <h4 className="text-sm font-bold text-white group-hover:text-purple-300 transition-colors line-clamp-1">
+                                        {m.title}
+                                    </h4>
+                                    <p className="text-xs text-slate-400 mt-1 flex items-center gap-1.5">
+                                        <VideoCameraIcon className="w-3.5 h-3.5 text-purple-400" />
+                                        <span>{m.videoCount} {m.videoCount === 1 ? 'Video Clip' : 'Video Clips'} Recorded</span>
+                                    </p>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedVideoMeetingId(m.id)}
+                                    className="w-full py-2 px-3 rounded-lg bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/30 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                                >
+                                    <ChartBarIcon className="w-3.5 h-3.5" />
+                                    <span>View Video Analytics</span>
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="py-8 text-center text-slate-500 text-xs">
+                        No meeting recap videos recorded yet.
+                    </div>
+                )}
             </Card>
 
             {/* Modal: Latest 50 Page Visitors & Time Logs */}
@@ -654,7 +786,7 @@ const SuperAdminAnalytics: React.FC = () => {
                                                     <th className="py-3 px-3.5">User Type</th>
                                                     <th className="py-3 px-3.5">Device</th>
                                                     <th className="py-3 px-3.5">City / Location</th>
-                                                    <th className="py-3 px-3.5 text-right">Time Log</th>
+                                                    <th className="py-3 px-3.5 text-right">Time Log (IST)</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-white/[0.02] text-xs">
@@ -706,14 +838,9 @@ const SuperAdminAnalytics: React.FC = () => {
                                                             {v.cityName}
                                                         </td>
                                                         <td className="py-3 px-3.5 text-right font-mono whitespace-nowrap">
-                                                            <div className="text-white font-medium">
-                                                                {new Date(v.createdAt).toLocaleString('en-GB', {
-                                                                    day: '2-digit',
-                                                                    month: 'short',
-                                                                    hour: '2-digit',
-                                                                    minute: '2-digit',
-                                                                    second: '2-digit'
-                                                                })}
+                                                            <div className="text-white font-medium flex items-center justify-end gap-1.5">
+                                                                <span>{formatIST(v.createdAt)}</span>
+                                                                <span className="text-[9px] px-1 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-sans font-bold">IST</span>
                                                             </div>
                                                             <div className="text-[10px] text-violet-400 font-semibold">
                                                                 {formatRelativeTime(v.createdAt)}
@@ -743,6 +870,14 @@ const SuperAdminAnalytics: React.FC = () => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Meeting Video Analytics Modal (SuperAdmin Exclusive) */}
+            {selectedVideoMeetingId && (
+                <MeetingVideoAnalyticsModal
+                    meetingId={selectedVideoMeetingId}
+                    onClose={() => setSelectedVideoMeetingId(null)}
+                />
             )}
         </div>
     );

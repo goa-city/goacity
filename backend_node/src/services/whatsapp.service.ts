@@ -8,21 +8,25 @@ import prisma from '../lib/prisma.js';
 export class WhatsAppService {
     private static instance: WhatsAppService;
     private client: any;
+    private clientOptions: any;
+    private isReady: boolean = false;
     private cityId: number = 1; // Default to 1 for now
     private heartbeatInterval: any = null;
 
     private constructor() {
-        this.client = new Client({
+        this.clientOptions = {
             authStrategy: new LocalAuth({
                 clientId: `city-${this.cityId}`,
                 dataPath: './.wwebjs_auth'
             }),
-            authTimeoutMs: 60000,
+            authTimeoutMs: 120000,
             qrMaxRetries: 0,
             takeoverOnConflict: true,
-            takeoverTimeoutMs: 10000,
+            takeoverTimeoutMs: 15000,
             puppeteer: {
-                executablePath: '/usr/bin/chromium-browser',
+                executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser',
+                pipe: true,
+                protocolTimeout: 0,
                 args: [
                     '--no-sandbox', 
                     '--disable-setuid-sandbox',
@@ -37,8 +41,9 @@ export class WhatsAppService {
                 headless: true
             },
             userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
-        });
+        };
 
+        this.client = new Client(this.clientOptions);
         this.setupEventListeners();
     }
 
@@ -73,6 +78,7 @@ export class WhatsAppService {
 
         this.client.on('ready', async () => {
             console.log('WhatsApp Client is Ready!');
+            this.isReady = true;
             await prisma.whatsAppSession.upsert({
                 where: { id: 1 },
                 update: { 
@@ -98,6 +104,7 @@ export class WhatsAppService {
 
         this.client.on('auth_failure', async (msg: string) => {
             console.error('WhatsApp Authentication Failure:', msg);
+            this.isReady = false;
             await prisma.whatsAppSession.update({
                 where: { id: 1 },
                 data: { status: 'DISCONNECTED' }
@@ -106,6 +113,7 @@ export class WhatsAppService {
 
         this.client.on('disconnected', async (reason: string) => {
             console.log('WhatsApp Client Disconnected:', reason);
+            this.isReady = false;
             await prisma.whatsAppSession.update({
                 where: { id: 1 },
                 data: { status: 'DISCONNECTED' }
@@ -226,10 +234,11 @@ export class WhatsAppService {
 
     public async restart() {
         console.log('Restarting WhatsApp Client...');
+        this.isReady = false;
         try {
             await this.client.destroy();
-            // Re-initialize a new client
-            this.client = new Client(this.client.options);
+            // Re-initialize a new client with original options including pipe: true
+            this.client = new Client(this.clientOptions);
             this.setupEventListeners();
             await this.client.initialize();
             console.log('WhatsApp Client Re-initialized');
@@ -241,11 +250,61 @@ export class WhatsAppService {
     public async refresh() {
         console.log('Manual Refresh Requested...');
         if (this.client.pupPage) {
-            await this.client.pupPage.reload({ waitUntil: 'networkidle0' });
+            // Check if stuck on "Log out" reconnect screen
+            const clickedLogout = await this.client.pupPage.evaluate(() => {
+                const elements = Array.from(document.querySelectorAll('button, div[role="button"], span, a'));
+                const btn = elements.find(el => (el.textContent || '').trim().toLowerCase() === 'log out');
+                if (btn) {
+                    (btn as HTMLElement).click();
+                    return true;
+                }
+                return false;
+            }).catch(() => false);
+
+            if (clickedLogout) {
+                console.log('[WhatsApp] Clicked "Log out" button on WhatsApp Web screen!');
+                return true;
+            }
+
+            await this.client.pupPage.reload({ waitUntil: 'networkidle0' }).catch(() => {});
             console.log('Page Reloaded Successfully');
             return true;
         }
         return false;
+    }
+
+    public async getDebugInfo() {
+        try {
+            if (!this.client?.pupPage) {
+                return { hasPage: false, isReady: this.isReady };
+            }
+            const url = this.client.pupPage.url();
+            const title = await this.client.pupPage.title().catch(() => 'unknown');
+            const hasDebug = await this.client.pupPage.evaluate(() => typeof (window as any).Debug !== 'undefined').catch(() => false);
+            const hasWWebJS = await this.client.pupPage.evaluate(() => typeof (window as any).WWebJS !== 'undefined').catch(() => false);
+            const socketState = await this.client.pupPage.evaluate(() => {
+                try {
+                    return (window as any).require?.('WAWebSocketModel')?.Socket?.state || 'no_socket_model';
+                } catch (e: any) {
+                    return 'error: ' + e.message;
+                }
+            }).catch((err: any) => 'eval_err: ' + err.message);
+            const bodyText = await this.client.pupPage.evaluate(() => (document.body?.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 300)).catch(() => '');
+            const qrFound = await this.client.pupPage.evaluate(() => !!document.querySelector('canvas')).catch(() => false);
+            return {
+                hasPage: true,
+                isReady: this.isReady,
+                url,
+                title,
+                hasDebug,
+                hasWWebJS,
+                socketState,
+                qrFound,
+                bodyText
+            };
+        } catch (e: any) {
+            return { hasPage: true, isReady: this.isReady, error: e.message };
+        }
     }
 
     private async handleIncomingMessage(msg: any) {
@@ -371,6 +430,11 @@ export class WhatsAppService {
             let cleanTo = to.replace(/\D/g, '');
             if (cleanTo.length === 10) cleanTo = '91' + cleanTo;
 
+            // Check if WhatsApp browser page is initialized and ready
+            if (!this.isReady || !this.client || !this.client.pupPage || (typeof this.client.pupPage.isClosed === 'function' && this.client.pupPage.isClosed())) {
+                throw new Error('WhatsApp service is currently reconnecting. Please try again shortly or sign in with your email address.');
+            }
+
             // 2. STABILITY: Try to use saved whatsapp_id from Member table first
             let formattedTo: string | null = null;
             if (memberId) {
@@ -431,7 +495,7 @@ export class WhatsAppService {
 
             return response;
         } catch (error: any) {
-            const errorMsg = error.message.toLowerCase();
+            const errorMsg = (error.message || '').toLowerCase();
             console.error(`[WhatsApp] sendMessage Error (Attempt ${retryCount + 1}):`, error.message);
             
             // Broad detection for environmental/browser errors
@@ -439,10 +503,12 @@ export class WhatsAppService {
                                errorMsg.includes('execution context was destroyed') ||
                                errorMsg.includes('navigating frame was detached') ||
                                errorMsg.includes('page closed') ||
-                               errorMsg.includes('target closed');
+                               errorMsg.includes('target closed') ||
+                               errorMsg.includes('reading \'evaluate\'') ||
+                               errorMsg.includes('cannot read properties of null');
 
             if (isDetached && retryCount < 3) {
-                console.log(`[WhatsApp] 🔄 DETACHED FRAME DETECTED (Attempt ${retryCount + 1}). RECOVERING...`);
+                console.log(`[WhatsApp] 🔄 DETACHED FRAME / BROWSER GLITCH DETECTED (Attempt ${retryCount + 1}). RECOVERING...`);
                 
                 try {
                     if (retryCount === 2) {
@@ -464,6 +530,10 @@ export class WhatsAppService {
                 return this.sendMessage(to, content, memberId, retryCount + 1, broadcastId, mediaPath);
             }
             
+            if (errorMsg.includes('reading \'evaluate\'') || errorMsg.includes('cannot read properties of null')) {
+                throw new Error('WhatsApp service is currently reconnecting. Please try again shortly or sign in with your email address.');
+            }
+
             throw error;
         }
     }

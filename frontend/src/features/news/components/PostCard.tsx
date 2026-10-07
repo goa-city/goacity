@@ -68,14 +68,14 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLike, onDelete, onUpdate })
                             {post.user?.profile_photo ? (
                                 <img src={post.user.profile_photo} alt="" className="w-full h-full object-cover" />
                             ) : (
-                                <div className="w-full h-full flex items-center justify-center text-sm font-black text-zinc-400">
-                                    {post.user?.first_name?.[0]}
+                                <div className="w-full h-full flex items-center justify-center text-sm font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40">
+                                    {post.user?.first_name?.[0] || 'A'}
                                 </div>
                             )}
                         </div>
                         <div>
                             <h4 className="text-sm font-black text-zinc-900 dark:text-white leading-tight">
-                                {post.user?.first_name} {post.user?.last_name}
+                                {post.user ? `${post.user.first_name || ''} ${post.user.last_name || ''}`.trim() || 'Admin' : 'Admin'}
                             </h4>
                             <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-0.5">
                                 {formatDate(post.created_at)}
@@ -138,9 +138,38 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLike, onDelete, onUpdate })
                 {post.media_url && (
                     <div className="rounded-xl overflow-hidden border border-zinc-100 dark:border-zinc-800 mb-4 bg-zinc-50 dark:bg-zinc-900/50">
                         {post.media_type === 'video' ? (
-                            <video src={post.media_url} controls className="w-full h-auto max-h-[700px]" />
+                            <video src={post.media_url} controls playsInline preload="metadata" className="w-full h-auto max-h-[700px] rounded-lg" />
+                        ) : post.link_title ? (
+                            <a 
+                                href={post.link_title.startsWith('http') ? post.link_title : `https://${post.link_title}`}
+                                target={post.link_title.startsWith('http') && !post.link_title.includes(window.location.host) ? '_blank' : undefined}
+                                rel="noopener noreferrer"
+                                className="block group cursor-pointer"
+                            >
+                                <img 
+                                    src={post.media_url} 
+                                    alt="" 
+                                    onError={(e) => {
+                                        const target = e.currentTarget;
+                                        if (target.src.includes('maxresdefault.jpg')) {
+                                            target.src = target.src.replace('maxresdefault.jpg', 'hqdefault.jpg');
+                                        }
+                                    }}
+                                    className="w-full h-auto max-h-[700px] object-contain mx-auto group-hover:opacity-95 transition-opacity" 
+                                />
+                            </a>
                         ) : (
-                            <img src={post.media_url} alt="" className="w-full h-auto max-h-[700px] object-contain mx-auto" />
+                            <img 
+                                src={post.media_url} 
+                                alt="" 
+                                onError={(e) => {
+                                    const target = e.currentTarget;
+                                    if (target.src.includes('maxresdefault.jpg')) {
+                                        target.src = target.src.replace('maxresdefault.jpg', 'hqdefault.jpg');
+                                    }
+                                }}
+                                className="w-full h-auto max-h-[700px] object-contain mx-auto" 
+                            />
                         )}
                     </div>
                 )}

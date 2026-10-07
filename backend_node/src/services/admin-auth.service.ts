@@ -47,7 +47,7 @@ export class AdminAuthService {
     static async getAdminById(id: number) {
         const admin = await prisma.admin.findUnique({
             where: { id },
-            select: { id: true, full_name: true, email: true, role: true }
+            select: { id: true, full_name: true, email: true, role: true, is_super_admin: true }
         });
         if (!admin) throw new AppError('Admin not found', 404);
         return admin;

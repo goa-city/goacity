@@ -1,12 +1,12 @@
 import React from 'react';
-import { useParams, useSearchParams, Link } from 'react-router-dom';
+import { useParams, useSearchParams, Link, Navigate } from 'react-router-dom';
 import { useSingleMeeting } from '../hooks/useSingleMeeting';
 import { useMeetingPosterFavicon } from '../hooks/useMeetingPosterFavicon';
 import { useAuth } from '../../auth/context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
 import DashboardLayout from '../../../layouts/DashboardLayout';
 import logo from '../../../assets/Goa.City.Logo.svg';
-import { DocumentTextIcon, LinkIcon, VideoCameraIcon, PhotoIcon, MoonIcon, SunIcon } from '@heroicons/react/24/outline';
+import { DocumentTextIcon, LinkIcon, VideoCameraIcon, PhotoIcon, MoonIcon, SunIcon, ChatBubbleBottomCenterTextIcon } from '@heroicons/react/24/outline';
 import { CheckCircleIcon, QuestionMarkCircleIcon, XCircleIcon, ArrowTopRightOnSquareIcon, XMarkIcon, SparklesIcon, LockClosedIcon } from '@heroicons/react/24/solid';
 import { formatDate } from '../../../utils/date';
 import api from '../../../api/axios';
@@ -25,7 +25,7 @@ const MeetingPageWrapper: React.FC<{ user: any; children: React.ReactNode }> = (
         return <DashboardLayout>{children}</DashboardLayout>;
     }
     return (
-        <div className="min-h-screen bg-gradient-to-br from-[#fbfbfb] to-[#f9f6e8] dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col">
+        <div className="min-h-screen bg-gradient-to-br from-[#fbfbfb] to-[#f9f6e8] dark:from-zinc-950 dark:to-zinc-950 dark:bg-zinc-950 dark:bg-none text-zinc-900 dark:text-zinc-100 flex flex-col transition-colors">
             <header className="bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border-b border-zinc-200/80 dark:border-zinc-800 sticky top-0 z-40 px-6 py-4 shadow-sm">
                 <div className="max-w-5xl mx-auto flex items-center justify-between">
                     <Link to="/" className="flex items-center gap-2">
@@ -67,7 +67,7 @@ const getLocalYYYYMMDD = (dateInput: string | Date) => {
 const SingleMeetingView: React.FC = () => {
     const { slug } = useParams<{ slug: string }>();
     const [searchParams] = useSearchParams();
-    const { user, loginWithToken } = useAuth();
+    const { user, loading: authLoading, loginWithToken } = useAuth();
     const { meeting, isLoading, refetch, rsvp, isRsvping } = useSingleMeeting(slug);
     useMeetingPosterFavicon(meeting);
     const [showPosterModal, setShowPosterModal] = React.useState(false);
@@ -110,13 +110,13 @@ const SingleMeetingView: React.FC = () => {
     };
 
     const isDev = import.meta.env.MODE === 'development' || window.location.hostname === 'localhost';
-    const isPast = meeting ? getLocalYYYYMMDD(meeting.meeting_date) < getLocalYYYYMMDD(new Date()) : false;
+    const isPast = meeting?.meeting_date ? getLocalYYYYMMDD(meeting.meeting_date) < getLocalYYYYMMDD(new Date()) : false;
     const hasRecapContent = Boolean(
         (meeting?.recap_videos && meeting.recap_videos.length > 0) ||
         (meeting?.recap_gallery && meeting.recap_gallery.length > 0) ||
         (meeting?.recap_content && meeting.recap_content.trim().length > 10)
     );
-    const isCompleted = isPast || hasRecapContent;
+    const isCompleted = isPast || hasRecapContent || meeting?.archived === 1;
 
     const handleDevTest = async () => {
         if (!meeting) return;
@@ -135,7 +135,7 @@ const SingleMeetingView: React.FC = () => {
             console.error(err);
         }
     };
-    if (isLoading) {
+    if (isLoading || authLoading) {
         return (
             <MeetingPageWrapper user={user}>
                 <div className="py-40 flex flex-col items-center justify-center">
@@ -156,6 +156,12 @@ const SingleMeetingView: React.FC = () => {
             </MeetingPageWrapper>
         );
     }
+    // Once the event/meeting is concluded, the meeting page should not be publicly accessible.
+    // If anyone accesses this page once meeting is concluded, redirect them to the login page with a redirect in the URL.
+    if (isCompleted && !user) {
+        const redirectUrl = window.location.pathname + window.location.search;
+        return <Navigate to={`/login?redirect=${encodeURIComponent(redirectUrl)}`} replace />;
+    }
     if (!meeting.is_public && !user) {
         return (
             <MeetingPageWrapper user={user}>
@@ -164,10 +170,10 @@ const SingleMeetingView: React.FC = () => {
                         <LockClosedIcon className="w-8 h-8" />
                     </div>
                     <h2 className="text-2xl font-black text-zinc-900 dark:text-white uppercase tracking-tight mb-3">
-                        Member-Only Event
+                        Member-Only
                     </h2>
                     <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-8 leading-relaxed">
-                        This meeting is private for Goa.City community members. Please sign in with your registered account to view event details and RSVP.
+                        This meeting is private for Goa.City community members. Please sign in with your registered account to view event details.
                     </p>
                     <Link
                         to={`/?redirect=${encodeURIComponent(window.location.pathname)}`}
@@ -215,10 +221,10 @@ const SingleMeetingView: React.FC = () => {
                     {user && !isCompleted && (
                         <div className="pt-2 flex flex-wrap items-center gap-3 w-full">
                             {Boolean(meeting.is_paid) && (
-                                meeting.my_payment_status === 'paid_online' || 
-                                meeting.my_payment_status === 'paid_cash' || 
-                                meeting.my_payment_status === 'completed' || 
-                                meeting.my_payment_status === 'paid' || 
+                                meeting.my_payment_status === 'paid_online' ||
+                                meeting.my_payment_status === 'paid_cash' ||
+                                meeting.my_payment_status === 'completed' ||
+                                meeting.my_payment_status === 'paid' ||
                                 Boolean(meeting.my_payment_proof)
                             ) ? (
                                 <div className="flex items-center gap-3 flex-wrap">
@@ -265,22 +271,22 @@ const SingleMeetingView: React.FC = () => {
                                 )
                             )}
                             {Boolean(meeting.is_paid) && meeting.checked_in !== 1 && !(
-                                meeting.my_payment_status === 'paid_online' || 
-                                meeting.my_payment_status === 'paid_cash' || 
-                                meeting.my_payment_status === 'completed' || 
-                                meeting.my_payment_status === 'paid' || 
+                                meeting.my_payment_status === 'paid_online' ||
+                                meeting.my_payment_status === 'paid_cash' ||
+                                meeting.my_payment_status === 'completed' ||
+                                meeting.my_payment_status === 'paid' ||
                                 Boolean(meeting.my_payment_proof)
                             ) && (meeting.upi_link || meeting.payment_amount) && (
-                                <a
-                                    href={`/pay/${meeting.slug || meeting.id}${user?.id ? `?m=${user.id}` : ''}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
-                                >
-                                    <span>Pay ₹{meeting.payment_amount || ''} Online</span>
-                                    <ArrowTopRightOnSquareIcon className="w-3.5 h-3.5" />
-                                </a>
-                            )}
+                                    <a
+                                        href={`/pay/${meeting.slug || meeting.id}${user?.id ? `?m=${user.id}` : ''}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
+                                    >
+                                        <span>Pay ₹{meeting.payment_amount || ''} Online</span>
+                                        <ArrowTopRightOnSquareIcon className="w-3.5 h-3.5" />
+                                    </a>
+                                )}
                             {meeting.checked_in == 1 && (
                                 <div className="flex flex-col items-start gap-1">
                                     <div className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 px-6 py-2 rounded-2xl font-black uppercase text-[10px] tracking-widest border border-emerald-100 dark:border-emerald-800">
@@ -300,59 +306,70 @@ const SingleMeetingView: React.FC = () => {
                 {isCompleted ? (
                     /* ── Completed Meeting / Post-Event Recap Hub ── */
                     <div className="space-y-10">
-                        {/* Status Alert Banner */}
-                        <div className="flex flex-wrap items-center justify-between gap-4 p-5 rounded-3xl bg-zinc-900 text-white dark:bg-zinc-800/90 border border-zinc-800 shadow-xl">
+                        {/* Status Alert Banner — clean light style */}
+                        <div className="flex flex-wrap items-center justify-between gap-4 p-5 rounded-2xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shrink-0 shadow-md shadow-indigo-600/30">
-                                    <SparklesIcon className="w-5 h-5 text-amber-300" />
+                                <div className="w-9 h-9 rounded-xl bg-indigo-500/10 flex items-center justify-center shrink-0">
+                                    <SparklesIcon className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                                 </div>
                                 <div>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
                                             Event Concluded
                                         </span>
-                                        <span className="text-[10px] text-zinc-500">•</span>
-                                        <span className="text-[10px] font-bold text-zinc-300 uppercase tracking-wider">
+                                        <span className="text-[10px] text-zinc-300 dark:text-zinc-600">•</span>
+                                        <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
                                             {formatDate(meeting.meeting_date)}
                                         </span>
+
+
+                                        {user && (meeting.checked_in == 1 || meeting.my_payment_status === 'paid_online' || meeting.my_payment_status === 'paid_cash' || meeting.my_payment_status === 'completed') && (
+                                            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-700/40 text-[10px] font-black uppercase tracking-widest">
+                                                <CheckCircleIcon className="w-4 h-4" />
+                                                <span>You Attended</span>
+                                            </div>
+                                        )}
+
                                     </div>
-                                    <h3 className="text-sm font-black uppercase tracking-tight text-white mt-0.5">
-                                        Meeting Highlights, Recordings & Gallery
-                                    </h3>
                                 </div>
                             </div>
 
-                            {user && (meeting.checked_in == 1 || meeting.my_payment_status === 'paid_online' || meeting.my_payment_status === 'paid_cash' || meeting.my_payment_status === 'completed') && (
-                                <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-black uppercase tracking-widest">
-                                    <CheckCircleIcon className="w-4 h-4" />
-                                    <span>You Attended</span>
-                                </div>
-                            )}
+                            <div className="flex flex-wrap items-center gap-3">
+                                {meeting.feedback_form_id && (
+                                    <a
+                                        href={`/onboarding/form/${meeting.feedback_form_id}?meeting_id=${meeting.id}`}
+                                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-black uppercase tracking-wider transition-all shadow-md shadow-indigo-600/20 cursor-pointer"
+                                    >
+                                        <ChatBubbleBottomCenterTextIcon className="w-4 h-4" />
+                                        <span>Submit Meeting Feedback</span>
+                                    </a>
+                                )}
+
+
+                            </div>
                         </div>
 
                         {/* Video Clips Hub */}
                         {meeting.recap_videos && meeting.recap_videos.length > 0 && (
-                            <div className="bg-gradient-to-b from-zinc-50 to-white dark:from-zinc-900/40 dark:to-zinc-900/10 p-6 sm:p-8 rounded-3xl border border-zinc-200/80 dark:border-zinc-800 shadow-sm">
-                                <MeetingRecapVideos
-                                    meetingId={meeting.id}
-                                    videos={meeting.recap_videos}
-                                    initialReactions={meeting.video_reactions}
-                                    isAuthenticated={Boolean(user)}
-                                />
-                            </div>
+                            <MeetingRecapVideos
+                                meetingId={meeting.id}
+                                videos={meeting.recap_videos}
+                                initialReactions={meeting.video_reactions}
+                                isAuthenticated={Boolean(user)}
+                            />
                         )}
 
-                        {/* Main Grid: Left Column (Gallery + Minutes) / Right Column (Poster + Resources + Feedback) */}
+                        {/* Full-Width Photo Gallery */}
+                        {meeting.recap_gallery && meeting.recap_gallery.length > 0 && (
+                            <MeetingRecapGallery
+                                photos={meeting.recap_gallery}
+                                isAuthenticated={Boolean(user)}
+                            />
+                        )}
+
+                        {/* Main Grid: Left Column (Minutes) / Right Column (Poster + Resources + Feedback) */}
                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                             <div className="lg:col-span-8 space-y-10">
-                                {/* Photo Gallery */}
-                                {meeting.recap_gallery && meeting.recap_gallery.length > 0 && (
-                                    <MeetingRecapGallery
-                                        photos={meeting.recap_gallery}
-                                        isAuthenticated={Boolean(user)}
-                                    />
-                                )}
-
                                 {/* Recap Minutes & Rich Text */}
                                 {meeting.recap_content && meeting.recap_content.length > 10 && (
                                     <Card className="overflow-hidden relative group border-zinc-200/80 dark:border-zinc-800 shadow-sm">
@@ -377,8 +394,8 @@ const SingleMeetingView: React.FC = () => {
                             </div>
 
                             <div className="lg:col-span-4 space-y-6">
-                                {/* Minimized Official Event Poster */}
-                                {meeting.poster_image_url && (
+                                {/* Minimized Official Event Poster — hide when recap videos exist (focus shifts to recordings) */}
+                                {meeting.poster_image_url && !(meeting.recap_videos && meeting.recap_videos.length > 0) && (
                                     <Card className="overflow-hidden border-zinc-200/80 dark:border-zinc-800 p-4">
                                         <div className="flex items-center justify-between mb-3 px-1">
                                             <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
@@ -406,21 +423,6 @@ const SingleMeetingView: React.FC = () => {
                                     </Card>
                                 )}
 
-                                {/* Feedback Form Prompt */}
-                                {meeting.feedback_form_id && (
-                                    <a
-                                        href={`/onboarding/form/${meeting.feedback_form_id}?meeting_id=${meeting.id}`}
-                                        className="group block"
-                                    >
-                                        <Card className="p-5 hover:border-indigo-600 border border-zinc-200/80 dark:border-zinc-800 transition-all flex items-center gap-4 bg-gradient-to-br from-indigo-50/50 to-white dark:from-indigo-950/20 dark:to-zinc-900">
-                                            <div className="w-1.5 h-10 rounded-full bg-indigo-600 shrink-0 group-hover:scale-y-110 transition-transform" />
-                                            <div>
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400">Attendee Survey</span>
-                                                <h4 className="font-black text-xs text-zinc-900 dark:text-white leading-tight mt-0.5">Share Your Feedback</h4>
-                                            </div>
-                                        </Card>
-                                    </a>
-                                )}
 
                                 {/* Meeting Resources */}
                                 {meeting.resources && meeting.resources.length > 0 && (

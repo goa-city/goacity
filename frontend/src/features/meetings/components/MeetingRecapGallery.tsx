@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PhotoIcon, XMarkIcon, ChevronLeftIcon, ChevronRightIcon, ArrowDownTrayIcon, LockClosedIcon } from '@heroicons/react/24/outline';
+import { PhotoIcon, XMarkIcon, ChevronLeftIcon, ChevronRightIcon, LockClosedIcon } from '@heroicons/react/24/outline';
 
 export interface RecapGalleryPhoto {
     id: string;
@@ -32,28 +32,19 @@ const MeetingRecapGallery: React.FC<MeetingRecapGalleryProps> = ({ photos, isAut
 
     const activePhoto = lightboxIndex !== null ? photos[lightboxIndex] : null;
 
-    const handleDownload = (photoUrl: string, filename?: string) => {
-        const a = document.createElement('a');
-        a.href = photoUrl;
-        a.download = filename || 'goa-city-event-photo.webp';
-        a.target = '_blank';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-    };
+
 
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                    <PhotoIcon className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                    <h3 className="text-sm font-black uppercase tracking-wider text-zinc-900 dark:text-white">
-                        Event Photo Gallery ({photos.length})
+                    <h3 className="tracking-tight text-2xl font-black text-zinc-900 dark:text-white leading-tight">
+                        Photo Gallery
                     </h3>
                 </div>
                 {isAuthenticated && (
                     <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                        Click any photo to enlarge & download
+                        Click any photo to enlarge
                     </span>
                 )}
             </div>
@@ -132,18 +123,9 @@ const MeetingRecapGallery: React.FC<MeetingRecapGalleryProps> = ({ photos, isAut
                             <div className="flex items-center gap-3">
                                 <button
                                     type="button"
-                                    onClick={() => handleDownload(activePhoto.image_url_display || activePhoto.image_url, `event-photo-${lightboxIndex + 1}.webp`)}
-                                    className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-1.5 text-xs font-black uppercase tracking-wider cursor-pointer"
-                                    title="Download Photo"
-                                >
-                                    <ArrowDownTrayIcon className="w-4 h-4" />
-                                    <span>Download</span>
-                                </button>
-                                <button
-                                    type="button"
                                     onClick={() => setLightboxIndex(null)}
                                     className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
-                                    title="Close Lightbox"
+                                    title="Close"
                                 >
                                     <XMarkIcon className="w-5 h-5" />
                                 </button>

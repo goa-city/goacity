@@ -45,7 +45,16 @@ export const logVideoAnalytics = async (meetingId: number | string, clipId: stri
 };
 
 export const fetchVideoAnalytics = async (meetingId: number | string) => {
-    const { data } = await api.get(`/admin/meetings/${meetingId}/video-analytics`);
+    const isSuperAdminRoute = window.location.pathname.startsWith('/superadmin') || !!localStorage.getItem('superAdminToken');
+    const endpoint = isSuperAdminRoute
+        ? `/superadmin/meetings/${meetingId}/video-analytics`
+        : `/admin/meetings/${meetingId}/video-analytics`;
+    const { data } = await api.get(endpoint);
+    return data;
+};
+
+export const fetchMeetingsWithVideos = async () => {
+    const { data } = await api.get('/superadmin/meetings-with-videos');
     return data;
 };
 
@@ -58,8 +67,17 @@ export const uploadRecapGallery = async (meetingId: number | string, formData: F
     return data;
 };
 
-export const publishRecapToNews = async (meetingId: number | string, custom_note?: string) => {
-    const { data } = await api.post(`/admin/meetings/${meetingId}/publish-recap-to-news`, { custom_note });
+export interface PublishRecapNewsPayload {
+    custom_note?: string;
+    type?: 'all' | 'video' | 'gallery';
+    video_id?: string;
+    video_title?: string;
+    video_description?: string;
+}
+
+export const publishRecapToNews = async (meetingId: number | string, payload?: string | PublishRecapNewsPayload) => {
+    const body = typeof payload === 'string' ? { custom_note: payload } : (payload || {});
+    const { data } = await api.post(`/admin/meetings/${meetingId}/publish-recap-to-news`, body);
     return data;
 };
 

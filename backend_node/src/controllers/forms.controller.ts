@@ -52,6 +52,7 @@ export const submitForm = async (req: Request, res: Response, next: NextFunction
         const userId = (req as any).userId || null;
         const body = req.body;
         const formId = Number(body.form_id);
+        const meetingId = body.meeting_id ? Number(body.meeting_id) : null;
         const isPartial = body.is_partial === '1' || body.is_partial === true;
         const lastStepIndex = parseInt(body.last_step_index || '0');
         const files = req.files as Express.Multer.File[];
@@ -60,8 +61,9 @@ export const submitForm = async (req: Request, res: Response, next: NextFunction
         delete answers.is_partial;
         delete answers.last_step_index;
         delete answers.form_id;
+        delete answers.meeting_id;
 
-        const result = await FormService.submitResponse(userId, formId, answers, isPartial, lastStepIndex, files);
+        const result = await FormService.submitResponse(userId, formId, answers, isPartial, lastStepIndex, files, meetingId);
         res.json({ success: true, data: result });
     } catch (error) {
         next(error);

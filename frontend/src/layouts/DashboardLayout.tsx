@@ -22,7 +22,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, rightSideba
     const hasRightSidebar = (isDashboard ? false : (isDashboard || !!rightSidebar));
 
     return (
-        <div className={`min-h-screen bg-gradient-to-br from-[#fbfbfb] to-[#f9f6e8] dark:bg-zinc-950 ${isNative ? 'pt-safe pb-safe pl-safe pr-safe' : ''}`}>
+        <div className={`min-h-screen bg-gradient-to-br from-[#fbfbfb] to-[#f9f6e8] dark:from-zinc-950 dark:to-zinc-950 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors ${isNative ? 'pt-safe pb-safe pl-safe pr-safe' : ''}`}>
             <SidebarLeft mobileOpen={mobileMenuOpen} setMobileOpen={setMobileMenuOpen} />
             
             {/* Mobile Header */}

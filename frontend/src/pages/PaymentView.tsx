@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { useParams, useSearchParams, Link } from 'react-router-dom';
+import { useParams, useSearchParams, Link, Navigate } from 'react-router-dom';
 import QRCode from 'react-qr-code';
 import api from '../api/axios';
 import { useAuth } from '../features/auth/context/AuthContext';
@@ -35,12 +35,22 @@ interface MeetingPaymentInfo {
     my_payment_status?: string | null;
     my_payment_proof?: string | null;
     my_payment_proof_url?: string | null;
+    archived?: number;
+    recap_videos?: any[];
+    recap_gallery?: any[];
+    recap_content?: string;
 }
+
+const getLocalYYYYMMDD = (dateInput: string | Date) => {
+    const d = new Date(dateInput);
+    const offset = d.getTimezoneOffset() * 60000;
+    return (new Date(d.getTime() - offset)).toISOString().slice(0, 10);
+};
 
 export const PaymentView: React.FC = () => {
     const { slugOrId } = useParams<{ slugOrId?: string }>();
     const [searchParams] = useSearchParams();
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
 
     const [loading, setLoading] = useState<boolean>(!!slugOrId);
     const [meeting, setMeeting] = useState<MeetingPaymentInfo | null>(null);
@@ -219,9 +229,17 @@ export const PaymentView: React.FC = () => {
         return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
     }, []);
 
-    // Auto-redirect to UPI App on mobile devices if UPI link exists (only if not already marked paid)
+    const isPast = meeting?.meeting_date ? getLocalYYYYMMDD(meeting.meeting_date) < getLocalYYYYMMDD(new Date()) : false;
+    const hasRecapContent = Boolean(
+        (meeting?.recap_videos && meeting.recap_videos.length > 0) ||
+        (meeting?.recap_gallery && meeting.recap_gallery.length > 0) ||
+        (meeting?.recap_content && meeting.recap_content.trim().length > 10)
+    );
+    const isConcluded = isPast || hasRecapContent || meeting?.archived === 1;
+
+    // Auto-redirect to UPI App on mobile devices if UPI link exists (only if not already marked paid and not concluded)
     useEffect(() => {
-        if (!isMobile || !paymentDetails.upiUri || autoRedirectAttempted || loading || paymentSuccess) return;
+        if (!isMobile || !paymentDetails.upiUri || autoRedirectAttempted || loading || paymentSuccess || isConcluded) return;
 
         setAutoRedirectAttempted(true);
         const timer = setTimeout(() => {
@@ -233,7 +251,7 @@ export const PaymentView: React.FC = () => {
         }, 400);
 
         return () => clearTimeout(timer);
-    }, [isMobile, paymentDetails.upiUri, autoRedirectAttempted, loading, paymentSuccess]);
+    }, [isMobile, paymentDetails.upiUri, autoRedirectAttempted, loading, paymentSuccess, isConcluded]);
 
     const handleCopy = () => {
         if (!paymentDetails.upiUri) return;
@@ -374,13 +392,23 @@ export const PaymentView: React.FC = () => {
         }
     };
 
-    if (loading) {
+    if (loading || authLoading) {
         return (
             <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col items-center justify-center p-4">
                 <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4" />
                 <p className="text-zinc-400 font-black uppercase text-xs tracking-widest animate-pulse">Loading Payment Details...</p>
             </div>
         );
+    }
+
+    // The payment page should not be accessible for anyone once the meeting is concluded.
+    // Redirect to dashboard if logged in, or to login page if not logged in.
+    if ((meeting && isConcluded) || (!slugOrId && !meeting)) {
+        if (user) {
+            return <Navigate to="/dashboard" replace />;
+        } else {
+            return <Navigate to="/login" replace />;
+        }
     }
 
     return (

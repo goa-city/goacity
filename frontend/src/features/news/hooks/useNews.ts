@@ -11,11 +11,16 @@ export const useNews = (page = 1) => {
     });
 
     const createPostMutation = useMutation({
-        mutationFn: createPost,
+        mutationFn: ({ postData, onProgress }: { postData: any; onProgress?: (progressEvent: any) => void }) =>
+            createPost(postData, onProgress),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['news-feed'] });
         }
     });
+
+    const createPostWrapper = (postData: any, onProgress?: (progressEvent: any) => void) => {
+        return createPostMutation.mutateAsync({ postData, onProgress });
+    };
 
     const likeMutation = useMutation({
         mutationFn: likePost,
@@ -42,7 +47,7 @@ export const useNews = (page = 1) => {
         feed: (feedQuery.data as any[]) || [],
         isLoading: feedQuery.isLoading,
         isError: feedQuery.isError,
-        createPost: createPostMutation.mutateAsync,
+        createPost: createPostWrapper,
         isCreating: createPostMutation.isPending,
         likePost: likeMutation.mutateAsync,
         deletePost: deleteMutation.mutateAsync,

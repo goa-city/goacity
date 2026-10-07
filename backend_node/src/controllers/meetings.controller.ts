@@ -10,6 +10,7 @@ import { formatDateDDMMYYYY, formatTime12h, parseTime24h, generateICS, slugify, 
 import { processImageToWebp } from '../utils/image.js';
 import { ShortLinkService } from '../services/short-link.service.js';
 import { generateToken } from '../utils/jwt.js';
+import { requestContext } from '../lib/context.js';
 
 export const normalizeJsonArray = (val: any): any[] => {
     if (!val) return [];
@@ -504,22 +505,104 @@ export const createMeeting = saveMeeting;
 export const getMeetingResponses = async (req: Request, res: Response) => {
     try {
         const id = Number(req.params.id);
-        const responses = await prisma.$queryRaw`
-            SELECT 
-                fr.id, 
-                fr.status as submission_status, 
-                fr.submitted_at, 
-                m.first_name, 
-                m.last_name, 
-                m.email 
-            FROM form_responses fr
-            LEFT JOIN members m ON m.id = fr.user_id
-            WHERE fr.meeting_id = ${id}
-            ORDER BY fr.submitted_at DESC
-        `;
-        return res.json({ success: true, data: responses });
+        if (isNaN(id)) {
+            return res.status(400).json({ message: 'Invalid meeting ID' });
+        }
+
+        const meeting = await prisma.meetings.findUnique({
+            where: { id },
+            select: { id: true, feedback_form_id: true }
+        });
+
+        const feedbackFormId = meeting?.feedback_form_id || null;
+
+        // Auto-associate any unassigned responses for this feedback form to this meeting
+        if (feedbackFormId) {
+            await prisma.formResponse.updateMany({
+                where: {
+                    form_id: feedbackFormId,
+                    meeting_id: null
+                },
+                data: {
+                    meeting_id: id
+                }
+            });
+        }
+
+        const responses = await prisma.formResponse.findMany({
+            where: {
+                OR: [
+                    { meeting_id: id },
+                    ...(feedbackFormId ? [{ form_id: feedbackFormId }] : [])
+                ]
+            },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        first_name: true,
+                        last_name: true,
+                        email: true,
+                        phone: true,
+                        profile_photo: true
+                    }
+                },
+                form: {
+                    select: {
+                        id: true,
+                        title: true,
+                        fields: {
+                            orderBy: { sort_order: 'asc' }
+                        }
+                    }
+                },
+                answers: true
+            },
+            orderBy: { submitted_at: 'desc' }
+        });
+
+        const formatted = responses.map(r => ({
+            id: r.id,
+            form_id: r.form_id,
+            meeting_id: r.meeting_id,
+            submission_status: r.status,
+            submitted_at: r.submitted_at,
+            first_name: r.user?.first_name || 'Attendee',
+            last_name: r.user?.last_name || '',
+            email: r.user?.email || '',
+            phone: r.user?.phone || '',
+            profile_photo: r.user?.profile_photo || null,
+            answers: r.answers,
+            form: r.form
+        }));
+
+        return res.json({ success: true, data: formatted });
     } catch (error: any) {
         console.error('getMeetingResponses Error:', error);
+        return res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
+// DELETE /api/admin/meetings/:id/responses/:responseId
+export const deleteMeetingResponse = async (req: Request, res: Response) => {
+    try {
+        const responseId = Number(req.params.responseId);
+        if (isNaN(responseId)) {
+            return res.status(400).json({ message: 'Invalid response ID' });
+        }
+
+        await prisma.$transaction(async (tx) => {
+            await tx.formAnswer.deleteMany({
+                where: { response_id: responseId }
+            });
+            await tx.formResponse.delete({
+                where: { id: responseId }
+            });
+        });
+
+        return res.json({ success: true, message: 'Response deleted successfully' });
+    } catch (error: any) {
+        console.error('deleteMeetingResponse Error:', error);
         return res.status(500).json({ message: 'Internal server error' });
     }
 };
@@ -1748,6 +1831,19 @@ export const logVideoWatch = async (req: Request, res: Response) => {
 export const getVideoAnalytics = async (req: Request, res: Response) => {
     try {
         const meetingId = Number(req.params.id);
+        const adminId = (req as any).userId;
+
+        const store = requestContext.getStore();
+        let isSuperAdmin = (req as any).isSuperAdmin === true || (req as any).userRole === 'superadmin' || store?.isSuperAdmin === true;
+        if (!isSuperAdmin && adminId) {
+            const adminUser = await prisma.admin.findUnique({ where: { id: adminId }, select: { is_super_admin: true, role: true } });
+            if (adminUser?.is_super_admin || adminUser?.role === 'superadmin') {
+                isSuperAdmin = true;
+            }
+        }
+        if (!isSuperAdmin) {
+            return res.status(403).json({ message: 'Access denied. Video analytics is available only for Superadmin.' });
+        }
 
         const meeting = await prisma.meetings.findUnique({
             where: { id: meetingId },
@@ -1827,6 +1923,38 @@ export const getVideoAnalytics = async (req: Request, res: Response) => {
     }
 };
 
+// GET /api/superadmin/meetings-with-videos
+export const getMeetingsWithVideos = async (req: Request, res: Response) => {
+    try {
+        const meetings = await prisma.meetings.findMany({
+            select: {
+                id: true,
+                title: true,
+                meeting_date: true,
+                recap_videos: true
+            },
+            orderBy: { meeting_date: 'desc' }
+        });
+
+        const meetingsWithClips = meetings
+            .map((m) => {
+                const clips = normalizeJsonArray(m.recap_videos);
+                return {
+                    id: m.id,
+                    title: m.title,
+                    date: m.meeting_date,
+                    videoCount: clips.length
+                };
+            })
+            .filter((m) => m.videoCount > 0);
+
+        return res.json(meetingsWithClips);
+    } catch (err: any) {
+        console.error('Failed to get meetings with videos:', err);
+        return res.status(500).json({ message: 'Failed to fetch meetings with videos' });
+    }
+};
+
 // POST /api/admin/meetings/:id/recap-gallery
 export const uploadRecapGalleryPhotos = async (req: Request, res: Response) => {
     try {
@@ -1888,7 +2016,7 @@ export const publishRecapToNews = async (req: Request, res: Response) => {
     try {
         const meetingId = Number(req.params.id);
         const adminId = (req as any).adminId || (req as any).userId;
-        const { custom_note } = req.body;
+        const { custom_note, type = 'all', video_id, video_title, video_description } = req.body || {};
 
         const meeting = await prisma.meetings.findUnique({
             where: { id: meetingId }
@@ -1896,17 +2024,87 @@ export const publishRecapToNews = async (req: Request, res: Response) => {
 
         if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
 
-        const cleanRecap = meeting.recap_content ? meeting.recap_content.replace(/<[^>]*>?/gm, ' ').slice(0, 300) : '';
-        const postContent = custom_note || `🎉 Meeting Recap & Highlights are now live: "${meeting.title}"!\n\n${cleanRecap ? `${cleanRecap}...\n\n` : ''}Watch the video recordings and view the photo gallery on Goa.City.`;
+        const apiUrl = process.env.VITE_API_URL || '';
+        const baseUrl = apiUrl.replace(/\/api\/?$/, '');
+        const frontendUrl = process.env.FRONTEND_URL || process.env.VITE_APP_URL || 'https://goa.city';
+
+        // Find or create an Admin member in members table to author the post
+        let adminMember = await prisma.member.findFirst({
+            where: {
+                OR: [
+                    { email: 'admin@goa.city' },
+                    { role: 'admin' },
+                    { first_name: 'Admin' }
+                ]
+            }
+        });
+
+        if (!adminMember && adminId) {
+            const adminRecord = await prisma.admin.findUnique({ where: { id: adminId } });
+            if (adminRecord?.email) {
+                adminMember = await prisma.member.findFirst({
+                    where: { email: adminRecord.email }
+                });
+            }
+        }
+
+        if (!adminMember) {
+            try {
+                adminMember = await prisma.member.create({
+                    data: {
+                        first_name: 'Admin',
+                        last_name: '',
+                        email: 'admin@goa.city',
+                        role: 'admin',
+                        city_id: meeting.city_id || 1,
+                        slug: `admin-${Date.now()}`
+                    }
+                });
+            } catch (createErr) {
+                console.warn('[publishRecapToNews] Could not create admin member:', createErr);
+                adminMember = await prisma.member.findFirst({
+                    where: { city_id: meeting.city_id || 1 }
+                });
+            }
+        }
+
+        let postContent = '';
+        let mediaUrl: string | null = null;
+        let mediaType = 'image';
+        let linkTitle: string | null = `${frontendUrl}/meetings/${meeting.slug || meeting.id}`;
+        let linkDesc: string | null = `View meeting details and recap`;
+
+        if (type === 'video') {
+            const cleanTitle = video_title?.trim() || 'Meeting Video';
+            const desc = video_description?.trim() ? `\n\n${video_description.trim()}` : '';
+            postContent = custom_note || `${cleanTitle}${desc}`;
+            const ytId = video_id;
+            mediaUrl = ytId ? `https://img.youtube.com/vi/${ytId}/maxresdefault.jpg` : (meeting.poster_image ? (meeting.poster_image.startsWith('http') ? meeting.poster_image : `${baseUrl}/uploads/${meeting.poster_image}`) : null);
+            linkDesc = cleanTitle;
+        } else if (type === 'gallery') {
+            const gallery = normalizeJsonArray(meeting.recap_gallery);
+            const firstPhotoObj = gallery[0];
+            const firstPhotoUrl = typeof firstPhotoObj === 'string' ? firstPhotoObj : (firstPhotoObj?.image_url || firstPhotoObj?.url);
+            const photoCount = gallery.length;
+            postContent = custom_note || `📸 Photo Gallery: Highlights from "${meeting.title}" are now live!\n\nBrowse ${photoCount > 0 ? `${photoCount} photos` : 'pictures'} from our recent gathering on Goa.City.`;
+            mediaUrl = firstPhotoUrl ? (firstPhotoUrl.startsWith('http') ? firstPhotoUrl : `${baseUrl}/uploads/${firstPhotoUrl}`) : (meeting.poster_image ? (meeting.poster_image.startsWith('http') ? meeting.poster_image : `${baseUrl}/uploads/${meeting.poster_image}`) : null);
+            linkDesc = `Browse ${photoCount > 0 ? photoCount : ''} photo gallery and recap`;
+        } else {
+            const cleanRecap = meeting.recap_content ? meeting.recap_content.replace(/<[^>]*>?/gm, ' ').slice(0, 300) : '';
+            postContent = custom_note || `🎉 Meeting Recap & Highlights are now live: "${meeting.title}"!\n\n${cleanRecap ? `${cleanRecap}...\n\n` : ''}Watch the video recordings and view the photo gallery on Goa.City.`;
+            mediaUrl = meeting.poster_image ? (meeting.poster_image.startsWith('http') ? meeting.poster_image : `${baseUrl}/uploads/${meeting.poster_image}`) : null;
+            mediaType = meeting.poster_image ? 'image' : 'none';
+            linkDesc = `View video recordings, photo gallery and takeaways`;
+        }
 
         const newPost = await (prisma as any).post.create({
             data: {
-                user_id: adminId || null,
+                user_id: adminMember ? adminMember.id : null,
                 content: postContent,
-                media_url: meeting.poster_image ? (meeting.poster_image.startsWith('http') ? meeting.poster_image : `${process.env.VITE_API_URL?.replace(/\/api\/?$/, '') || ''}/uploads/${meeting.poster_image}`) : null,
-                media_type: meeting.poster_image ? 'image' : 'none',
-                link_title: `${process.env.VITE_APP_URL || 'https://goa.city'}/meetings/${meeting.slug || meeting.id}`,
-                link_desc: `View video recordings, photo gallery and takeaways`,
+                media_url: mediaUrl ? mediaUrl.slice(0, 250) : null,
+                media_type: mediaType ? mediaType.slice(0, 50) : 'none',
+                link_title: linkTitle ? linkTitle.slice(0, 250) : null,
+                link_desc: linkDesc ? linkDesc.slice(0, 250) : null,
                 city_id: meeting.city_id || 1
             }
         });

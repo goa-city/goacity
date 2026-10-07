@@ -12,11 +12,13 @@ export const getWhatsAppStatus = async (req: Request, res: Response) => {
         const session = await prisma.whatsAppSession.findFirst({
             where: { id: 1 } // Assuming one session
         });
+        const debugInfo = await whatsapp.getDebugInfo();
         
         res.json({
             status: session?.status || 'INITIALIZING',
             qr_code: session?.qr_code || null,
-            last_active: session?.last_active
+            last_active: session?.last_active,
+            live: debugInfo
         });
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch WhatsApp status' });

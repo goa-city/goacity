@@ -4,7 +4,7 @@ import { fetchOnboardingForm, submitOnboarding } from '../api/onboarding.api';
 import { getFilteredQuestions } from '../utils/formUtils';
 import { OnboardingForm, OnboardingQuestion } from '../types/onboarding.types';
 
-export const useOnboarding = (formId?: string) => {
+export const useOnboarding = (formId?: string, meetingId?: string | null) => {
     const queryClient = useQueryClient();
     const [currentStep, setCurrentStep] = useState(0);
     const [formData, setFormData] = useState<Record<string, any>>({});
@@ -47,16 +47,17 @@ export const useOnboarding = (formId?: string) => {
                 formDataRef.current,
                 true,
                 stepToSave,
-                form.id
+                form.id,
+                meetingId
             );
         } catch (err) {
             console.error("[ONBOARDING] Autosave failed", err);
         }
-    }, [form?.id]);
+    }, [form?.id, meetingId]);
 
     const submitFinal = async () => {
         if (!form?.id) return;
-        const result = await submitOnboarding(formDataRef.current, false, currentStep, form.id);
+        const result = await submitOnboarding(formDataRef.current, false, currentStep, form.id, meetingId);
         // Invalidate and remove cache so next load hits server fresh
         queryClient.removeQueries({ queryKey: ['onboarding-form', formId] });
         return result;

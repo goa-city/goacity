@@ -65,7 +65,11 @@ export const videoAnalyticsSchema = z.object({
 
 export const publishRecapNewsSchema = z.object({
     body: z.object({
-        custom_note: z.string().optional().nullable()
+        custom_note: z.string().optional().nullable(),
+        type: z.enum(['all', 'video', 'gallery']).optional().default('all'),
+        video_id: z.string().optional().nullable(),
+        video_title: z.string().optional().nullable(),
+        video_description: z.string().optional().nullable()
     }).optional()
 });
 

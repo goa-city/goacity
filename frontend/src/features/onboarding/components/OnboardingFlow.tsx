@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams, Navigate } from 'react-router-dom';
 import { useAuth } from '../../auth/context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -8,7 +8,6 @@ import {
     SunIcon,
     MoonIcon
 } from '@heroicons/react/24/solid';
-import { Navigate } from 'react-router-dom';
 import { useOnboarding } from '../hooks/useOnboarding';
 import QuestionRenderer from './QuestionRenderer';
 import GoaLandscape from '../../../components/GoaLandscape';
@@ -18,6 +17,8 @@ const OnboardingFlow: React.FC = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const { formId } = useParams<{ formId: string }>();
+    const [searchParams] = useSearchParams();
+    const meetingId = searchParams.get('meeting_id');
 
     const {
         form,
@@ -31,7 +32,7 @@ const OnboardingFlow: React.FC = () => {
         error,
         saveProgress,
         submitFinal
-    } = useOnboarding(formId);
+    } = useOnboarding(formId, meetingId);
 
     const [direction, setDirection] = useState(1);
     const [isDark, setIsDark] = useState(false);
@@ -73,7 +74,7 @@ const OnboardingFlow: React.FC = () => {
             setIsSubmitting(true);
             try {
                 const result: any = await submitFinal();
-                let target = form?.redirect_url || '/dashboard';
+                let target = form?.redirect_url || (meetingId ? `/meetings/${meetingId}` : '/dashboard');
                 
                 // If it's a mentorship assessment, append the response ID for matching
                 if (result?.data?.id && target.includes('mentorship/recommendations')) {
@@ -277,7 +278,7 @@ const OnboardingFlow: React.FC = () => {
                                 disabled={isSubmitting}
                                 className="bg-primary hover:bg-primary/90 text-white px-8 py-3 rounded-xl text-base font-bold shadow-xl shadow-primary/20 transition-all flex items-center gap-2"
                             >
-                                {isSubmitting ? 'Finalizing...' : (currentStep === pages.length - 1 ? 'Complete Path' : 'Continue')}
+                                {isSubmitting ? 'Finalizing...' : (currentStep === pages.length - 1 ? 'Complete' : 'Continue')}
                                 {!isSubmitting && <ChevronRightIcon className="w-4 h-4" />}
                             </button>
                         </div>

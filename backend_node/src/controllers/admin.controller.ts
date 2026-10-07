@@ -630,8 +630,8 @@ export const getAdminPosts = async (req: Request, res: Response) => {
         
         const result = posts.map((p: any) => ({
             ...p,
-            full_name: p.user ? `${p.user.first_name} ${p.user.last_name}` : 'Unknown',
-            member_email: p.user?.email,
+            full_name: p.user ? `${p.user.first_name || ''} ${p.user.last_name || ''}`.trim() || 'Admin' : 'Admin',
+            member_email: p.user?.email || 'admin@goa.city',
             user: undefined
         }));
         return res.json(result);

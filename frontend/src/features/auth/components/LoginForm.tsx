@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Button from '../../../shared/components/ui/Button';
 import Input from '../../../shared/components/ui/Input';
@@ -15,6 +15,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ backgroundImage }) => {
     const [rememberMe, setRememberMe] = useState(true);
     const [step, setStep] = useState(1); // 1: Identifier, 2: OTP
     const [error, setError] = useState('');
+    const [infoMessage, setInfoMessage] = useState('');
     const [loading, setLoading] = useState(false);
 
     const { sendOtp, verifyOtp } = useAuth();
@@ -24,12 +25,19 @@ const LoginForm: React.FC<LoginFormProps> = ({ backgroundImage }) => {
         e.preventDefault();
         setLoading(true);
         setError('');
+        setInfoMessage('');
         const res = await sendOtp(identifier);
         setLoading(false);
         if (res.success) {
+            if ((res as any).instantLogin) {
+                return;
+            }
+            if (res.message) {
+                setInfoMessage(res.message);
+            }
             setStep(2);
         } else {
-            setError(res.message ?? 'Unable to send login code.');
+            setError(res.message ?? 'Unable to sign in.');
         }
     };
 
@@ -68,7 +76,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ backgroundImage }) => {
                     </CardTitle>
                     <CardDescription className="mt-2">
                         {step === 1
-                            ? 'Enter your email or whatsApp number to access your dashboard'
+                            ? 'Enter your registered phone number or email to sign in'
                             : `Check your inbox or WhatsApp, we sent a code to ${identifier}`
                         }
                     </CardDescription>
@@ -85,10 +93,10 @@ const LoginForm: React.FC<LoginFormProps> = ({ backgroundImage }) => {
                         <form className="space-y-6" onSubmit={handleSendOtp}>
                             <Input
                                 id="identifier"
-                                label="Email or WhatsApp Number"
+                                label="Phone Number or Email"
                                 type="text"
                                 required
-                                placeholder="name@example.com or phone number"
+                                placeholder="e.g. 9876543210 or name@example.com"
                                 value={identifier}
                                 onChange={(e) => setIdentifier(e.target.value)}
                             />
@@ -98,8 +106,20 @@ const LoginForm: React.FC<LoginFormProps> = ({ backgroundImage }) => {
                                 className="w-full rounded-xl"
                                 isLoading={loading}
                             >
-                                Send Login Code
+                                Sign In
                             </Button>
+
+                            <div className="text-center pt-2">
+                                <p className="text-sm text-zinc-500 dark:text-zinc-400 font-medium">
+                                    Not a member yet?{' '}
+                                    <Link
+                                        to="/register"
+                                        className="font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 hover:underline transition-colors"
+                                    >
+                                        Join here
+                                    </Link>
+                                </p>
+                            </div>
                         </form>
                     ) : (
                         <form className="space-y-6" onSubmit={handleVerifyOtp}>

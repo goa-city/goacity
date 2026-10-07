@@ -12,7 +12,7 @@ import { getStreams, createStream, updateStream, deleteStream } from '../control
 import { getForms, createForm, updateForm, archiveForm, deleteForm } from '../controllers/forms.controller.js';
 import { 
     getMeetings, uploadMeetingResource, createMeeting, 
-    archiveMeeting, deleteMeeting, getMeetingResponses, 
+    archiveMeeting, deleteMeeting, getMeetingResponses, deleteMeetingResponse,
     getMeetingActions, notifyMeetingMembers, deleteMeetingResource,
     getStats, getVideoAnalytics, uploadRecapGalleryPhotos, publishRecapToNews
 } from '../controllers/meetings.controller.js';
@@ -36,8 +36,8 @@ import { createPageSchema, updatePageSchema } from '../validations/page.schema.j
 import { createJobSchema, updateJobSchema } from '../validations/job.schema.js';
 import { createResourceSchema, updateResourceSchema } from '../validations/resource.schema.js';
 import { createFormSchema, updateFormSchema } from '../validations/form.schema.js';
-import { authMiddleware, superAdminMiddleware } from '../middleware/auth.js';
-import { getCities, createCity, updateCity } from '../controllers/city.controller.js';
+import { authMiddleware } from '../middleware/auth.js';
+
 import { 
     getAdminResourceCategories, createAdminResourceCategory, 
     updateAdminResourceCategory, deleteAdminResourceCategory 
@@ -148,6 +148,7 @@ router.post('/meetings', upload.fields([
 router.post('/meetings/archive', archiveMeeting);
 router.delete('/meetings', deleteMeeting);
 router.get('/meetings/:id/responses', getMeetingResponses);
+router.delete('/meetings/:id/responses/:responseId', deleteMeetingResponse);
 router.get('/meetings/:id/actions', getMeetingActions);
 router.post('/meetings/:id/notify', validate(notifyMeetingSchema), notifyMeetingMembers);
 router.post('/meetings/:id/resources', upload.single('file'), uploadMeetingResource);
@@ -215,11 +216,6 @@ router.get('/stewardship/recipients', getRecipients);
 router.post('/stewardship/recipients', createRecipient);
 router.put('/stewardship/recipients/:id', updateRecipient);
 
-
-// City Management (Super Admin)
-router.get('/cities', superAdminMiddleware, getCities);
-router.post('/cities', superAdminMiddleware, createCity);
-router.put('/cities', superAdminMiddleware, updateCity);
-
 export default router;
+
 

@@ -10,7 +10,7 @@ import {
     CloudArrowUpIcon, TrashIcon, DocumentIcon, DocumentTextIcon,
     VideoCameraIcon, EnvelopeIcon, ChevronDownIcon, ChatBubbleLeftRightIcon, EyeIcon, ArrowDownTrayIcon,
     XMarkIcon, PhotoIcon, UsersIcon, LinkIcon, ArrowTopRightOnSquareIcon,
-    PlayIcon, ArrowUpIcon, ArrowDownIcon, ChartBarIcon, MegaphoneIcon, PlusIcon
+    PlayIcon, ArrowUpIcon, ArrowDownIcon, MegaphoneIcon, PlusIcon, ArrowPathIcon
 } from '@heroicons/react/24/solid';
 import { ArrowLeftIcon as ArrowLeftOutline } from '@heroicons/react/24/outline';
 import { Card } from '../../shared/components/ui/Card';
@@ -18,9 +18,9 @@ import Button from '../../shared/components/ui/Button';
 import QuillEditor from '../../components/QuillEditor';
 import QRCode from 'react-qr-code';
 import * as XLSX from 'xlsx';
-import MeetingVideoAnalyticsModal from '../../features/meetings/components/MeetingVideoAnalyticsModal';
 import { extractYouTubeId } from '../../features/meetings/components/MeetingRecapVideos';
 import { uploadRecapGallery, publishRecapToNews } from '../../features/meetings/api/meetings.api';
+import { useAdminAuth } from '../../context/AdminAuthContext';
 
 const getLocalYYYYMMDD = (dateInput: any) => {
     const d = new Date(dateInput);
@@ -34,9 +34,16 @@ type TargetAudience = 'all' | 'going' | 'going_unpaid' | 'maybe' | 'no' | 'paid'
 const AdminMeetingEditor: React.FC = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { adminUser } = useAdminAuth();
+    const isSuperAdmin = adminUser?.role === 'superadmin' || 
+                         (adminUser as any)?.is_super_admin === true || 
+                         Boolean(localStorage.getItem('superAdminToken')) || 
+                         Boolean(localStorage.getItem('superAdminUser'));
     const isEdit = !!id;
     const { register, handleSubmit, setValue, reset, watch, control, formState: { errors } } = useForm();
     const [loading, setLoading] = useState(false);
+    const [sharingVideoId, setSharingVideoId] = useState<string | null>(null);
+    const [isPublishingGallery, setIsPublishingGallery] = useState(false);
     const [forms, setForms] = useState<any[]>([]); // For Feedback form select
     const [streams, setStreams] = useState<any[]>([]); // For Stream select
     const [qrPreview, setQrPreview] = useState<any>(null); // QR Code Preview
@@ -55,14 +62,14 @@ const AdminMeetingEditor: React.FC = () => {
         setTimeout(() => setToast(''), 4000);
     };
     const [responses, setResponses] = useState<any[]>([]);
+    const [selectedResponse, setSelectedResponse] = useState<any | null>(null);
+    const [loadingResponses, setLoadingResponses] = useState(false);
     const [meetingActions, setMeetingActions] = useState<any[]>([]);
     const [attendeeTab, setAttendeeTab] = useState<'all' | 'members' | 'guests'>('all');
     const [recapContent, setRecapContent] = useState('');
     const [recapVideos, setRecapVideos] = useState<any[]>([]);
     const [recapGallery, setRecapGallery] = useState<any[]>([]);
     const [recapStudioTab, setRecapStudioTab] = useState<'videos' | 'gallery' | 'notes'>('videos');
-    const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
-    const [isPublishingNews, setIsPublishingNews] = useState(false);
     const [isUploadingGallery, setIsUploadingGallery] = useState(false);
     const [newVideoUrl, setNewVideoUrl] = useState('');
     const [newVideoTitle, setNewVideoTitle] = useState('');
@@ -87,10 +94,10 @@ const AdminMeetingEditor: React.FC = () => {
     const watchedPaymentAmount = watch('payment_amount');
     const isPastDate = meetingDate ? getLocalYYYYMMDD(meetingDate) < getLocalYYYYMMDD(new Date()) : false;
 
-    // Accordion open/close state for each card
+    // Accordion open/close state for each card (collapsed by default)
     const [openSections, setOpenSections] = useState<{ [key: string]: boolean }>({
-        details: true,
-        attendees: true,
+        details: false,
+        attendees: false,
         resources: false,
         recap: false,
         feedback: false,
@@ -233,8 +240,23 @@ const AdminMeetingEditor: React.FC = () => {
                 })
                 .catch(err => console.error("Failed to fetch meeting", err))
                 .finally(() => setLoading(false));
+
+            fetchFeedbackResponses();
         }
     }, [id, reset]);
+
+    const fetchFeedbackResponses = async () => {
+        if (!id) return;
+        setLoadingResponses(true);
+        try {
+            const res = await api.get(`/admin/meetings/${id}/responses`);
+            setResponses(res.data?.data || []);
+        } catch (err) {
+            console.error("Failed to fetch meeting feedback responses", err);
+        } finally {
+            setLoadingResponses(false);
+        }
+    };
 
     const exportToExcel = () => {
         if (!meetingActions || meetingActions.length === 0) {
@@ -270,6 +292,57 @@ const AdminMeetingEditor: React.FC = () => {
 
         const cleanTitle = (title || 'meeting').replace(/[^a-zA-Z0-9_-]/g, '_');
         const filename = `${cleanTitle}_attendees.xlsx`;
+        XLSX.writeFile(workbook, filename);
+    };
+
+    const exportFeedbackToExcel = () => {
+        if (!responses || responses.length === 0) {
+            showToast('No feedback submissions to export');
+            return;
+        }
+
+        const dataToExport = responses.map((resp, idx) => {
+            const row: Record<string, any> = {
+                '#': idx + 1,
+                'Name': `${resp.first_name || ''} ${resp.last_name || ''}`.trim() || 'Attendee',
+                'Email': resp.email || '',
+                'Phone': resp.phone || '',
+                'Submitted At': resp.submitted_at ? new Date(resp.submitted_at).toLocaleString() : '',
+                'Status': resp.submission_status || 'completed'
+            };
+
+            if (resp.form?.fields && Array.isArray(resp.form.fields)) {
+                resp.form.fields.forEach((field: any) => {
+                    const answerObj = resp.answers?.find((a: any) => a.field_key === field.field_key);
+                    let val = answerObj?.answer_value ?? '';
+                    try {
+                        const parsed = JSON.parse(val);
+                        if (Array.isArray(parsed)) val = parsed.join(', ');
+                        else if (typeof parsed === 'object' && parsed !== null) val = JSON.stringify(parsed);
+                    } catch {}
+                    row[field.label || field.field_key] = val;
+                });
+            } else if (resp.answers && Array.isArray(resp.answers)) {
+                resp.answers.forEach((ans: any) => {
+                    let val = ans.answer_value ?? '';
+                    try {
+                        const parsed = JSON.parse(val);
+                        if (Array.isArray(parsed)) val = parsed.join(', ');
+                        else if (typeof parsed === 'object' && parsed !== null) val = JSON.stringify(parsed);
+                    } catch {}
+                    row[ans.field_key] = val;
+                });
+            }
+
+            return row;
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Feedback');
+
+        const cleanTitle = (title || 'meeting').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const filename = `${cleanTitle}_feedback_submissions.xlsx`;
         XLSX.writeFile(workbook, filename);
     };
 
@@ -1376,45 +1449,6 @@ const AdminMeetingEditor: React.FC = () => {
                                     <span>Minutes & Notes</span>
                                 </button>
                             </div>
-
-                            {/* Actions: Analytics & News Broadcast */}
-                            {isEdit && (
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowAnalyticsModal(true)}
-                                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 hover:bg-purple-100 transition-colors cursor-pointer"
-                                        title="View Watch Time & Member Analytics"
-                                    >
-                                        <ChartBarIcon className="w-4 h-4" />
-                                        <span>Video Analytics</span>
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        onClick={async () => {
-                                            if (!id) return;
-                                            if (!window.confirm("Publish this meeting's recap and highlights to the Community News feed?")) return;
-                                            setIsPublishingNews(true);
-                                            try {
-                                                await publishRecapToNews(id);
-                                                showToast('Recap published to Community News Feed successfully! 🎉');
-                                            } catch (err: any) {
-                                                console.error(err);
-                                                showToast('Failed to publish recap to news feed');
-                                            } finally {
-                                                setIsPublishingNews(false);
-                                            }
-                                        }}
-                                        disabled={isPublishingNews}
-                                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 transition-colors cursor-pointer disabled:opacity-50"
-                                        title="Publish Recap Post to Community News Feed"
-                                    >
-                                        <MegaphoneIcon className="w-4 h-4" />
-                                        <span>{isPublishingNews ? 'Publishing...' : 'Share to News'}</span>
-                                    </button>
-                                </div>
-                            )}
                         </div>
 
                         {/* Tab 1: Video Clips */}
@@ -1564,6 +1598,37 @@ const AdminMeetingEditor: React.FC = () => {
                                                     </div>
 
                                                     <div className="flex items-center gap-1.5 shrink-0">
+                                                        {isEdit && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={async () => {
+                                                                    if (!id) return;
+                                                                    if (!window.confirm(`Share clip "${clip.title}" to Community News Feed?`)) return;
+                                                                    const clipKey = clip.id || clip.youtube_id || String(idx);
+                                                                    setSharingVideoId(clipKey);
+                                                                    try {
+                                                                        await publishRecapToNews(id, {
+                                                                            type: 'video',
+                                                                            video_id: clip.youtube_id || extractYouTubeId(clip.youtube_url),
+                                                                            video_title: clip.title,
+                                                                            video_description: clip.description
+                                                                        });
+                                                                        showToast(`"${clip.title}" shared to Community News Feed! 🎉`);
+                                                                    } catch (err: any) {
+                                                                        console.error(err);
+                                                                        showToast(err.response?.data?.message || 'Failed to share video to news feed');
+                                                                    } finally {
+                                                                        setSharingVideoId(null);
+                                                                    }
+                                                                }}
+                                                                disabled={sharingVideoId === (clip.id || clip.youtube_id || String(idx))}
+                                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 transition-colors cursor-pointer mr-1 disabled:opacity-50"
+                                                                title="Share this video clip to Community News Feed"
+                                                            >
+                                                                <MegaphoneIcon className="w-3.5 h-3.5" />
+                                                                <span>{sharingVideoId === (clip.id || clip.youtube_id || String(idx)) ? 'Sharing...' : 'Share to News'}</span>
+                                                            </button>
+                                                        )}
                                                         <button
                                                             type="button"
                                                             onClick={() => {
@@ -1664,9 +1729,43 @@ const AdminMeetingEditor: React.FC = () => {
 
                                 {/* Gallery Grid */}
                                 <div className="space-y-3">
-                                    <h4 className="text-xs font-black uppercase tracking-widest text-zinc-500">
-                                        Current Photo Gallery ({recapGallery.length})
-                                    </h4>
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                        <div>
+                                            <h4 className="text-xs font-black uppercase tracking-widest text-zinc-500">
+                                                Current Photo Gallery ({recapGallery.length})
+                                            </h4>
+                                            {recapGallery.length > 1 && (
+                                                <p className="text-[10px] text-zinc-400 font-medium">
+                                                    Drag and drop photos to reorder. Order is saved when you click Save.
+                                                </p>
+                                            )}
+                                        </div>
+                                        {recapGallery.length > 0 && isEdit && (
+                                            <button
+                                                type="button"
+                                                onClick={async () => {
+                                                    if (!id) return;
+                                                    if (!window.confirm(`Share Photo Gallery (${recapGallery.length} photos) to Community News Feed?`)) return;
+                                                    setIsPublishingGallery(true);
+                                                    try {
+                                                        await publishRecapToNews(id, { type: 'gallery' });
+                                                        showToast('Photo Gallery shared to Community News Feed! 🎉');
+                                                    } catch (err: any) {
+                                                        console.error(err);
+                                                        showToast(err.response?.data?.message || 'Failed to share gallery to news feed');
+                                                    } finally {
+                                                        setIsPublishingGallery(false);
+                                                    }
+                                                }}
+                                                disabled={isPublishingGallery}
+                                                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 transition-colors cursor-pointer disabled:opacity-50 w-fit"
+                                                title="Publish Photo Gallery to Community News Feed"
+                                            >
+                                                <MegaphoneIcon className="w-4 h-4" />
+                                                <span>{isPublishingGallery ? 'Sharing...' : 'Share Gallery to News'}</span>
+                                            </button>
+                                        )}
+                                    </div>
 
                                     {recapGallery.length === 0 ? (
                                         <div className="p-8 text-center rounded-2xl border-2 border-dashed border-zinc-200 dark:border-zinc-800 text-zinc-400 text-xs font-medium">
@@ -1679,10 +1778,52 @@ const AdminMeetingEditor: React.FC = () => {
                                                 return (
                                                     <div
                                                         key={photo.id || idx}
-                                                        className="group rounded-2xl overflow-hidden bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 shadow-sm flex flex-col"
+                                                        draggable
+                                                        onDragStart={(e) => {
+                                                            e.dataTransfer.effectAllowed = 'move';
+                                                            e.dataTransfer.setData('text/plain', String(idx));
+                                                            (e.currentTarget as HTMLElement).style.opacity = '0.4';
+                                                        }}
+                                                        onDragEnd={(e) => {
+                                                            (e.currentTarget as HTMLElement).style.opacity = '1';
+                                                            // Remove all drag-over highlights
+                                                            document.querySelectorAll('[data-gallery-drag-over]').forEach(el => {
+                                                                el.removeAttribute('data-gallery-drag-over');
+                                                                (el as HTMLElement).style.outline = '';
+                                                                (el as HTMLElement).style.outlineOffset = '';
+                                                            });
+                                                        }}
+                                                        onDragOver={(e) => {
+                                                            e.preventDefault();
+                                                            e.dataTransfer.dropEffect = 'move';
+                                                            (e.currentTarget as HTMLElement).style.outline = '2px solid #6366f1';
+                                                            (e.currentTarget as HTMLElement).style.outlineOffset = '2px';
+                                                            (e.currentTarget as HTMLElement).setAttribute('data-gallery-drag-over', 'true');
+                                                        }}
+                                                        onDragLeave={(e) => {
+                                                            (e.currentTarget as HTMLElement).style.outline = '';
+                                                            (e.currentTarget as HTMLElement).style.outlineOffset = '';
+                                                            (e.currentTarget as HTMLElement).removeAttribute('data-gallery-drag-over');
+                                                        }}
+                                                        onDrop={(e) => {
+                                                            e.preventDefault();
+                                                            (e.currentTarget as HTMLElement).style.outline = '';
+                                                            (e.currentTarget as HTMLElement).style.outlineOffset = '';
+                                                            const fromIdx = parseInt(e.dataTransfer.getData('text/plain'), 10);
+                                                            if (isNaN(fromIdx) || fromIdx === idx) return;
+                                                            const updated = [...recapGallery];
+                                                            const [moved] = updated.splice(fromIdx, 1);
+                                                            updated.splice(idx, 0, moved);
+                                                            setRecapGallery(updated);
+                                                        }}
+                                                        className="group rounded-2xl overflow-hidden bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 shadow-sm flex flex-col cursor-grab active:cursor-grabbing transition-all"
                                                     >
                                                         <div className="relative aspect-square overflow-hidden bg-zinc-100 dark:bg-zinc-800">
-                                                            <img src={src} alt="" className="w-full h-full object-cover" />
+                                                            <img src={src} alt="" className="w-full h-full object-cover pointer-events-none" />
+                                                            {/* Order badge */}
+                                                            <span className="absolute top-2 left-2 w-6 h-6 rounded-lg bg-black/70 text-white text-[10px] font-black flex items-center justify-center">
+                                                                {idx + 1}
+                                                            </span>
                                                             <button
                                                                 type="button"
                                                                 onClick={() => setRecapGallery(recapGallery.filter((_, i) => i !== idx))}
@@ -1733,14 +1874,6 @@ const AdminMeetingEditor: React.FC = () => {
                     </div>
                 </Card>
 
-                {/* Video Analytics Modal */}
-                {showAnalyticsModal && id && (
-                    <MeetingVideoAnalyticsModal
-                        meetingId={id}
-                        onClose={() => setShowAnalyticsModal(false)}
-                    />
-                )}
-
                 {/* Form Submissions Section */}
                 {isEdit && (
                     <Card className="border-zinc-100 dark:border-zinc-800 shadow-xl shadow-zinc-200/50 dark:shadow-none overflow-hidden">
@@ -1768,20 +1901,53 @@ const AdminMeetingEditor: React.FC = () => {
                                     </p>
                                 </div>
                             </div>
-                            <button
-                                type="button"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    toggleSection('feedback');
-                                }}
-                                className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 transition-colors cursor-pointer shrink-0"
-                                aria-label="Toggle Feedback Form Submissions section"
-                            >
-                                <ChevronDownIcon className={`w-5 h-5 transition-transform duration-200 ${openSections.feedback ? 'rotate-180' : ''}`} />
-                            </button>
+                            <div className="flex items-center gap-2">
+                                {responses.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            exportFeedbackToExcel();
+                                        }}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 rounded-lg text-xs font-black uppercase tracking-wider transition-colors border border-emerald-200/60 dark:border-emerald-800/60 cursor-pointer"
+                                        title="Export feedback submissions to Excel"
+                                    >
+                                        <ArrowDownTrayIcon className="w-3.5 h-3.5" />
+                                        <span>Export</span>
+                                    </button>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        fetchFeedbackResponses();
+                                    }}
+                                    className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 transition-colors cursor-pointer shrink-0"
+                                    title="Refresh responses"
+                                    aria-label="Refresh responses"
+                                >
+                                    <ArrowPathIcon className={`w-4 h-4 ${loadingResponses ? 'animate-spin' : ''}`} />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleSection('feedback');
+                                    }}
+                                    className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 transition-colors cursor-pointer shrink-0"
+                                    aria-label="Toggle Feedback Form Submissions section"
+                                >
+                                    <ChevronDownIcon className={`w-5 h-5 transition-transform duration-200 ${openSections.feedback ? 'rotate-180' : ''}`} />
+                                </button>
+                            </div>
                         </div>
                         <div className={openSections.feedback ? 'block' : 'hidden'}>
-                            {responses.length === 0 ? (
+                            {loadingResponses && responses.length === 0 ? (
+                                <div className="p-8 text-center text-zinc-500 font-medium flex items-center justify-center gap-2">
+                                    <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                                    Loading feedback submissions...
+                                </div>
+                            ) : responses.length === 0 ? (
                                 <div className="p-8 text-center text-zinc-500 font-medium">
                                     No feedback form submissions recorded yet.
                                 </div>
@@ -1790,8 +1956,10 @@ const AdminMeetingEditor: React.FC = () => {
                                     <table className="w-full text-left text-sm whitespace-nowrap">
                                         <thead className="bg-zinc-50 dark:bg-zinc-900/50 text-[10px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-100 dark:border-zinc-800">
                                             <tr>
-                                                <th className="px-6 py-4">Member Name</th>
+                                                <th className="px-6 py-4">Attendee Name</th>
+                                                <th className="px-6 py-4">Contact</th>
                                                 <th className="px-6 py-4">Submission Date</th>
+                                                <th className="px-6 py-4">Status</th>
                                                 <th className="px-6 py-4 text-right">Actions</th>
                                             </tr>
                                         </thead>
@@ -1799,15 +1967,66 @@ const AdminMeetingEditor: React.FC = () => {
                                             {responses.map((resp) => (
                                                 <tr key={resp.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30 transition-colors">
                                                     <td className="px-6 py-4 font-black text-zinc-900 dark:text-white">
-                                                        {resp.first_name} {resp.last_name}
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-sky-500 text-white flex items-center justify-center text-xs font-black shrink-0">
+                                                                {(resp.first_name?.[0] || 'A').toUpperCase()}
+                                                            </div>
+                                                            <div>
+                                                                <div>{resp.first_name} {resp.last_name}</div>
+                                                                {resp.form?.title && (
+                                                                    <div className="text-[10px] text-zinc-400 font-normal">
+                                                                        {resp.form.title}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
                                                     </td>
-                                                    <td className="px-6 py-4 text-zinc-500 font-medium">
-                                                        {new Date(resp.submitted_at).toLocaleString()}
+                                                    <td className="px-6 py-4 text-zinc-500 text-xs">
+                                                        <div>{resp.email || '-'}</div>
+                                                        {resp.phone && <div className="text-zinc-400">{resp.phone}</div>}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-zinc-500 font-medium text-xs">
+                                                        {resp.submitted_at ? new Date(resp.submitted_at).toLocaleString() : 'Draft'}
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                                                            resp.submission_status === 'completed'
+                                                                ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                                                                : 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
+                                                        }`}>
+                                                            {resp.submission_status || 'completed'}
+                                                        </span>
                                                     </td>
                                                     <td className="px-6 py-4 text-right">
-                                                        <button type="button" onClick={() => showToast("Deep view not implemented")} className="text-indigo-600 dark:text-indigo-400 font-black uppercase tracking-widest text-[10px] hover:text-indigo-700 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 px-3 py-1.5 rounded-lg cursor-pointer">
-                                                            View Full Response
-                                                        </button>
+                                                        <div className="flex items-center justify-end gap-2">
+                                                            <button 
+                                                                type="button" 
+                                                                onClick={() => setSelectedResponse(resp)} 
+                                                                className="text-indigo-600 dark:text-indigo-400 font-black uppercase tracking-widest text-[10px] hover:text-indigo-700 dark:hover:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 px-3 py-1.5 rounded-lg cursor-pointer transition-colors"
+                                                            >
+                                                                View Full Response
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={async (e) => {
+                                                                    e.stopPropagation();
+                                                                    if (window.confirm(`Delete feedback submission from ${resp.first_name || ''} ${resp.last_name || ''}?`)) {
+                                                                        try {
+                                                                            await api.delete(`/admin/meetings/${id}/responses/${resp.id}`);
+                                                                            showToast("Feedback submission deleted");
+                                                                            fetchFeedbackResponses();
+                                                                        } catch (err) {
+                                                                            showToast("Failed to delete feedback submission");
+                                                                        }
+                                                                    }
+                                                                }}
+                                                                className="p-1.5 text-zinc-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors cursor-pointer"
+                                                                title="Delete feedback response"
+                                                                aria-label="Delete feedback response"
+                                                            >
+                                                                <TrashIcon className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             ))}
@@ -2059,6 +2278,174 @@ const AdminMeetingEditor: React.FC = () => {
                                 className="px-8 justify-center py-4 rounded-2xl"
                             >
                                 Cancel
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* View Feedback Response Modal */}
+            {selectedResponse && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-zinc-950/60 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-white dark:bg-zinc-900 rounded-[2.5rem] shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col relative border border-zinc-100 dark:border-zinc-800 animate-in zoom-in-95 duration-300 overflow-hidden">
+                        {/* Header */}
+                        <div className="p-8 pb-5 relative shrink-0 border-b border-zinc-100 dark:border-zinc-800/60">
+                            <button
+                                onClick={() => setSelectedResponse(null)}
+                                className="absolute top-8 right-8 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors p-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
+                                aria-label="Close modal"
+                            >
+                                <XMarkIcon className="w-6 h-6" />
+                            </button>
+
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest mb-3 bg-amber-500/10 border-amber-500/20 text-amber-600">
+                                Feedback Submission
+                            </div>
+                            <h3 className="text-2xl sm:text-3xl font-black text-zinc-900 dark:text-white leading-tight tracking-tighter uppercase italic">
+                                {selectedResponse.first_name} {selectedResponse.last_name}
+                            </h3>
+                            <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400 font-medium mt-2">
+                                {selectedResponse.email && (
+                                    <span className="flex items-center gap-1.5">
+                                        <EnvelopeIcon className="w-3.5 h-3.5 text-zinc-400" />
+                                        {selectedResponse.email}
+                                    </span>
+                                )}
+                                {selectedResponse.phone && (
+                                    <span className="flex items-center gap-1.5">
+                                        <ChatBubbleLeftRightIcon className="w-3.5 h-3.5 text-zinc-400" />
+                                        {selectedResponse.phone}
+                                    </span>
+                                )}
+                                <span className="flex items-center gap-1.5">
+                                    <ClockIcon className="w-3.5 h-3.5 text-zinc-400" />
+                                    {selectedResponse.submitted_at ? new Date(selectedResponse.submitted_at).toLocaleString() : 'Draft'}
+                                </span>
+                                <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
+                                    selectedResponse.submission_status === 'completed'
+                                        ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                                        : 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
+                                }`}>
+                                    {selectedResponse.submission_status || 'completed'}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Scrollable Answers List */}
+                        <div className="p-8 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
+                            {(() => {
+                                const answersMap: Record<string, any> = {};
+                                (selectedResponse.answers || []).forEach((ans: any) => {
+                                    try {
+                                        answersMap[ans.field_key] = JSON.parse(ans.answer_value);
+                                    } catch {
+                                        answersMap[ans.field_key] = ans.answer_value;
+                                    }
+                                });
+
+                                const fields: any[] = selectedResponse.form?.fields || [];
+                                
+                                if (fields.length === 0 && Object.keys(answersMap).length === 0) {
+                                    return (
+                                        <div className="p-12 text-center text-zinc-400 font-medium">
+                                            No answers recorded for this submission.
+                                        </div>
+                                    );
+                                }
+
+                                if (fields.length > 0) {
+                                    return (
+                                        <div className="space-y-4">
+                                            {fields.map((f: any, idx: number) => {
+                                                const rawVal = answersMap[f.field_key];
+                                                const isEmpty = rawVal === undefined || rawVal === null || rawVal === '';
+
+                                                return (
+                                                    <div 
+                                                        key={f.id || f.field_key || idx}
+                                                        className="p-5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-800 space-y-2"
+                                                    >
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded-md">
+                                                                Q{idx + 1}
+                                                            </span>
+                                                            <div className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
+                                                                {f.label || f.field_key}
+                                                            </div>
+                                                        </div>
+                                                        {f.subtitle && (
+                                                            <div className="text-xs text-zinc-400 pl-7">
+                                                                {f.subtitle}
+                                                            </div>
+                                                        )}
+                                                        <div className="pl-7 pt-1">
+                                                            {isEmpty ? (
+                                                                <span className="text-xs italic text-zinc-400">
+                                                                    (Not answered)
+                                                                </span>
+                                                            ) : Array.isArray(rawVal) ? (
+                                                                <div className="flex flex-wrap gap-1.5">
+                                                                    {rawVal.map((item: any, i: number) => (
+                                                                        <span key={i} className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200">
+                                                                            {String(item)}
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            ) : typeof rawVal === 'string' && (rawVal.startsWith('/uploads/') || rawVal.startsWith('http')) ? (
+                                                                <a 
+                                                                    href={rawVal.startsWith('/') ? `${baseUrl}${rawVal}` : rawVal} 
+                                                                    target="_blank" 
+                                                                    rel="noreferrer" 
+                                                                    className="inline-flex items-center gap-1.5 text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-semibold"
+                                                                >
+                                                                    <ArrowTopRightOnSquareIcon className="w-4 h-4" /> View Attachment
+                                                                </a>
+                                                            ) : (
+                                                                <div className="text-sm text-zinc-800 dark:text-zinc-200 whitespace-pre-wrap font-medium">
+                                                                    {String(rawVal)}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    );
+                                }
+
+                                return (
+                                    <div className="space-y-4">
+                                        {Object.entries(answersMap).map(([key, val], idx) => (
+                                            <div 
+                                                key={key} 
+                                                className="p-5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-800 space-y-2"
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded-md">
+                                                        #{idx + 1}
+                                                    </span>
+                                                    <div className="font-bold text-sm text-zinc-900 dark:text-zinc-100 capitalize">
+                                                        {key.replace(/_/g, ' ')}
+                                                    </div>
+                                                </div>
+                                                <div className="pl-7 pt-1 text-sm text-zinc-800 dark:text-zinc-200 font-medium">
+                                                    {Array.isArray(val) ? val.join(', ') : String(val)}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                );
+                            })()}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-6 border-t border-zinc-100 dark:border-zinc-800 flex justify-end">
+                            <Button
+                                variant="secondary"
+                                onClick={() => setSelectedResponse(null)}
+                                className="px-8 justify-center py-2.5 rounded-xl cursor-pointer"
+                            >
+                                Close
                             </Button>
                         </div>
                     </div>

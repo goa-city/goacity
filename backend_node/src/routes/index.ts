@@ -5,6 +5,7 @@ import memberRoutes from './member.routes.js';
 import publicRoutes from './public.routes.js';
 import { getCities, createCity, updateCity, getSuperAdminStats } from '../controllers/city.controller.js';
 import { getSuperAdminAnalytics, getSuperAdminPageDetails } from '../controllers/analytics.controller.js';
+import { getVideoAnalytics, getMeetingsWithVideos } from '../controllers/meetings.controller.js';
 import { superAdminLogin } from '../controllers/admin-auth.controller.js';
 import { superAdminMiddleware } from '../middleware/auth.js';
 import { cityMiddleware } from '../middleware/city.js';
@@ -26,11 +27,13 @@ router.post('/superadmin/login', superAdminLogin);
 router.get('/superadmin/stats', superAdminMiddleware, getSuperAdminStats);
 router.get('/superadmin/analytics/overview', superAdminMiddleware, getSuperAdminAnalytics);
 router.get('/superadmin/analytics/page-details', superAdminMiddleware, getSuperAdminPageDetails);
+router.get('/superadmin/meetings-with-videos', superAdminMiddleware, getMeetingsWithVideos);
+router.get('/superadmin/meetings/:id/video-analytics', superAdminMiddleware, getVideoAnalytics);
 
-// City Management (Super Admin)
-router.get('/cities', superAdminMiddleware, getCities);
-router.post('/cities', superAdminMiddleware, createCity);
-router.put('/cities', superAdminMiddleware, updateCity);
+// City Management (Super Admin only)
+router.get('/superadmin/cities', superAdminMiddleware, getCities);
+router.post('/superadmin/cities', superAdminMiddleware, createCity);
+router.put('/superadmin/cities', superAdminMiddleware, updateCity);
 
 export default router;
 

@@ -54,7 +54,13 @@ export const fetchOnboardingForm = async (formId?: number | string | null) => {
     };
 };
 
-export const submitOnboarding = async (formData: any, isPartial = false, lastStepIndex = 0, formId?: number | string | null) => {
+export const submitOnboarding = async (
+    formData: any, 
+    isPartial = false, 
+    lastStepIndex = 0, 
+    formId?: number | string | null,
+    meetingId?: number | string | null
+) => {
     const payload = new FormData();
     
     Object.keys(formData).forEach(key => {
@@ -73,6 +79,10 @@ export const submitOnboarding = async (formData: any, isPartial = false, lastSte
 
     payload.append('is_partial', isPartial ? '1' : '0');
     payload.append('last_step_index', lastStepIndex.toString());
+
+    if (meetingId) {
+        payload.append('meeting_id', String(meetingId));
+    }
 
     let endpoint = '/onboarding';
     if (formId) {

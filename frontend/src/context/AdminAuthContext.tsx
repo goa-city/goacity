@@ -6,6 +6,7 @@ interface AdminUser {
     full_name: string;
     email: string;
     role: string;
+    is_super_admin?: boolean;
 }
 
 interface City {

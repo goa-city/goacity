@@ -40,9 +40,23 @@ import { authMiddleware } from '../middleware/auth.js';
 import prisma from '../lib/prisma.js';
 import { getResourceCategories } from '../controllers/resource-category.controller.js';
 import multer from 'multer';
+import path from 'path';
 
 const router = Router();
-const upload = multer({ dest: 'uploads/' });
+const storage = multer.diskStorage({
+    destination: (_req, _file, cb) => {
+        cb(null, 'uploads/');
+    },
+    filename: (_req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const ext = path.extname(file.originalname).toLowerCase();
+        cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
+    }
+});
+const upload = multer({ 
+    storage,
+    limits: { fileSize: 500 * 1024 * 1024 } // 500MB limit for high-res videos
+});
 
 router.use(authMiddleware);
 

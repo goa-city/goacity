@@ -31,6 +31,7 @@ export interface Meeting {
     stream_color?: string | null;
     is_paid?: number | boolean;
     is_public?: number | boolean;
+    archived?: number | null;
     registration_form_id?: number | null;
     registration_form?: any;
     payment_amount?: number | string | null;

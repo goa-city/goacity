@@ -58,7 +58,7 @@ export class FormService {
         };
     }
 
-    static async submitResponse(userId: number | null, formId: number, answers: any, isPartial = false, lastStepIndex = 0, files: any[] = []) {
+    static async submitResponse(userId: number | null, formId: number, answers: any, isPartial = false, lastStepIndex = 0, files: any[] = [], meetingId: number | null = null) {
         // Merge files into answers
         if (files && files.length > 0) {
             files.forEach(file => {
@@ -69,9 +69,13 @@ export class FormService {
         return await prisma.$transaction(async (tx) => {
             let response = null;
             if (userId) {
-                // Find standard form responses for this user and form
+                // Find standard form responses for this user and form (and meeting if provided)
                 const responses = await tx.formResponse.findMany({
-                    where: { user_id: userId, form_id: formId },
+                    where: { 
+                        user_id: userId, 
+                        form_id: formId,
+                        ...(meetingId ? { meeting_id: meetingId } : {})
+                    },
                     orderBy: { id: 'desc' }
                 });
 
@@ -98,7 +102,8 @@ export class FormService {
                     data: {
                         status: isPartial ? 'draft' : 'completed',
                         submitted_at: isPartial ? response.submitted_at : new Date(),
-                        last_step_index: lastStepIndex
+                        last_step_index: lastStepIndex,
+                        ...(meetingId ? { meeting_id: meetingId } : {})
                     }
                 });
                 await tx.formAnswer.deleteMany({
@@ -109,6 +114,7 @@ export class FormService {
                     data: {
                         user_id: userId,
                         form_id: formId,
+                        meeting_id: meetingId,
                         status: isPartial ? 'draft' : 'completed',
                         submitted_at: isPartial ? null : new Date(),
                         last_step_index: lastStepIndex

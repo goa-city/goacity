@@ -9,7 +9,7 @@ import { serveMeetingHtml, serveMeetingOgImage } from './controllers/meetings.co
 import { whatsapp } from './services/whatsapp.service.js';
 
 const app = express();
-app.set('trust proxy', 1);
+app.set('trust proxy', true);
 const PORT = process.env.PORT || 5001;
 
 // Initialize WhatsApp Service
@@ -38,8 +38,9 @@ app.get(['/meetings/:slug', '/pay/:slug'], serveMeetingHtml);
 app.use('/api', apiRoutes);
 
 // Health Check
-app.get('/health', (_req: express.Request, res: express.Response) => {
-    res.json({ status: 'ok', message: 'Backend is running' });
+app.get('/health', async (_req: express.Request, res: express.Response) => {
+    const ws = await whatsapp.getDebugInfo();
+    res.json({ status: 'ok', message: 'Backend is running', whatsapp: ws });
 });
 
 // Error Handling (Must be last)

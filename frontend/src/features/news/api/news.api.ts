@@ -5,21 +5,21 @@ export const fetchNewsFeed = async (page = 1) => {
     return data;
 };
 
-export const createPost = async (postData: any) => {
+export const createPost = async (postData: any, onUploadProgress?: (progressEvent: any) => void) => {
     let payload = postData;
-    let headers = {};
 
     if (postData.media) {
         payload = new FormData();
         Object.keys(postData).forEach(key => {
-            payload.append(key, postData[key]);
+            if (postData[key] !== undefined && postData[key] !== null) {
+                payload.append(key, postData[key]);
+            }
         });
-        headers = { 'Content-Type': 'multipart/form-data' };
     }
 
     const { data } = await api.post('/member/news/post', payload, { 
-        headers,
-        timeout: 300000 // 5 minutes to allow for video conversion
+        timeout: 600000, // 10 minutes for large videos (up to 500MB)
+        onUploadProgress,
     });
     return data;
 };

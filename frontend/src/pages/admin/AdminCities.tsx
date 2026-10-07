@@ -54,7 +54,7 @@ const AdminCities: React.FC = () => {
     const fetchCities = async () => {
         setLoading(true);
         try {
-            const res = await api.get('/admin/cities');
+            const res = await api.get('/superadmin/cities');
             setCities(res.data);
         } catch (error) {
             console.error("Failed to fetch cities:", error);
@@ -98,12 +98,12 @@ const AdminCities: React.FC = () => {
 
         try {
             if (editingCity) {
-                await api.put('/admin/cities', {
+                await api.put('/superadmin/cities', {
                     id: editingCity.id,
                     ...formData
                 });
             } else {
-                await api.post('/admin/cities', formData);
+                await api.post('/superadmin/cities', formData);
             }
             setShowModal(false);
             fetchCities();
