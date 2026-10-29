@@ -61,21 +61,40 @@ const MemberDetailView: React.FC = () => {
         fetchStreams();
     }, []);
 
+    const [updateStatus, setUpdateStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
     const handleUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
+        setUpdateStatus(null);
 
-        // Validation
-        if (!editBasic.slug) {
-            alert('Member profile URL (slug) is required.');
+        const cleanFirstName = editBasic.first_name.trim();
+        if (!cleanFirstName) {
+            alert('First Name is required.');
             return;
         }
 
-        if (!member?.stream_ids?.length) {
-            alert('At least one stream must be assigned to the member.');
-            return;
-        }
+        const cleanLastName = editBasic.last_name ? editBasic.last_name.trim() : null;
+        const cleanSlug = editBasic.slug
+            ? editBasic.slug.trim()
+            : [cleanFirstName, cleanLastName].filter(Boolean).join('-').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || `member-${id}`;
 
-        await updateMember(editBasic);
+        const payload = {
+            first_name: cleanFirstName,
+            last_name: cleanLastName,
+            email: editBasic.email && editBasic.email.trim() ? editBasic.email.trim() : null,
+            phone: editBasic.phone && editBasic.phone.trim() ? editBasic.phone.trim() : null,
+            slug: cleanSlug,
+            is_mentor: editBasic.is_mentor
+        };
+
+        try {
+            await updateMember(payload);
+            setUpdateStatus({ type: 'success', message: 'Member details saved successfully.' });
+        } catch (err: any) {
+            console.error('Failed to update member:', err);
+            const msg = err.response?.data?.message || err.message || 'Failed to update member details.';
+            setUpdateStatus({ type: 'error', message: msg });
+        }
     };
 
     const toggleStream = async (streamId: number) => {
@@ -111,7 +130,9 @@ const MemberDetailView: React.FC = () => {
             try {
                 const parsed = JSON.parse(value);
                 if (Array.isArray(parsed)) displayValue = parsed.join(', ');
-            } catch (e) { }
+            } catch {
+                // Ignore invalid JSON string
+            }
         }
 
         const valStr = String(displayValue);
@@ -236,21 +257,29 @@ const MemberDetailView: React.FC = () => {
                                 <IdentificationIcon className="w-4 h-4 text-indigo-600" /> Profile Access
                             </h3>
                             <form onSubmit={handleUpdate} className="space-y-6">
+                                {updateStatus && (
+                                    <div className={`p-3 rounded-xl text-xs font-bold ${
+                                        updateStatus.type === 'success' 
+                                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' 
+                                            : 'bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400 border border-red-200 dark:border-red-800'
+                                    }`}>
+                                        {updateStatus.message}
+                                    </div>
+                                )}
                                 <div className="grid grid-cols-2 gap-4">
-                                    <Input label="First Name" value={editBasic.first_name} onChange={(e) => setEditBasic({ ...editBasic, first_name: e.target.value })} />
-                                    <Input label="Last Name" value={editBasic.last_name} onChange={(e) => setEditBasic({ ...editBasic, last_name: e.target.value })} />
+                                    <Input label="First Name *" required value={editBasic.first_name} onChange={(e) => setEditBasic({ ...editBasic, first_name: e.target.value })} />
+                                    <Input label="Last Name" placeholder="Optional" value={editBasic.last_name} onChange={(e) => setEditBasic({ ...editBasic, last_name: e.target.value })} />
                                 </div>
-                                <Input label="Email" value={editBasic.email} onChange={(e) => setEditBasic({ ...editBasic, email: e.target.value })} />
+                                <Input label="Email" type="email" placeholder="Optional" value={editBasic.email} onChange={(e) => setEditBasic({ ...editBasic, email: e.target.value })} />
                                 <Input label="Phone" value={editBasic.phone} onChange={(e) => setEditBasic({ ...editBasic, phone: e.target.value })} />
                                 <Input
-                                    label="URL Slug (handle) *"
+                                    label="URL Slug (handle)"
                                     value={editBasic.slug}
                                     onChange={(e) => setEditBasic({ ...editBasic, slug: e.target.value })}
                                     onInput={(e: any) => {
                                         e.target.value = e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
                                     }}
                                     placeholder="firstname-lastname"
-                                    required
                                 />
                                 {editBasic.slug && (
                                     <p className="text-[9px] text-indigo-500 font-bold tracking-widest ml-1">

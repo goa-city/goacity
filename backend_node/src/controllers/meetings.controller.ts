@@ -614,6 +614,8 @@ export const getMeetingActions = async (req: Request, res: Response) => {
         const actions: any[] = await prisma.$queryRaw`
             SELECT 
                 mr.id, 
+                mr.meeting_id,
+                mr.user_id,
                 mr.rsvp_status, 
                 mr.checked_in, 
                 mr.payment_status,
@@ -653,6 +655,153 @@ export const getMeetingActions = async (req: Request, res: Response) => {
         return res.status(500).json({ message: 'Internal server error' });
     }
 };
+
+const formatMeetingAttendeeResponse = (mr: any, baseUrl: string) => ({
+    id: mr.id,
+    meeting_id: mr.meeting_id,
+    user_id: mr.user_id,
+    rsvp_status: mr.rsvp_status,
+    checked_in: mr.checked_in,
+    payment_status: mr.payment_status,
+    paid_amount: mr.paid_amount,
+    payment_proof: mr.payment_proof,
+    guest_name: mr.guest_name,
+    guest_email: mr.guest_email,
+    guest_phone: mr.guest_phone,
+    form_response_id: mr.form_response_id,
+    created_at: mr.created_at,
+    is_guest: !mr.user_id,
+    first_name: mr.user?.first_name || (mr.guest_name ? mr.guest_name.split(' ')[0] : 'Guest'),
+    last_name: mr.user?.last_name || (mr.guest_name ? mr.guest_name.split(' ').slice(1).join(' ') : ''),
+    full_name: mr.user ? `${mr.user.first_name || ''} ${mr.user.last_name || ''}`.trim() : (mr.guest_name || 'Guest'),
+    email: mr.user?.email || mr.guest_email,
+    phone: mr.user?.phone || mr.guest_phone,
+    payment_proof_url: mr.payment_proof ? `${baseUrl}/uploads/${mr.payment_proof}` : null
+});
+
+// POST /api/admin/meetings/:id/attendees
+export const addMeetingAttendee = async (req: Request, res: Response) => {
+    try {
+        const meetingId = Number(req.params.id);
+        const { userId, rsvpStatus = 'going', checkedIn = 0, paymentStatus = 'pending', paidAmount = 0 } = req.body;
+
+        const meeting = await prisma.meetings.findUnique({ where: { id: meetingId } });
+        if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
+
+        const member = await prisma.member.findUnique({ where: { id: Number(userId) } });
+        if (!member) return res.status(404).json({ message: 'Member not found' });
+
+        const existing = await prisma.meeting_responses.findFirst({
+            where: { meeting_id: meetingId, user_id: Number(userId) }
+        });
+
+        let responseRecord;
+        if (existing) {
+            responseRecord = await prisma.meeting_responses.update({
+                where: { id: existing.id },
+                data: {
+                    rsvp_status: rsvpStatus,
+                    checked_in: Number(checkedIn),
+                    payment_status: paymentStatus,
+                    paid_amount: Number(paidAmount),
+                    updated_at: new Date()
+                },
+                include: { user: true }
+            });
+        } else {
+            responseRecord = await prisma.meeting_responses.create({
+                data: {
+                    meeting_id: meetingId,
+                    user_id: Number(userId),
+                    rsvp_status: rsvpStatus,
+                    checked_in: Number(checkedIn),
+                    payment_status: paymentStatus,
+                    paid_amount: Number(paidAmount),
+                    created_at: new Date(),
+                    updated_at: new Date()
+                },
+                include: { user: true }
+            });
+        }
+
+        const apiUrl = process.env.VITE_API_URL || '';
+        const baseUrl = apiUrl.replace(/\/api\/?$/, '');
+
+        return res.json({
+            success: true,
+            message: existing ? 'Attendee updated successfully' : 'Attendee added successfully',
+            data: formatMeetingAttendeeResponse(responseRecord, baseUrl)
+        });
+    } catch (error: any) {
+        console.error('addMeetingAttendee Error:', error);
+        return res.status(500).json({ message: error.message || 'Internal server error' });
+    }
+};
+
+// PUT /api/admin/meetings/:id/attendees/:responseId
+export const updateMeetingAttendee = async (req: Request, res: Response) => {
+    try {
+        const meetingId = Number(req.params.id);
+        const responseId = Number(req.params.responseId);
+        const { rsvpStatus, checkedIn, paymentStatus, paidAmount } = req.body;
+
+        const existing = await prisma.meeting_responses.findFirst({
+            where: { id: responseId, meeting_id: meetingId },
+            include: { user: true }
+        });
+        if (!existing) return res.status(404).json({ message: 'Attendee record not found' });
+
+        const dataToUpdate: any = { updated_at: new Date() };
+        if (rsvpStatus !== undefined) dataToUpdate.rsvp_status = rsvpStatus;
+        if (checkedIn !== undefined) dataToUpdate.checked_in = Number(checkedIn);
+        if (paymentStatus !== undefined) dataToUpdate.payment_status = paymentStatus;
+        if (paidAmount !== undefined) dataToUpdate.paid_amount = Number(paidAmount);
+
+        const updated = await prisma.meeting_responses.update({
+            where: { id: responseId },
+            data: dataToUpdate,
+            include: { user: true }
+        });
+
+        const apiUrl = process.env.VITE_API_URL || '';
+        const baseUrl = apiUrl.replace(/\/api\/?$/, '');
+
+        return res.json({
+            success: true,
+            message: 'Attendee updated successfully',
+            data: formatMeetingAttendeeResponse(updated, baseUrl)
+        });
+    } catch (error: any) {
+        console.error('updateMeetingAttendee Error:', error);
+        return res.status(500).json({ message: error.message || 'Internal server error' });
+    }
+};
+
+// DELETE /api/admin/meetings/:id/attendees/:responseId
+export const deleteMeetingAttendee = async (req: Request, res: Response) => {
+    try {
+        const meetingId = Number(req.params.id);
+        const responseId = Number(req.params.responseId);
+
+        const existing = await prisma.meeting_responses.findFirst({
+            where: { id: responseId, meeting_id: meetingId }
+        });
+        if (!existing) return res.status(404).json({ message: 'Attendee record not found' });
+
+        await prisma.meeting_responses.delete({
+            where: { id: responseId }
+        });
+
+        return res.json({
+            success: true,
+            message: 'Attendee removed successfully'
+        });
+    } catch (error: any) {
+        console.error('deleteMeetingAttendee Error:', error);
+        return res.status(500).json({ message: error.message || 'Internal server error' });
+    }
+};
+
 
 // GET /api/admin/stats
 export const getStats = async (_req: Request, res: Response) => {
@@ -1254,116 +1403,200 @@ export const deleteMeetingResource = async (req: Request, res: Response) => {
 
 import { sendEmail } from '../utils/email.js';
 
+// Helper to resolve audience members for a meeting
+export const resolveMeetingAudienceMembers = async (meetingId: number, targetAudience: string = 'all', isTest: boolean = false) => {
+    const meeting: any = await prisma.meetings.findUnique({
+        where: { id: meetingId },
+        include: { resources: true }
+    });
+
+    if (!meeting) throw { status: 404, message: 'Meeting not found' };
+
+    const isTestingStream = Boolean(isTest || targetAudience === 'test_stream');
+    const targetStreamId = isTestingStream ? 16 : meeting.stream_id;
+
+    if (!isTestingStream && !meeting.stream_id) {
+        throw { status: 400, message: 'Meeting is not linked to any stream. Please link a stream first.' };
+    }
+
+    // Get members in stream (strictly stream 16 if testing)
+    let members: any[] = await prisma.member.findMany({
+        where: {
+            streams: {
+                some: { stream_id: targetStreamId }
+            }
+        }
+    });
+
+    if (members.length === 0) {
+        throw { 
+            status: 400, 
+            message: isTestingStream 
+                ? 'No members found in the Testing Stream (ID #16)' 
+                : 'No members found in the linked stream' 
+        };
+    }
+
+    // Apply recipient audience filtering (strictly bypassed for testing stream)
+    if (!isTestingStream && targetAudience && targetAudience !== 'all') {
+        if (targetAudience === 'no_response') {
+            const respondedUsers = await prisma.meeting_responses.findMany({
+                where: {
+                    meeting_id: meetingId,
+                    rsvp_status: { in: ['going', 'not_sure', 'cant_go'] }
+                },
+                select: { user_id: true }
+            });
+            const respondedUserIds = new Set(respondedUsers.map(r => r.user_id).filter(Boolean));
+            members = members.filter(m => !respondedUserIds.has(m.id));
+        } else {
+            let whereClause: any = { meeting_id: meetingId };
+            if (targetAudience === 'going') {
+                whereClause.rsvp_status = 'going';
+            } else if (targetAudience === 'going_unpaid') {
+                whereClause.rsvp_status = 'going';
+                whereClause.AND = [
+                    {
+                        OR: [
+                            { payment_status: null },
+                            { payment_status: { notIn: ['paid', 'paid_online', 'paid_cash'] } }
+                        ]
+                    },
+                    {
+                        OR: [
+                            { paid_amount: null },
+                            { paid_amount: { lte: 0 } }
+                        ]
+                    }
+                ];
+            } else if (targetAudience === 'maybe') {
+                whereClause.rsvp_status = 'not_sure';
+            } else if (targetAudience === 'no') {
+                whereClause.rsvp_status = 'cant_go';
+            } else if (targetAudience === 'paid') {
+                whereClause.OR = [
+                    { payment_status: { in: ['paid', 'paid_online', 'paid_cash'] } },
+                    { paid_amount: { gt: 0 } }
+                ];
+            } else if (targetAudience === 'checked_in') {
+                whereClause.checked_in = 1;
+            }
+
+            const matchingResponses = await prisma.meeting_responses.findMany({
+                where: whereClause,
+                select: { user_id: true }
+            });
+
+            const targetUserIds = new Set(matchingResponses.map(r => r.user_id).filter(Boolean));
+            members = members.filter(m => targetUserIds.has(m.id));
+
+            const guestResponses = await prisma.meeting_responses.findMany({
+                where: {
+                    ...whereClause,
+                    user_id: null
+                }
+            });
+            const guestMembers = guestResponses.map(g => ({
+                id: 0,
+                first_name: g.guest_name ? g.guest_name.split(' ')[0] : 'Guest',
+                last_name: g.guest_name ? g.guest_name.split(' ').slice(1).join(' ') : '',
+                email: g.guest_email,
+                phone: g.guest_phone,
+                is_guest: true
+            })).filter(g => g.email || g.phone);
+            members = [...members, ...guestMembers];
+        }
+    }
+
+    return { meeting, members, isTestingStream };
+};
+
+// GET /api/admin/meetings/:id/recipients
+export const getMeetingRecipients = async (req: Request, res: Response) => {
+    try {
+        const id = Number(req.params.id);
+        const targetAudience = (req.query.targetAudience as string) || 'all';
+        const isTest = req.query.isTest === 'true' || targetAudience === 'test_stream';
+
+        const { members } = await resolveMeetingAudienceMembers(id, targetAudience, isTest);
+
+        const memberIds = members.filter(m => m.id > 0).map(m => m.id);
+        const responses = memberIds.length > 0 ? await prisma.meeting_responses.findMany({
+            where: {
+                meeting_id: id,
+                user_id: { in: memberIds }
+            },
+            select: { user_id: true, rsvp_status: true, payment_status: true, paid_amount: true, checked_in: true }
+        }) : [];
+
+        const responseMap = new Map();
+        responses.forEach(r => {
+            if (r.user_id) responseMap.set(r.user_id, r);
+        });
+
+        const formatted = members.map(m => {
+            const resp = m.id ? responseMap.get(m.id) : null;
+            return {
+                id: m.id,
+                first_name: m.first_name || '',
+                last_name: m.last_name || '',
+                full_name: `${m.first_name || ''} ${m.last_name || ''}`.trim() || (m.is_guest ? (m.first_name || 'Guest') : 'Member'),
+                email: m.email || '',
+                phone: m.phone || '',
+                is_guest: Boolean(m.is_guest),
+                rsvp_status: resp?.rsvp_status || (m.is_guest ? 'going' : null),
+                payment_status: resp?.payment_status || null,
+                checked_in: resp?.checked_in || 0
+            };
+        });
+
+        return res.json({
+            success: true,
+            total: formatted.length,
+            recipients: formatted
+        });
+    } catch (error: any) {
+        console.error('getMeetingRecipients Error:', error);
+        return res.status(error.status || 500).json({ message: error.message || 'Failed to fetch recipients' });
+    }
+};
+
 // POST /api/admin/meetings/:id/notify
 export const notifyMeetingMembers = async (req: Request, res: Response) => {
     try {
         const id = Number(req.params.id);
-        const { type, templateId, targetAudience = 'all', isTest = false } = req.body;
+        const { 
+            type, 
+            templateId, 
+            targetAudience = 'all', 
+            isTest = false,
+            excludeMemberIds = [],
+            excludeGuestEmails = []
+        } = req.body;
 
-        const meeting: any = await prisma.meetings.findUnique({
-            where: { id },
-            include: { resources: true }
-        });
-
-        if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
-
-        const isTestingStream = Boolean(isTest || targetAudience === 'test_stream');
-        const targetStreamId = isTestingStream ? 16 : meeting.stream_id;
-
-        if (!isTestingStream && !meeting.stream_id) {
-            return res.status(400).json({ message: 'Meeting is not linked to any stream. Please link a stream first.' });
-        }
-
-        // Get members in stream (strictly stream 16 if testing)
-        let members: any[] = await prisma.member.findMany({
-            where: {
-                streams: {
-                    some: { stream_id: targetStreamId }
-                }
-            }
-        });
+        const { meeting, members: resolvedMembers, isTestingStream } = await resolveMeetingAudienceMembers(id, targetAudience, isTest);
+        let members = resolvedMembers;
 
         if (members.length === 0) {
-            return res.status(400).json({ 
-                message: isTestingStream 
-                    ? 'No members found in the Testing Stream (ID #16)' 
-                    : 'No members found in the linked stream' 
-            });
+            return res.status(400).json({ message: `No members or guests found matching '${targetAudience}' filter for this meeting` });
         }
 
-        // Apply recipient audience filtering (strictly bypassed for testing stream)
-        if (!isTestingStream && targetAudience && targetAudience !== 'all') {
-            if (targetAudience === 'no_response') {
-                const respondedUsers = await prisma.meeting_responses.findMany({
-                    where: {
-                        meeting_id: id,
-                        rsvp_status: { in: ['going', 'not_sure', 'cant_go'] }
-                    },
-                    select: { user_id: true }
-                });
-                const respondedUserIds = new Set(respondedUsers.map(r => r.user_id).filter(Boolean));
-                members = members.filter(m => !respondedUserIds.has(m.id));
-            } else {
-                let whereClause: any = { meeting_id: id };
-                if (targetAudience === 'going') {
-                    whereClause.rsvp_status = 'going';
-                } else if (targetAudience === 'going_unpaid') {
-                    whereClause.rsvp_status = 'going';
-                    whereClause.AND = [
-                        {
-                            OR: [
-                                { payment_status: null },
-                                { payment_status: { notIn: ['paid', 'paid_online', 'paid_cash'] } }
-                            ]
-                        },
-                        {
-                            OR: [
-                                { paid_amount: null },
-                                { paid_amount: { lte: 0 } }
-                            ]
-                        }
-                    ];
-                } else if (targetAudience === 'maybe') {
-                    whereClause.rsvp_status = 'not_sure';
-                } else if (targetAudience === 'no') {
-                    whereClause.rsvp_status = 'cant_go';
-                } else if (targetAudience === 'paid') {
-                    whereClause.OR = [
-                        { payment_status: { in: ['paid', 'paid_online', 'paid_cash'] } },
-                        { paid_amount: { gt: 0 } }
-                    ];
-                } else if (targetAudience === 'checked_in') {
-                    whereClause.checked_in = 1;
-                }
+        // Apply member & guest exclusions
+        const excludeMemberSet = new Set((excludeMemberIds || []).map((mid: any) => Number(mid)));
+        const excludeGuestSet = new Set((excludeGuestEmails || []).map((e: string) => e.trim().toLowerCase()));
 
-                const matchingResponses = await prisma.meeting_responses.findMany({
-                    where: whereClause,
-                    select: { user_id: true }
-                });
-
-                const targetUserIds = new Set(matchingResponses.map(r => r.user_id).filter(Boolean));
-                members = members.filter(m => targetUserIds.has(m.id));
-
-                const guestResponses = await prisma.meeting_responses.findMany({
-                    where: {
-                        ...whereClause,
-                        user_id: null
-                    }
-                });
-                const guestMembers = guestResponses.map(g => ({
-                    id: 0,
-                    first_name: g.guest_name ? g.guest_name.split(' ')[0] : 'Guest',
-                    last_name: g.guest_name ? g.guest_name.split(' ').slice(1).join(' ') : '',
-                    email: g.guest_email,
-                    phone: g.guest_phone,
-                    is_guest: true
-                })).filter(g => g.email || g.phone);
-                members = [...members, ...guestMembers];
+        const initialCount = members.length;
+        members = members.filter(m => {
+            if (m.is_guest) {
+                if (m.email && excludeGuestSet.has(m.email.toLowerCase())) return false;
+                return true;
             }
+            return !excludeMemberSet.has(m.id);
+        });
 
-            if (members.length === 0) {
-                return res.status(400).json({ message: `No members or guests found matching '${targetAudience}' filter for this meeting` });
-            }
+        const excludedCount = initialCount - members.length;
+        if (members.length === 0) {
+            return res.status(400).json({ message: 'All selected recipients have been excluded. No messages to send.' });
         }
 
         const dateStr = formatDateDDMMYYYY(meeting.meeting_date);
@@ -1468,8 +1701,14 @@ export const notifyMeetingMembers = async (req: Request, res: Response) => {
             })().catch(err => console.error('Email background send error:', err));
 
             const targetDesc = isTestingStream ? 'members in Testing Stream (ID #16)' : 'members';
-            return res.json({ success: true, message: `Email notifications queued for ${emailMembers.length} ${targetDesc}` });
+            const exclusionNote = excludedCount > 0 ? ` (${excludedCount} excluded)` : '';
+            return res.json({ success: true, message: `Email notifications queued for ${emailMembers.length} ${targetDesc}${exclusionNote}` });
         } else if (type === 'whatsapp') {
+            if (!whatsapp.getIsReady()) {
+                return res.status(503).json({ 
+                    message: 'WhatsApp engine is disconnected. Please visit WhatsApp -> Connectivity to link your device before broadcasting.' 
+                });
+            }
             const effectiveTemplateId = templateId ? Number(templateId) : SYSTEM_TEMPLATES.WHATSAPP.DEFAULT.ID;
             const template = await prisma.whatsAppTemplate.findUnique({ where: { id: effectiveTemplateId } });
             if (!template) return res.status(404).json({ message: 'WhatsApp template not found' });
@@ -1501,7 +1740,8 @@ export const notifyMeetingMembers = async (req: Request, res: Response) => {
             ).catch((err: any) => console.error('WhatsApp bulk notify failed:', err));
 
             const targetDesc = isTestingStream ? 'members in Testing Stream (ID #16)' : 'members';
-            return res.json({ success: true, message: `WhatsApp notifications queued for ${whatsappMembers.length} ${targetDesc}` });
+            const exclusionNote = excludedCount > 0 ? ` (${excludedCount} excluded)` : '';
+            return res.json({ success: true, message: `WhatsApp notifications queued for ${whatsappMembers.length} ${targetDesc}${exclusionNote}` });
         }
 
         return res.status(400).json({ message: 'Invalid notification type' });

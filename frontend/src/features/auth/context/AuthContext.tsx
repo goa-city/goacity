@@ -105,9 +105,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 channel: (data as any)?.channel
             };
         } catch (error: any) {
+            let message = error.response?.data?.message || error.message || 'Failed to send verification code.';
+            if (message.includes('timeout') || error.code === 'ECONNABORTED') {
+                message = 'Request timed out. Please try again or sign in with your email address.';
+            }
             return { 
                 success: false, 
-                message: error.response?.data?.message || error.message || 'Failed to send verification code.' 
+                message
             };
         }
     };

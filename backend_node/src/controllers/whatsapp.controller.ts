@@ -13,12 +13,21 @@ export const getWhatsAppStatus = async (req: Request, res: Response) => {
             where: { id: 1 } // Assuming one session
         });
         const debugInfo = await whatsapp.getDebugInfo();
+        const isLiveReady = whatsapp.getIsReady();
+
+        let effectiveStatus = session?.status || 'INITIALIZING';
+        if (effectiveStatus === 'CONNECTED' && !isLiveReady) {
+            effectiveStatus = 'DISCONNECTED';
+        } else if (isLiveReady) {
+            effectiveStatus = 'CONNECTED';
+        }
         
         res.json({
-            status: session?.status || 'INITIALIZING',
+            status: effectiveStatus,
             qr_code: session?.qr_code || null,
             last_active: session?.last_active,
-            live: debugInfo
+            live: debugInfo,
+            is_ready: isLiveReady
         });
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch WhatsApp status' });
@@ -134,6 +143,12 @@ export const broadcastWhatsApp = async (req: Request, res: Response) => {
             }
         }
 
+        if (!whatsapp.getIsReady()) {
+            return res.status(503).json({ 
+                error: 'WhatsApp engine is disconnected. Please visit WhatsApp -> Connectivity to link your device before broadcasting.' 
+            });
+        }
+
         const broadcastName = streamNames ? streamNames.join(', ') : 'Bulk Broadcast';
         
         // Trigger bulk send in background
@@ -235,6 +250,12 @@ export const sendMeetingAlert = async (req: Request, res: Response) => {
             }
             return result;
         };
+
+        if (!whatsapp.getIsReady()) {
+            return res.status(503).json({ 
+                error: 'WhatsApp engine is disconnected. Please visit WhatsApp -> Connectivity to link your device before sending alerts.' 
+            });
+        }
 
         // 4. Send bulk with async short link replacements
         const bulkMessages = await Promise.all(members.map(async m => ({
@@ -379,3 +400,20 @@ export const retryWhatsAppBroadcast = async (req: Request, res: Response) => {
         res.status(500).json({ error: 'Failed to initiate retry' });
     }
 };
+
+export const stopWhatsAppBroadcast = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    try {
+        await prisma.whatsAppBroadcast.update({
+            where: { id: Number(id) },
+            data: { 
+                status: 'STOPPED',
+                updated_at: new Date()
+            }
+        });
+        res.json({ success: true, message: 'Broadcast stopped successfully' });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to stop broadcast' });
+    }
+};
+

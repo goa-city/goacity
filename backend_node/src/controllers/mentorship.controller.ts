@@ -443,6 +443,11 @@ export const notifyMentorshipRelation = async (req: Request, res: Response, next
 
             return res.json({ success: true, message: `Email notifications queued for ${emailRecipients.length} recipients` });
         } else if (type === 'whatsapp') {
+            if (!whatsapp.getIsReady()) {
+                return res.status(503).json({ 
+                    message: 'WhatsApp engine is disconnected. Please visit WhatsApp -> Connectivity to link your device before sending alerts.' 
+                });
+            }
             const template = await prisma.whatsAppTemplate.findUnique({ where: { id: Number(templateId) } });
             if (!template) return res.status(404).json({ message: 'WhatsApp template not found' });
 

@@ -279,7 +279,7 @@ const AdminWhatsAppBroadcasts: React.FC = () => {
                                 <div className="flex items-start gap-3 p-4 bg-amber-500/5 border border-amber-500/20 rounded-lg">
                                     <InformationCircleIcon className="w-5 h-5 text-amber-500 shrink-0" />
                                     <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest leading-relaxed">
-                                        Safety: 8-15 second randomized delay applied between messages.
+                                        Safety: 60s delay per message &bull; Random 3-5 min break every 5 messages to protect account.
                                     </p>
                                 </div>
                             </div>

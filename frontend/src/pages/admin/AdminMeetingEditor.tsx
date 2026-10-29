@@ -10,7 +10,8 @@ import {
     CloudArrowUpIcon, TrashIcon, DocumentIcon, DocumentTextIcon,
     VideoCameraIcon, EnvelopeIcon, ChevronDownIcon, ChatBubbleLeftRightIcon, EyeIcon, ArrowDownTrayIcon,
     XMarkIcon, PhotoIcon, UsersIcon, LinkIcon, ArrowTopRightOnSquareIcon,
-    PlayIcon, ArrowUpIcon, ArrowDownIcon, MegaphoneIcon, PlusIcon, ArrowPathIcon
+    PlayIcon, ArrowUpIcon, ArrowDownIcon, MegaphoneIcon, PlusIcon, ArrowPathIcon,
+    UserMinusIcon, MagnifyingGlassIcon, UserPlusIcon, PencilSquareIcon
 } from '@heroicons/react/24/solid';
 import { ArrowLeftIcon as ArrowLeftOutline } from '@heroicons/react/24/outline';
 import { Card } from '../../shared/components/ui/Card';
@@ -65,7 +66,7 @@ const AdminMeetingEditor: React.FC = () => {
     const [selectedResponse, setSelectedResponse] = useState<any | null>(null);
     const [loadingResponses, setLoadingResponses] = useState(false);
     const [meetingActions, setMeetingActions] = useState<any[]>([]);
-    const [attendeeTab, setAttendeeTab] = useState<'all' | 'members' | 'guests'>('all');
+    const [attendeeTab, setAttendeeTab] = useState<'all' | 'members' | 'guests' | 'going' | 'not_going' | 'maybe'>('all');
     const [recapContent, setRecapContent] = useState('');
     const [recapVideos, setRecapVideos] = useState<any[]>([]);
     const [recapGallery, setRecapGallery] = useState<any[]>([]);
@@ -85,9 +86,36 @@ const AdminMeetingEditor: React.FC = () => {
     const [notifyType, setNotifyType] = useState<'email' | 'whatsapp'>('email');
     const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
     const [targetAudience, setTargetAudience] = useState<TargetAudience>('all');
+    const [recipients, setRecipients] = useState<any[]>([]);
+    const [loadingRecipients, setLoadingRecipients] = useState(false);
+    const [excludedMemberIds, setExcludedMemberIds] = useState<number[]>([]);
+    const [excludedGuestEmails, setExcludedGuestEmails] = useState<string[]>([]);
+    const [recipientSearch, setRecipientSearch] = useState('');
+    const [showAllRecipientsList, setShowAllRecipientsList] = useState(false);
     const [upiVpa, setUpiVpa] = useState('');
     const [payeeName, setPayeeName] = useState('');
     const [paymentNote, setPaymentNote] = useState('');
+
+    // Attendee Management State (Add on behalf & Edit RSVP/Payment)
+    const [showAddAttendeeModal, setShowAddAttendeeModal] = useState(false);
+    const [showEditAttendeeModal, setShowEditAttendeeModal] = useState(false);
+    const [selectedAttendeeForEdit, setSelectedAttendeeForEdit] = useState<any | null>(null);
+    const [allMembers, setAllMembers] = useState<any[]>([]);
+    const [loadingMembers, setLoadingMembers] = useState(false);
+    const [addAttendeeUserId, setAddAttendeeUserId] = useState<number | null>(null);
+    const [addAttendeeSearch, setAddAttendeeSearch] = useState('');
+    const [addAttendeeRsvp, setAddAttendeeRsvp] = useState<'going' | 'not_sure' | 'cant_go'>('going');
+    const [addAttendeeCheckedIn, setAddAttendeeCheckedIn] = useState(false);
+    const [addAttendeePaymentStatus, setAddAttendeePaymentStatus] = useState('pending');
+    const [addAttendeePaidAmount, setAddAttendeePaidAmount] = useState<string | number>('0');
+    const [submittingAttendee, setSubmittingAttendee] = useState(false);
+
+    const [editAttendeeRsvp, setEditAttendeeRsvp] = useState<'going' | 'not_sure' | 'cant_go' | 'none'>('going');
+    const [editAttendeeCheckedIn, setEditAttendeeCheckedIn] = useState(false);
+    const [editAttendeePaymentStatus, setEditAttendeePaymentStatus] = useState('pending');
+    const [editAttendeePaidAmount, setEditAttendeePaidAmount] = useState<string | number>('0');
+    const [submittingEditAttendee, setSubmittingEditAttendee] = useState(false);
+
     const meetingDate = watch('meeting_date');
     const title = watch('title');
     const slug = watch('slug');
@@ -258,6 +286,25 @@ const AdminMeetingEditor: React.FC = () => {
         }
     };
 
+    useEffect(() => {
+        if (!showNotifyModal || !id) return;
+        let isCancelled = false;
+        setLoadingRecipients(true);
+        api.get(`/admin/meetings/${id}/recipients?targetAudience=${targetAudience}`)
+            .then(res => {
+                if (!isCancelled && res.data?.recipients) {
+                    setRecipients(res.data.recipients);
+                }
+            })
+            .catch(err => {
+                console.error("Failed to fetch meeting recipients", err);
+            })
+            .finally(() => {
+                if (!isCancelled) setLoadingRecipients(false);
+            });
+        return () => { isCancelled = true; };
+    }, [showNotifyModal, id, targetAudience]);
+
     const exportToExcel = () => {
         if (!meetingActions || meetingActions.length === 0) {
             showToast('No member actions to export');
@@ -293,6 +340,122 @@ const AdminMeetingEditor: React.FC = () => {
         const cleanTitle = (title || 'meeting').replace(/[^a-zA-Z0-9_-]/g, '_');
         const filename = `${cleanTitle}_attendees.xlsx`;
         XLSX.writeFile(workbook, filename);
+    };
+
+    const fetchMeetingActions = async () => {
+        if (!id) return;
+        try {
+            const res = await api.get(`/admin/meetings/${id}/actions`);
+            if (res.data?.success && Array.isArray(res.data.data)) {
+                const sortedActions = [...res.data.data].sort((a: any, b: any) => {
+                    const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+                    const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+                    return timeA - timeB;
+                });
+                setMeetingActions(sortedActions);
+            }
+        } catch (err) {
+            console.error("Failed to fetch meeting actions", err);
+        }
+    };
+
+    const fetchAllMembers = async () => {
+        if (allMembers.length > 0) return;
+        setLoadingMembers(true);
+        try {
+            const res = await api.get('/admin/users');
+            if (Array.isArray(res.data)) {
+                setAllMembers(res.data);
+            }
+        } catch (err) {
+            console.error("Failed to fetch members list", err);
+        } finally {
+            setLoadingMembers(false);
+        }
+    };
+
+    const handleOpenAddAttendee = () => {
+        fetchAllMembers();
+        setAddAttendeeUserId(null);
+        setAddAttendeeSearch('');
+        setAddAttendeeRsvp('going');
+        setAddAttendeeCheckedIn(false);
+        setAddAttendeePaymentStatus('pending');
+        setAddAttendeePaidAmount(watchedPaymentAmount || 0);
+        setShowAddAttendeeModal(true);
+    };
+
+    const handleOpenEditAttendee = (action: any) => {
+        setSelectedAttendeeForEdit(action);
+        setEditAttendeeRsvp(action.rsvp_status || 'going');
+        setEditAttendeeCheckedIn(action.checked_in == 1);
+        setEditAttendeePaymentStatus(action.payment_status || 'pending');
+        setEditAttendeePaidAmount(action.paid_amount || 0);
+        setShowEditAttendeeModal(true);
+    };
+
+    const handleSaveAddAttendee = async () => {
+        if (!addAttendeeUserId || !id) {
+            showToast("Please select a member");
+            return;
+        }
+        setSubmittingAttendee(true);
+        try {
+            const res = await api.post(`/admin/meetings/${id}/attendees`, {
+                userId: addAttendeeUserId,
+                rsvpStatus: addAttendeeRsvp,
+                checkedIn: addAttendeeCheckedIn ? 1 : 0,
+                paymentStatus: isPaid ? addAttendeePaymentStatus : 'pending',
+                paidAmount: isPaid ? (Number(addAttendeePaidAmount) || 0) : 0
+            });
+            showToast(res.data?.message || "Attendee saved successfully!");
+            setShowAddAttendeeModal(false);
+            setAddAttendeeUserId(null);
+            setAddAttendeeSearch('');
+            await fetchMeetingActions();
+        } catch (err: any) {
+            console.error("Failed to add attendee", err);
+            showToast(err.response?.data?.message || "Failed to add attendee");
+        } finally {
+            setSubmittingAttendee(false);
+        }
+    };
+
+    const handleSaveEditAttendee = async () => {
+        if (!selectedAttendeeForEdit || !id) return;
+        setSubmittingEditAttendee(true);
+        try {
+            const res = await api.put(`/admin/meetings/${id}/attendees/${selectedAttendeeForEdit.id}`, {
+                rsvpStatus: editAttendeeRsvp,
+                checkedIn: editAttendeeCheckedIn ? 1 : 0,
+                paymentStatus: isPaid ? editAttendeePaymentStatus : 'pending',
+                paidAmount: isPaid ? (Number(editAttendeePaidAmount) || 0) : 0
+            });
+            showToast(res.data?.message || "Attendee updated successfully!");
+            setShowEditAttendeeModal(false);
+            setSelectedAttendeeForEdit(null);
+            await fetchMeetingActions();
+        } catch (err: any) {
+            console.error("Failed to update attendee", err);
+            showToast(err.response?.data?.message || "Failed to update attendee");
+        } finally {
+            setSubmittingEditAttendee(false);
+        }
+    };
+
+    const handleDeleteAttendee = async (action: any) => {
+        const name = action.full_name || action.first_name || 'this attendee';
+        if (!window.confirm(`Are you sure you want to remove ${name} from this meeting's attendees?`)) {
+            return;
+        }
+        try {
+            const res = await api.delete(`/admin/meetings/${id}/attendees/${action.id}`);
+            showToast(res.data?.message || "Attendee removed successfully");
+            await fetchMeetingActions();
+        } catch (err: any) {
+            console.error("Failed to delete attendee", err);
+            showToast(err.response?.data?.message || "Failed to remove attendee");
+        }
     };
 
     const exportFeedbackToExcel = () => {
@@ -485,7 +648,27 @@ const AdminMeetingEditor: React.FC = () => {
         setNotifyType(type);
         setSelectedTemplateId(type === 'email' ? '2' : '1');
         setTargetAudience('all');
+        setExcludedMemberIds([]);
+        setExcludedGuestEmails([]);
+        setRecipientSearch('');
+        setShowAllRecipientsList(false);
         setShowNotifyModal(true);
+    };
+
+    const toggleExcludeRecipient = (r: any) => {
+        if (r.is_guest) {
+            const email = (r.email || '').toLowerCase().trim();
+            if (!email) return;
+            setExcludedGuestEmails(prev =>
+                prev.includes(email) ? prev.filter(e => e !== email) : [...prev, email]
+            );
+        } else {
+            const mId = Number(r.id);
+            if (!mId) return;
+            setExcludedMemberIds(prev =>
+                prev.includes(mId) ? prev.filter(mid => mid !== mId) : [...prev, mId]
+            );
+        }
     };
 
     const executeNotify = async () => {
@@ -506,14 +689,19 @@ const AdminMeetingEditor: React.FC = () => {
             checked_in: 'Checked In'
         };
 
-        if (!window.confirm(`Send ${notifyType.toUpperCase()} notification to [${audienceLabels[targetAudience]}] using the selected template?`)) return;
+        const totalExcluded = excludedMemberIds.length + excludedGuestEmails.length;
+        const exclusionConfirmText = totalExcluded > 0 ? ` (${totalExcluded} excluded)` : '';
+
+        if (!window.confirm(`Send ${notifyType.toUpperCase()} notification to [${audienceLabels[targetAudience]}]${exclusionConfirmText} using the selected template?`)) return;
         setNotifying(true);
         setShowNotifyModal(false);
         try {
             const res = await api.post(`/admin/meetings/${id}/notify`, {
                 type: notifyType,
                 templateId: selectedTemplateId,
-                targetAudience
+                targetAudience,
+                excludeMemberIds: excludedMemberIds,
+                excludeGuestEmails: excludedGuestEmails
             });
             showToast(res.data?.message || "Notifications sent successfully!");
         } catch (e: any) {
@@ -527,14 +715,18 @@ const AdminMeetingEditor: React.FC = () => {
     const executeTestNotify = async () => {
         const testingStream = streams.find(s => Number(s.id) === 16);
         const countText = testingStream ? ` (${testingStream.member_count || 0} members)` : '';
-        if (!window.confirm(`Send test ${notifyType.toUpperCase()} notification strictly to all users in the Testing Stream (ID #16)${countText}?`)) return;
+        const totalExcluded = excludedMemberIds.length + excludedGuestEmails.length;
+        const exclusionConfirmText = totalExcluded > 0 ? ` (${totalExcluded} excluded)` : '';
+        if (!window.confirm(`Send test ${notifyType.toUpperCase()} notification strictly to all users in the Testing Stream (ID #16)${countText}${exclusionConfirmText}?`)) return;
         setTestNotifying(true);
         try {
             const res = await api.post(`/admin/meetings/${id}/notify`, {
                 type: notifyType,
                 templateId: selectedTemplateId,
                 isTest: true,
-                targetAudience: 'test_stream'
+                targetAudience: 'test_stream',
+                excludeMemberIds: excludedMemberIds,
+                excludeGuestEmails: excludedGuestEmails
             });
             showToast(res.data?.message || "Test notifications queued successfully!");
         } catch (e: any) {
@@ -1097,7 +1289,16 @@ const AdminMeetingEditor: React.FC = () => {
                 {isEdit && (() => {
                     const membersList = meetingActions.filter(a => !a.is_guest);
                     const guestsList = meetingActions.filter(a => a.is_guest);
-                    const displayedActions = attendeeTab === 'members' ? membersList : attendeeTab === 'guests' ? guestsList : meetingActions;
+                    const goingList = meetingActions.filter(a => a.rsvp_status === 'going');
+                    const notGoingList = meetingActions.filter(a => a.rsvp_status === 'cant_go' || a.rsvp_status === 'not_going');
+                    const maybeList = meetingActions.filter(a => a.rsvp_status === 'not_sure' || a.rsvp_status === 'maybe');
+                    const displayedActions =
+                        attendeeTab === 'members' ? membersList :
+                        attendeeTab === 'guests' ? guestsList :
+                        attendeeTab === 'going' ? goingList :
+                        attendeeTab === 'not_going' ? notGoingList :
+                        attendeeTab === 'maybe' ? maybeList :
+                        meetingActions;
 
                     return (
                         <Card className="border-zinc-100 dark:border-zinc-800 shadow-xl shadow-zinc-200/50 dark:shadow-none overflow-hidden">
@@ -1140,7 +1341,7 @@ const AdminMeetingEditor: React.FC = () => {
                             <div className={openSections.attendees ? 'block' : 'hidden'}>
                                 <div className="p-4 sm:p-5 bg-zinc-50/50 dark:bg-zinc-900/30 border-b border-zinc-100 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                     {/* Filter Tabs */}
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex flex-wrap items-center gap-2">
                                         <button
                                             type="button"
                                             onClick={() => setAttendeeTab('all')}
@@ -1162,16 +1363,47 @@ const AdminMeetingEditor: React.FC = () => {
                                         >
                                             Guests ({guestsList.length})
                                         </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setAttendeeTab('going')}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${attendeeTab === 'going' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200'}`}
+                                        >
+                                            Going ({goingList.length})
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setAttendeeTab('not_going')}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${attendeeTab === 'not_going' ? 'bg-red-600 text-white shadow-sm' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200'}`}
+                                        >
+                                            Not Going ({notGoingList.length})
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setAttendeeTab('maybe')}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${attendeeTab === 'maybe' ? 'bg-amber-600 text-white shadow-sm' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200'}`}
+                                        >
+                                            Maybe ({maybeList.length})
+                                        </button>
                                     </div>
-                                    <button
-                                        type="button"
-                                        onClick={exportToExcel}
-                                        disabled={meetingActions.length === 0}
-                                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer self-start sm:self-auto"
-                                    >
-                                        <ArrowDownTrayIcon className="w-4 h-4 text-white" />
-                                        <span>Export to Excel</span>
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={handleOpenAddAttendee}
+                                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition-all active:scale-[0.98] cursor-pointer"
+                                        >
+                                            <UserPlusIcon className="w-4 h-4 text-white" />
+                                            <span>Add Member</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={exportToExcel}
+                                            disabled={meetingActions.length === 0}
+                                            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer self-start sm:self-auto"
+                                        >
+                                            <ArrowDownTrayIcon className="w-4 h-4 text-white" />
+                                            <span>Export to Excel</span>
+                                        </button>
+                                    </div>
                                 </div>
                             {displayedActions.length === 0 ? (
                                 <div className="p-8 text-center text-zinc-500 dark:text-zinc-400 font-medium">
@@ -1190,6 +1422,7 @@ const AdminMeetingEditor: React.FC = () => {
                                                 {isPaid && <th className="px-2.5 py-2">Payment Status</th>}
                                                 {isPaid && <th className="px-2.5 py-2">Amount</th>}
                                                 {isPaid && <th className="px-2.5 py-2">Payment Proof</th>}
+                                                <th className="px-2.5 py-2 text-right">Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/50">
@@ -1265,6 +1498,28 @@ const AdminMeetingEditor: React.FC = () => {
                                                             )}
                                                         </td>
                                                     )}
+                                                    <td className="px-2.5 py-2 text-right">
+                                                        <div className="flex items-center justify-end gap-1">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleOpenEditAttendee(action)}
+                                                                className="p-1.5 rounded-lg text-zinc-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 dark:hover:text-indigo-400 transition-colors cursor-pointer"
+                                                                title="Edit RSVP & Payment"
+                                                                aria-label="Edit attendee"
+                                                            >
+                                                                <PencilSquareIcon className="w-4 h-4" />
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleDeleteAttendee(action)}
+                                                                className="p-1.5 rounded-lg text-zinc-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 dark:hover:text-red-400 transition-colors cursor-pointer"
+                                                                title="Remove attendee"
+                                                                aria-label="Remove attendee"
+                                                            >
+                                                                <TrashIcon className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    </td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -2064,225 +2319,452 @@ const AdminMeetingEditor: React.FC = () => {
             </form>
 
             {/* Notification Modal */}
-            {showNotifyModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-zinc-950/60 backdrop-blur-sm animate-in fade-in duration-300">
-                    <div className="bg-white dark:bg-zinc-900 rounded-[2.5rem] shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col relative border border-zinc-100 dark:border-zinc-800 animate-in zoom-in-95 duration-300 overflow-hidden">
-                        {/* Header */}
-                        <div className="p-8 pb-4 relative shrink-0 border-b border-zinc-100 dark:border-zinc-800/60">
-                            <button
-                                onClick={() => setShowNotifyModal(false)}
-                                className="absolute top-8 right-8 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors p-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                            >
-                                <XMarkIcon className="w-6 h-6" />
-                            </button>
+            {showNotifyModal && (() => {
+                const effectiveRecipientsCount = recipients.filter(r => 
+                    r.is_guest 
+                        ? !excludedGuestEmails.includes((r.email || '').toLowerCase())
+                        : !excludedMemberIds.includes(r.id)
+                ).length;
+                const totalExcludedCount = recipients.length - effectiveRecipientsCount;
 
-                            <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest mb-3 ${notifyType === 'email' ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-600' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600'}`}>
-                                {notifyType === 'email' ? 'Email Broadcaster' : 'WhatsApp Broadcaster'}
+                return (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-zinc-950/60 backdrop-blur-sm animate-in fade-in duration-300">
+                        <div className="bg-white dark:bg-zinc-900 rounded-[2.5rem] shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col relative border border-zinc-100 dark:border-zinc-800 animate-in zoom-in-95 duration-300 overflow-hidden">
+                            {/* Header */}
+                            <div className="p-8 pb-4 relative shrink-0 border-b border-zinc-100 dark:border-zinc-800/60">
+                                <button
+                                    onClick={() => setShowNotifyModal(false)}
+                                    className="absolute top-8 right-8 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors p-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
+                                    aria-label="Close modal"
+                                >
+                                    <XMarkIcon className="w-6 h-6" />
+                                </button>
+
+                                <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest mb-3 ${notifyType === 'email' ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-600' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600'}`}>
+                                    {notifyType === 'email' ? 'Email Broadcaster' : 'WhatsApp Broadcaster'}
+                                </div>
+                                <h3 className="text-3xl font-black text-zinc-900 dark:text-white leading-tight tracking-tighter uppercase italic">
+                                    Select <span className={notifyType === 'email' ? 'text-indigo-600' : 'text-emerald-600'}>Template</span>
+                                </h3>
+                                <p className="text-zinc-500 dark:text-zinc-400 text-sm font-medium mt-1">
+                                    Choose a notification template and target audience to send to participants.
+                                </p>
                             </div>
-                            <h3 className="text-3xl font-black text-zinc-900 dark:text-white leading-tight tracking-tighter uppercase italic">
-                                Select <span className={notifyType === 'email' ? 'text-indigo-600' : 'text-emerald-600'}>Template</span>
-                            </h3>
-                            <p className="text-zinc-500 dark:text-zinc-400 text-sm font-medium mt-1">
-                                Choose a notification template and target audience to send to participants.
-                            </p>
-                        </div>
 
-                        {/* Scrollable Body */}
-                        <div className="p-8 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
-                            {/* Target Audience Selector */}
-                            <div>
-                                {(() => {
-                                    const currentStream = streams.find(s => String(s.id) === String(watch('stream_id')));
-                                    const totalStreamMembers = currentStream?.member_count ?? streamMemberCount;
-                                    const respondedUserIds = new Set(
-                                        meetingActions
-                                            .filter(a => ['going', 'not_sure', 'cant_go'].includes(a.rsvp_status))
-                                            .map(a => a.user_id || a.id)
-                                            .filter(Boolean)
-                                    );
-                                    const noResponseCount = Math.max(0, totalStreamMembers - respondedUserIds.size);
+                            {/* Scrollable Body */}
+                            <div className="p-8 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
+                                {/* Target Audience Selector */}
+                                <div>
+                                    {(() => {
+                                        const currentStream = streams.find(s => String(s.id) === String(watch('stream_id')));
+                                        const totalStreamMembers = currentStream?.member_count ?? streamMemberCount;
+                                        const respondedUserIds = new Set(
+                                            meetingActions
+                                                .filter(a => ['going', 'not_sure', 'cant_go'].includes(a.rsvp_status))
+                                                .map(a => a.user_id || a.id)
+                                                .filter(Boolean)
+                                        );
+                                        const noResponseCount = Math.max(0, totalStreamMembers - respondedUserIds.size);
 
-                                    return (
-                                        <>
-                                            <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2 flex items-center justify-between">
-                                                <span className="flex items-center gap-1.5">
-                                                    <UsersIcon className="w-4 h-4 text-zinc-400" />
-                                                    Send To (Recipient Filter)
-                                                </span>
-                                                {targetAudience === 'all' && totalStreamMembers > 0 ? (
-                                                    <span className="text-[10px] text-zinc-400 font-bold lowercase">
-                                                        {totalStreamMembers} stream members
+                                        return (
+                                            <>
+                                                <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2 flex items-center justify-between">
+                                                    <span className="flex items-center gap-1.5">
+                                                        <UsersIcon className="w-4 h-4 text-zinc-400" />
+                                                        Send To (Recipient Filter)
                                                     </span>
-                                                ) : targetAudience === 'no_response' ? (
-                                                    <span className="text-[10px] text-zinc-400 font-bold lowercase">
-                                                        {noResponseCount} members with no RSVP response
-                                                    </span>
-                                                ) : targetAudience !== 'all' ? (
-                                                    <span className="text-[10px] text-zinc-400 font-bold lowercase">
-                                                        {meetingActions.filter(a => {
-                                                            if (targetAudience === 'going') return a.rsvp_status === 'going';
-                                                            if (targetAudience === 'going_unpaid') {
-                                                                const isPaid = ['paid', 'paid_online', 'paid_cash'].includes(a.payment_status) || Number(a.paid_amount) > 0;
-                                                                return a.rsvp_status === 'going' && !isPaid;
-                                                            }
-                                                            if (targetAudience === 'maybe') return a.rsvp_status === 'not_sure';
-                                                            if (targetAudience === 'no') return a.rsvp_status === 'cant_go';
-                                                            if (targetAudience === 'paid') return ['paid', 'paid_online', 'paid_cash'].includes(a.payment_status) || Number(a.paid_amount) > 0;
-                                                            if (targetAudience === 'checked_in') return a.checked_in == 1;
-                                                            return true;
-                                                        }).length} matching responses recorded
-                                                    </span>
-                                                ) : null}
-                                            </label>
-                                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                                                {[
-                                                    { id: 'all', label: 'Everyone in Stream', desc: 'All stream members' },
-                                                    { id: 'going', label: 'Going', desc: 'RSVP Going' },
-                                                    { id: 'maybe', label: 'Maybe', desc: 'RSVP Maybe' },
-                                                    { id: 'no', label: 'No', desc: 'RSVP Can\'t Go' },
-                                                    { id: 'no_response', label: 'No Response', desc: 'No RSVP response' },
-                                                    { id: 'going_unpaid', label: 'Going (Unpaid)', desc: 'RSVP Going but unpaid' },
-                                                    { id: 'paid', label: 'Paid', desc: 'Completed Payment' },
-                                                    { id: 'checked_in', label: 'Checked In', desc: 'Checked in at venue' },
-                                                ].map((opt) => {
-                                                    const isSelected = targetAudience === opt.id;
-                                                    const count = opt.id === 'all'
-                                                        ? undefined
-                                                        : opt.id === 'no_response'
-                                                            ? noResponseCount
-                                                            : meetingActions.filter(a => {
-                                                                if (opt.id === 'going') return a.rsvp_status === 'going';
-                                                                if (opt.id === 'going_unpaid') {
+                                                    {totalExcludedCount > 0 ? (
+                                                        <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">
+                                                            {effectiveRecipientsCount} will receive ({totalExcludedCount} excluded)
+                                                        </span>
+                                                    ) : targetAudience === 'all' && totalStreamMembers > 0 ? (
+                                                        <span className="text-[10px] text-zinc-400 font-bold lowercase">
+                                                            {totalStreamMembers} stream members
+                                                        </span>
+                                                    ) : targetAudience === 'no_response' ? (
+                                                        <span className="text-[10px] text-zinc-400 font-bold lowercase">
+                                                            {noResponseCount} members with no RSVP response
+                                                        </span>
+                                                    ) : targetAudience !== 'all' ? (
+                                                        <span className="text-[10px] text-zinc-400 font-bold lowercase">
+                                                            {meetingActions.filter(a => {
+                                                                if (targetAudience === 'going') return a.rsvp_status === 'going';
+                                                                if (targetAudience === 'going_unpaid') {
                                                                     const isPaid = ['paid', 'paid_online', 'paid_cash'].includes(a.payment_status) || Number(a.paid_amount) > 0;
                                                                     return a.rsvp_status === 'going' && !isPaid;
                                                                 }
-                                                                if (opt.id === 'maybe') return a.rsvp_status === 'not_sure';
-                                                                if (opt.id === 'no') return a.rsvp_status === 'cant_go';
-                                                                if (opt.id === 'paid') return ['paid', 'paid_online', 'paid_cash'].includes(a.payment_status) || Number(a.paid_amount) > 0;
-                                                                if (opt.id === 'checked_in') return a.checked_in == 1;
+                                                                if (targetAudience === 'maybe') return a.rsvp_status === 'not_sure';
+                                                                if (targetAudience === 'no') return a.rsvp_status === 'cant_go';
+                                                                if (targetAudience === 'paid') return ['paid', 'paid_online', 'paid_cash'].includes(a.payment_status) || Number(a.paid_amount) > 0;
+                                                                if (targetAudience === 'checked_in') return a.checked_in == 1;
                                                                 return true;
-                                                            }).length;
+                                                            }).length} matching responses recorded
+                                                        </span>
+                                                    ) : null}
+                                                </label>
+                                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                                                    {[
+                                                        { id: 'all', label: 'Everyone in Stream', desc: 'All stream members' },
+                                                        { id: 'going', label: 'Going', desc: 'RSVP Going' },
+                                                        { id: 'maybe', label: 'Maybe', desc: 'RSVP Maybe' },
+                                                        { id: 'no', label: 'No', desc: 'RSVP Can\'t Go' },
+                                                        { id: 'no_response', label: 'No Response', desc: 'No RSVP response' },
+                                                        { id: 'going_unpaid', label: 'Going (Unpaid)', desc: 'RSVP Going but unpaid' },
+                                                        { id: 'paid', label: 'Paid', desc: 'Completed Payment' },
+                                                        { id: 'checked_in', label: 'Checked In', desc: 'Checked in at venue' },
+                                                    ].map((opt) => {
+                                                        const isSelected = targetAudience === opt.id;
+                                                        const count = opt.id === 'all'
+                                                            ? undefined
+                                                            : opt.id === 'no_response'
+                                                                ? noResponseCount
+                                                                : meetingActions.filter(a => {
+                                                                    if (opt.id === 'going') return a.rsvp_status === 'going';
+                                                                    if (opt.id === 'going_unpaid') {
+                                                                        const isPaid = ['paid', 'paid_online', 'paid_cash'].includes(a.payment_status) || Number(a.paid_amount) > 0;
+                                                                        return a.rsvp_status === 'going' && !isPaid;
+                                                                    }
+                                                                    if (opt.id === 'maybe') return a.rsvp_status === 'not_sure';
+                                                                    if (opt.id === 'no') return a.rsvp_status === 'cant_go';
+                                                                    if (opt.id === 'paid') return ['paid', 'paid_online', 'paid_cash'].includes(a.payment_status) || Number(a.paid_amount) > 0;
+                                                                    if (opt.id === 'checked_in') return a.checked_in == 1;
+                                                                    return true;
+                                                                }).length;
 
-                                                    return (
-                                                        <button
-                                                            key={opt.id}
-                                                            type="button"
-                                                            onClick={() => setTargetAudience(opt.id as TargetAudience)}
-                                                            className={`p-3 rounded-2xl border text-left transition-all relative ${isSelected
-                                                                ? notifyType === 'email'
-                                                                    ? 'bg-indigo-50/80 dark:bg-indigo-950/40 border-indigo-500 text-indigo-950 dark:text-indigo-200 ring-2 ring-indigo-500/20'
-                                                                    : 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-500 text-emerald-950 dark:text-emerald-200 ring-2 ring-emerald-500/20'
-                                                                : 'bg-zinc-50 dark:bg-zinc-950/50 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-700'
-                                                                }`}
-                                                        >
-                                                            <div className="flex items-center justify-between gap-1 mb-0.5">
-                                                                <span className="font-bold text-xs">{opt.label}</span>
-                                                                {count !== undefined && (
-                                                                    <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${isSelected
-                                                                        ? notifyType === 'email'
-                                                                            ? 'bg-indigo-600 text-white'
-                                                                            : 'bg-emerald-600 text-white'
-                                                                        : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
-                                                                        }`}>
-                                                                        {count}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                            <p className="text-[10px] text-zinc-400 dark:text-zinc-500 truncate">{opt.desc}</p>
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        </>
-                                    );
-                                })()}
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Available Templates</label>
-                                <div className="relative">
-                                    <ChevronDownIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400 pointer-events-none" />
-                                    <select
-                                        value={selectedTemplateId || ''}
-                                        onChange={(e) => setSelectedTemplateId(e.target.value)}
-                                        className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 px-6 h-14 font-medium appearance-none"
-                                    >
-                                        {(notifyType === 'email' ? emailTemplates : whatsappTemplates).map(t => (
-                                            <option key={t.id} value={t.id}>{t.title} {t.subject ? `(${t.subject})` : ''}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div className="bg-zinc-50 dark:bg-zinc-950 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800">
-                                <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-black uppercase tracking-widest mb-3">Content Preview</p>
-                                <div className="max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
-                                    {(() => {
-                                        const templates = notifyType === 'email' ? emailTemplates : whatsappTemplates;
-                                        const selected = templates.find(t => String(t.id) === String(selectedTemplateId));
-                                        if (!selected) return <p className="text-zinc-400 italic text-sm">No template selected</p>;
-                                        return (
-                                            <div className="space-y-4">
-                                                {selected.subject && (
-                                                    <div>
-                                                        <p className="text-[10px] font-black uppercase text-zinc-400">Subject:</p>
-                                                        <p className="text-sm font-bold text-zinc-900 dark:text-white">{selected.subject}</p>
-                                                    </div>
-                                                )}
-                                                <div>
-                                                    <p className="text-[10px] font-black uppercase text-zinc-400">Message Body:</p>
-                                                    <div
-                                                        className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed whitespace-pre-wrap mt-1"
-                                                        dangerouslySetInnerHTML={{ __html: selected.content || selected.message || selected.body || '' }}
-                                                    />
+                                                        return (
+                                                            <button
+                                                                key={opt.id}
+                                                                type="button"
+                                                                onClick={() => setTargetAudience(opt.id as TargetAudience)}
+                                                                className={`p-3 rounded-2xl border text-left transition-all relative ${isSelected
+                                                                    ? notifyType === 'email'
+                                                                        ? 'bg-indigo-50/80 dark:bg-indigo-950/40 border-indigo-500 text-indigo-950 dark:text-indigo-200 ring-2 ring-indigo-500/20'
+                                                                        : 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-500 text-emerald-950 dark:text-emerald-200 ring-2 ring-emerald-500/20'
+                                                                    : 'bg-zinc-50 dark:bg-zinc-950/50 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-700'
+                                                                    }`}
+                                                            >
+                                                                <div className="flex items-center justify-between gap-1 mb-0.5">
+                                                                    <span className="font-bold text-xs">{opt.label}</span>
+                                                                    {count !== undefined && (
+                                                                        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${isSelected
+                                                                            ? notifyType === 'email'
+                                                                                ? 'bg-indigo-600 text-white'
+                                                                                : 'bg-emerald-600 text-white'
+                                                                            : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
+                                                                            }`}>
+                                                                            {count}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <p className="text-[10px] text-zinc-400 dark:text-zinc-500 truncate">{opt.desc}</p>
+                                                            </button>
+                                                        );
+                                                    })}
                                                 </div>
-                                            </div>
+                                            </>
                                         );
                                     })()}
                                 </div>
+
+                                {/* Member Exclusion Section */}
+                                <div className="bg-zinc-50 dark:bg-zinc-950 p-5 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-4">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <div className="flex items-center gap-2">
+                                            <UserMinusIcon className="w-4 h-4 text-zinc-500" />
+                                            <span className="text-xs font-black uppercase tracking-widest text-zinc-700 dark:text-zinc-300">
+                                                Exclude Specific Members
+                                            </span>
+                                            {totalExcludedCount > 0 && (
+                                                <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 text-[10px] font-black">
+                                                    {totalExcludedCount} excluded
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            {totalExcludedCount > 0 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setExcludedMemberIds([]);
+                                                        setExcludedGuestEmails([]);
+                                                    }}
+                                                    className="text-[10px] font-bold text-rose-600 hover:text-rose-700 dark:text-rose-400 uppercase tracking-wider cursor-pointer"
+                                                >
+                                                    Clear Exclusions
+                                                </button>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowAllRecipientsList(prev => !prev)}
+                                                className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline uppercase tracking-wider cursor-pointer flex items-center gap-1"
+                                            >
+                                                {showAllRecipientsList ? 'Hide Recipient List' : `Browse List (${recipients.length})`}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Search Box with Autocomplete Dropdown */}
+                                    <div className="relative">
+                                        <div className="relative">
+                                            <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+                                            <input
+                                                type="text"
+                                                value={recipientSearch}
+                                                onChange={e => setRecipientSearch(e.target.value)}
+                                                placeholder="Search member name, phone or email to exclude..."
+                                                className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl pl-11 pr-10 py-2.5 text-xs text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                            />
+                                            {recipientSearch && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setRecipientSearch('')}
+                                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1 cursor-pointer"
+                                                >
+                                                    <XMarkIcon className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {/* Autocomplete Search Dropdown */}
+                                        {recipientSearch.trim().length > 0 && (
+                                            <div className="absolute left-0 right-0 top-full mt-1.5 z-20 bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-56 overflow-y-auto custom-scrollbar p-2 space-y-1">
+                                                {(() => {
+                                                    const q = recipientSearch.toLowerCase().trim();
+                                                    const filtered = recipients.filter(r => 
+                                                        (r.full_name || '').toLowerCase().includes(q) ||
+                                                        (r.email || '').toLowerCase().includes(q) ||
+                                                        (r.phone || '').includes(q)
+                                                    );
+                                                    if (filtered.length === 0) {
+                                                        return <p className="text-center py-4 text-xs text-zinc-400 font-medium">No matching members found in this audience</p>;
+                                                    }
+                                                    return filtered.map(r => {
+                                                        const isExcluded = r.is_guest 
+                                                            ? excludedGuestEmails.includes((r.email || '').toLowerCase())
+                                                            : excludedMemberIds.includes(r.id);
+                                                        return (
+                                                            <div
+                                                                key={r.is_guest ? `g_${r.email}` : `m_${r.id}`}
+                                                                onClick={() => toggleExcludeRecipient(r)}
+                                                                className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-colors ${
+                                                                    isExcluded 
+                                                                        ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200'
+                                                                        : 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-900 dark:text-zinc-200'
+                                                                }`}
+                                                            >
+                                                                <div className="flex items-center gap-2.5 min-w-0">
+                                                                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${
+                                                                        isExcluded 
+                                                                            ? 'bg-rose-200 dark:bg-rose-900 text-rose-800 dark:text-rose-200' 
+                                                                            : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
+                                                                    }`}>
+                                                                        {r.first_name?.[0]?.toUpperCase() || 'M'}
+                                                                    </div>
+                                                                    <div className="min-w-0">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <p className="text-xs font-bold truncate">{r.full_name}</p>
+                                                                            {r.is_guest && (
+                                                                                <span className="text-[9px] px-1.5 py-0.2 bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded font-semibold">Guest</span>
+                                                                            )}
+                                                                        </div>
+                                                                        <p className="text-[10px] text-zinc-400 truncate">
+                                                                            {notifyType === 'whatsapp' ? (r.phone || 'No phone') : (r.email || 'No email')}
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="shrink-0 flex items-center gap-1.5">
+                                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg ${
+                                                                        isExcluded 
+                                                                            ? 'bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300' 
+                                                                            : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
+                                                                    }`}>
+                                                                        {isExcluded ? 'Excluded' : '+ Exclude'}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    });
+                                                })()}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Excluded Members Chips / Pills */}
+                                    {(() => {
+                                        const excludedList = recipients.filter(r => 
+                                            r.is_guest 
+                                                ? excludedGuestEmails.includes((r.email || '').toLowerCase())
+                                                : excludedMemberIds.includes(r.id)
+                                        );
+                                        if (excludedList.length === 0) return null;
+                                        return (
+                                            <div className="flex flex-wrap gap-1.5 pt-1">
+                                                {excludedList.map(r => (
+                                                    <span
+                                                        key={r.is_guest ? `chip_g_${r.email}` : `chip_m_${r.id}`}
+                                                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-medium bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/50"
+                                                    >
+                                                        <span className="font-bold">{r.full_name}</span>
+                                                        <span className="text-[10px] opacity-75">
+                                                            ({notifyType === 'whatsapp' ? (r.phone || 'No phone') : (r.email || 'No email')})
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => toggleExcludeRecipient(r)}
+                                                            className="text-rose-500 hover:text-rose-700 dark:hover:text-rose-200 p-0.5 rounded-md hover:bg-rose-200/50 cursor-pointer"
+                                                            title="Remove exclusion"
+                                                        >
+                                                            <XMarkIcon className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {/* Collapsible Full Audience Checklist */}
+                                    {showAllRecipientsList && (
+                                        <div className="mt-3 pt-3 border-t border-zinc-200 dark:border-zinc-800 space-y-2">
+                                            <div className="flex items-center justify-between text-[11px] text-zinc-500 font-bold px-1">
+                                                <span>Recipients in this Audience ({recipients.length})</span>
+                                                <span className="text-[10px] font-normal text-zinc-400">Uncheck to exclude from send</span>
+                                            </div>
+                                            <div className="max-h-48 overflow-y-auto custom-scrollbar border border-zinc-200 dark:border-zinc-800 rounded-2xl p-2 bg-white dark:bg-zinc-900 space-y-1">
+                                                {loadingRecipients ? (
+                                                    <p className="text-center py-4 text-xs text-zinc-400">Loading recipients...</p>
+                                                ) : recipients.length === 0 ? (
+                                                    <p className="text-center py-4 text-xs text-zinc-400">No recipients in this audience</p>
+                                                ) : (
+                                                    recipients.map(r => {
+                                                        const isExcluded = r.is_guest
+                                                            ? excludedGuestEmails.includes((r.email || '').toLowerCase())
+                                                            : excludedMemberIds.includes(r.id);
+                                                        const isChecked = !isExcluded;
+                                                        return (
+                                                            <label
+                                                                key={r.is_guest ? `list_g_${r.email}` : `list_m_${r.id}`}
+                                                                className={`flex items-center justify-between p-2 rounded-xl text-xs cursor-pointer select-none transition-colors ${
+                                                                    isExcluded 
+                                                                        ? 'bg-rose-50/50 dark:bg-rose-950/20 opacity-60' 
+                                                                        : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
+                                                                }`}
+                                                            >
+                                                                <div className="flex items-center gap-2.5 min-w-0">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={isChecked}
+                                                                        onChange={() => toggleExcludeRecipient(r)}
+                                                                        className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-zinc-300 dark:border-zinc-700 cursor-pointer"
+                                                                    />
+                                                                    <div className="min-w-0">
+                                                                        <span className={`font-bold ${isExcluded ? 'line-through text-zinc-400' : 'text-zinc-800 dark:text-zinc-200'}`}>
+                                                                            {r.full_name}
+                                                                        </span>
+                                                                        <span className="text-[10px] text-zinc-400 ml-2">
+                                                                            {notifyType === 'whatsapp' ? (r.phone || 'No phone') : (r.email || 'No email')}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                                {r.rsvp_status && (
+                                                                    <span className="text-[9px] uppercase tracking-wider font-black px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 shrink-0">
+                                                                        {r.rsvp_status}
+                                                                    </span>
+                                                                )}
+                                                            </label>
+                                                        );
+                                                    })
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Available Templates</label>
+                                    <div className="relative">
+                                        <ChevronDownIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400 pointer-events-none" />
+                                        <select
+                                            value={selectedTemplateId || ''}
+                                            onChange={(e) => setSelectedTemplateId(e.target.value)}
+                                            className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 px-6 h-14 font-medium appearance-none"
+                                        >
+                                            {(notifyType === 'email' ? emailTemplates : whatsappTemplates).map(t => (
+                                                <option key={t.id} value={t.id}>{t.title} {t.subject ? `(${t.subject})` : ''}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="bg-zinc-50 dark:bg-zinc-950 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800">
+                                    <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-black uppercase tracking-widest mb-3">Content Preview</p>
+                                    <div className="max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
+                                        {(() => {
+                                            const templates = notifyType === 'email' ? emailTemplates : whatsappTemplates;
+                                            const selected = templates.find(t => String(t.id) === String(selectedTemplateId));
+                                            if (!selected) return <p className="text-zinc-400 italic text-sm">No template selected</p>;
+                                            return (
+                                                <div className="space-y-4">
+                                                    {selected.subject && (
+                                                        <div>
+                                                            <p className="text-[10px] font-black uppercase text-zinc-400">Subject:</p>
+                                                            <p className="text-sm font-bold text-zinc-900 dark:text-white">{selected.subject}</p>
+                                                        </div>
+                                                    )}
+                                                    <div>
+                                                        <p className="text-[10px] font-black uppercase text-zinc-400">Message Body:</p>
+                                                        <div
+                                                            className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed whitespace-pre-wrap mt-1"
+                                                            dangerouslySetInnerHTML={{ __html: selected.content || selected.message || selected.body || '' }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Fixed Footer */}
+                            <div className="p-6 pt-4 border-t border-zinc-100 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/50 shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={executeTestNotify}
+                                    loading={testNotifying}
+                                    title="Send test notification strictly to all members in Testing Stream (ID #16)"
+                                    className="justify-center py-4 px-5 rounded-2xl border border-amber-300 dark:border-amber-700/70 text-amber-700 dark:text-amber-300 bg-amber-50/60 dark:bg-amber-950/20 hover:bg-amber-100/70 dark:hover:bg-amber-950/40 font-black text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2"
+                                >
+                                    <BeakerIcon className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                                    <span>Test (Testing Stream #16)</span>
+                                    {(() => {
+                                        const testingStream = streams.find(s => Number(s.id) === 16);
+                                        if (!testingStream || testingStream.member_count === undefined) return null;
+                                        return (
+                                            <span className="text-[10px] font-black bg-amber-200/80 dark:bg-amber-900/70 px-2 py-0.5 rounded-full text-amber-900 dark:text-amber-200">
+                                                {testingStream.member_count}
+                                            </span>
+                                        );
+                                    })()}
+                                </Button>
+                                <Button
+                                    onClick={executeNotify}
+                                    loading={notifying}
+                                    className={`flex-1 justify-center py-4 rounded-2xl shadow-xl ${notifyType === 'email' ? 'shadow-indigo-600/20' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'}`}
+                                >
+                                    Confirm & Send {notifyType === 'email' ? 'Email' : 'WhatsApp'} {effectiveRecipientsCount > 0 ? `(${effectiveRecipientsCount})` : ''}
+                                </Button>
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => setShowNotifyModal(false)}
+                                    className="px-8 justify-center py-4 rounded-2xl"
+                                >
+                                    Cancel
+                                </Button>
                             </div>
                         </div>
-
-                        {/* Fixed Footer */}
-                        <div className="p-6 pt-4 border-t border-zinc-100 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/50 shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={executeTestNotify}
-                                loading={testNotifying}
-                                title="Send test notification strictly to all members in Testing Stream (ID #16)"
-                                className="justify-center py-4 px-5 rounded-2xl border border-amber-300 dark:border-amber-700/70 text-amber-700 dark:text-amber-300 bg-amber-50/60 dark:bg-amber-950/20 hover:bg-amber-100/70 dark:hover:bg-amber-950/40 font-black text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2"
-                            >
-                                <BeakerIcon className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                                <span>Test (Testing Stream #16)</span>
-                                {(() => {
-                                    const testingStream = streams.find(s => Number(s.id) === 16);
-                                    if (!testingStream || testingStream.member_count === undefined) return null;
-                                    return (
-                                        <span className="text-[10px] font-black bg-amber-200/80 dark:bg-amber-900/70 px-2 py-0.5 rounded-full text-amber-900 dark:text-amber-200">
-                                            {testingStream.member_count}
-                                        </span>
-                                    );
-                                })()}
-                            </Button>
-                            <Button
-                                onClick={executeNotify}
-                                loading={notifying}
-                                className={`flex-1 justify-center py-4 rounded-2xl shadow-xl ${notifyType === 'email' ? 'shadow-indigo-600/20' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'}`}
-                            >
-                                Confirm & Send {notifyType === 'email' ? 'Email' : 'WhatsApp'}
-                            </Button>
-                            <Button
-                                variant="secondary"
-                                onClick={() => setShowNotifyModal(false)}
-                                className="px-8 justify-center py-4 rounded-2xl"
-                            >
-                                Cancel
-                            </Button>
-                        </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
 
             {/* View Feedback Response Modal */}
             {selectedResponse && (
@@ -2447,6 +2929,449 @@ const AdminMeetingEditor: React.FC = () => {
                             >
                                 Close
                             </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Add Member RSVP Modal */}
+            {showAddAttendeeModal && (() => {
+                const selectedMemberData = allMembers.find(m => Number(m.id) === Number(addAttendeeUserId));
+                const isMemberAlreadyAttendee = addAttendeeUserId ? meetingActions.some(a => Number(a.user_id) === Number(addAttendeeUserId)) : false;
+                const filteredMembersForAdd = allMembers.filter(m => {
+                    if (!addAttendeeSearch.trim()) return true;
+                    const q = addAttendeeSearch.toLowerCase();
+                    const fullName = `${m.first_name || ''} ${m.last_name || ''}`.toLowerCase();
+                    const email = (m.email || '').toLowerCase();
+                    const phone = (m.phone || '').toLowerCase();
+                    return fullName.includes(q) || email.includes(q) || phone.includes(q);
+                });
+
+                return (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+                        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col max-h-[90vh]">
+                            {/* Modal Header */}
+                            <div className="p-5 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-100 dark:border-indigo-900/50">
+                                        <UserPlusIcon className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-base font-black text-zinc-900 dark:text-white uppercase tracking-wider">
+                                            Add Member RSVP
+                                        </h3>
+                                        <p className="text-xs text-zinc-400 font-medium">
+                                            Record RSVP & payment on behalf of a registered member
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAddAttendeeModal(false)}
+                                    className="p-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                                    aria-label="Close modal"
+                                >
+                                    <XMarkIcon className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            {/* Modal Body */}
+                            <div className="p-5 space-y-4 overflow-y-auto">
+                                {/* Member Search / Selector */}
+                                <div>
+                                    <label className="block text-xs font-black uppercase tracking-wider text-zinc-500 mb-1.5">
+                                        Select Member <span className="text-red-500">*</span>
+                                    </label>
+                                    {selectedMemberData ? (
+                                        <div className="p-3 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/50 flex items-center justify-between">
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <div className="w-9 h-9 rounded-full bg-indigo-600 text-white font-bold flex items-center justify-center text-xs shrink-0">
+                                                    {(selectedMemberData.first_name?.[0] || 'M') + (selectedMemberData.last_name?.[0] || '')}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="text-sm font-black text-zinc-900 dark:text-white truncate">
+                                                        {selectedMemberData.first_name} {selectedMemberData.last_name || ''}
+                                                    </div>
+                                                    <div className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                                                        {selectedMemberData.email || selectedMemberData.phone || 'No email/phone'}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setAddAttendeeUserId(null)}
+                                                className="px-2.5 py-1 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline shrink-0 cursor-pointer"
+                                            >
+                                                Change
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            <div className="relative">
+                                                <MagnifyingGlassIcon className="w-4 h-4 text-zinc-400 absolute left-3 top-3" />
+                                                <input
+                                                    type="text"
+                                                    value={addAttendeeSearch}
+                                                    onChange={(e) => setAddAttendeeSearch(e.target.value)}
+                                                    placeholder="Search by name, email, or phone..."
+                                                    className="w-full pl-9 pr-3 py-2 bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-medium text-zinc-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                                                />
+                                            </div>
+                                            {loadingMembers ? (
+                                                <div className="p-4 text-center text-xs text-zinc-400 font-medium">
+                                                    Loading members directory...
+                                                </div>
+                                            ) : (
+                                                <div className="max-h-40 overflow-y-auto divide-y divide-zinc-100 dark:divide-zinc-800 border border-zinc-100 dark:border-zinc-800 rounded-xl">
+                                                    {filteredMembersForAdd.length === 0 ? (
+                                                        <div className="p-3 text-center text-xs text-zinc-400">
+                                                            No members matching search
+                                                        </div>
+                                                    ) : (
+                                                        filteredMembersForAdd.slice(0, 20).map((m: any) => {
+                                                            const isAlreadyAttendee = meetingActions.some(a => Number(a.user_id) === Number(m.id));
+                                                            return (
+                                                                <button
+                                                                    key={m.id}
+                                                                    type="button"
+                                                                    onClick={() => setAddAttendeeUserId(m.id)}
+                                                                    className="w-full px-3 py-2 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/50 flex items-center justify-between gap-2 transition-colors cursor-pointer"
+                                                                >
+                                                                    <div className="min-w-0">
+                                                                        <div className="text-xs font-bold text-zinc-900 dark:text-white truncate">
+                                                                            {m.first_name} {m.last_name || ''}
+                                                                        </div>
+                                                                        <div className="text-[11px] text-zinc-400 truncate">
+                                                                            {m.email || m.phone}
+                                                                        </div>
+                                                                    </div>
+                                                                    {isAlreadyAttendee && (
+                                                                        <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shrink-0">
+                                                                            Already RSVP'd
+                                                                        </span>
+                                                                    )}
+                                                                </button>
+                                                            );
+                                                        })
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                    {isMemberAlreadyAttendee && (
+                                        <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1.5 font-medium">
+                                            Note: This member is already in the attendees list. Saving will update their RSVP status and payment details.
+                                        </p>
+                                    )}
+                                </div>
+
+                                {/* RSVP Status */}
+                                <div>
+                                    <label className="block text-xs font-black uppercase tracking-wider text-zinc-500 mb-1.5">
+                                        RSVP Status
+                                    </label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {(['going', 'not_sure', 'cant_go'] as const).map((status) => {
+                                            const label = status === 'going' ? 'Going' : status === 'not_sure' ? 'Maybe' : "Can't Go";
+                                            const isSelected = addAttendeeRsvp === status;
+                                            return (
+                                                <button
+                                                    key={status}
+                                                    type="button"
+                                                    onClick={() => setAddAttendeeRsvp(status)}
+                                                    className={`py-2 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer border ${
+                                                        isSelected
+                                                            ? status === 'going'
+                                                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                                                                : status === 'not_sure'
+                                                                ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
+                                                                : 'bg-red-600 text-white border-red-600 shadow-sm'
+                                                            : 'bg-zinc-50 dark:bg-zinc-800/60 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100'
+                                                    }`}
+                                                >
+                                                    {label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Check-in Toggle */}
+                                <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-800">
+                                    <div>
+                                        <div className="text-xs font-black uppercase tracking-wider text-zinc-900 dark:text-white">
+                                            Check-in Status
+                                        </div>
+                                        <div className="text-[11px] text-zinc-400">
+                                            Mark member as present at the venue
+                                        </div>
+                                    </div>
+                                    <label className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={addAttendeeCheckedIn}
+                                            onChange={(e) => setAddAttendeeCheckedIn(e.target.checked)}
+                                            className="sr-only peer"
+                                        />
+                                        <div className="w-11 h-6 bg-zinc-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-zinc-600 peer-checked:bg-emerald-600"></div>
+                                    </label>
+                                </div>
+
+                                {/* Payment Fields (if Paid Meeting) */}
+                                {isPaid ? (
+                                    <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-800 space-y-3">
+                                        <div className="text-xs font-black uppercase tracking-wider text-zinc-900 dark:text-white flex items-center gap-1.5">
+                                            <CurrencyRupeeIcon className="w-4 h-4 text-emerald-600" />
+                                            <span>Payment Details</span>
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="block text-[11px] font-bold text-zinc-500 mb-1">
+                                                    Payment Status
+                                                </label>
+                                                <select
+                                                    value={addAttendeePaymentStatus}
+                                                    onChange={(e) => setAddAttendeePaymentStatus(e.target.value)}
+                                                    className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs font-medium text-zinc-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                                                >
+                                                    <option value="pending">Pending</option>
+                                                    <option value="paid_online">Paid Online</option>
+                                                    <option value="paid_cash">Pay Cash at venue</option>
+                                                    <option value="paid">Paid</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-[11px] font-bold text-zinc-500 mb-1">
+                                                    Paid Amount (₹)
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    step="any"
+                                                    value={addAttendeePaidAmount}
+                                                    onChange={(e) => setAddAttendeePaidAmount(e.target.value)}
+                                                    className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs font-medium text-zinc-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : null}
+                            </div>
+
+                            {/* Modal Footer */}
+                            <div className="p-4 bg-zinc-50/50 dark:bg-zinc-900/50 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-end gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAddAttendeeModal(false)}
+                                    className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleSaveAddAttendee}
+                                    disabled={!addAttendeeUserId || submittingAttendee}
+                                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-600/20 disabled:opacity-50 disabled:pointer-events-none transition-all active:scale-[0.98] cursor-pointer"
+                                >
+                                    {submittingAttendee ? (
+                                        <>
+                                            <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                                            <span>Saving...</span>
+                                        </>
+                                    ) : (
+                                        <span>Save Attendee</span>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
+
+            {/* Edit Attendee RSVP & Payment Modal */}
+            {showEditAttendeeModal && selectedAttendeeForEdit && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col max-h-[90vh]">
+                        {/* Modal Header */}
+                        <div className="p-5 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-100 dark:border-indigo-900/50">
+                                    <PencilSquareIcon className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-black text-zinc-900 dark:text-white uppercase tracking-wider">
+                                        Edit Attendee
+                                    </h3>
+                                    <p className="text-xs text-zinc-400 font-medium">
+                                        Update RSVP and payment status for this attendee
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowEditAttendeeModal(false)}
+                                className="p-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                                aria-label="Close modal"
+                            >
+                                <XMarkIcon className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="p-5 space-y-4 overflow-y-auto">
+                            {/* Attendee Info Card */}
+                            <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm font-black text-zinc-900 dark:text-white truncate">
+                                            {selectedAttendeeForEdit.full_name || 'Attendee'}
+                                        </span>
+                                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${
+                                            selectedAttendeeForEdit.is_guest
+                                                ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                                                : 'bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800'
+                                        }`}>
+                                            {selectedAttendeeForEdit.is_guest ? 'Guest' : 'Member'}
+                                        </span>
+                                    </div>
+                                    <div className="text-xs text-zinc-400 truncate mt-0.5">
+                                        {selectedAttendeeForEdit.email || selectedAttendeeForEdit.phone || 'No contact info'}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* RSVP Status */}
+                            <div>
+                                <label className="block text-xs font-black uppercase tracking-wider text-zinc-500 mb-1.5">
+                                    RSVP Status
+                                </label>
+                                <div className="grid grid-cols-4 gap-2">
+                                    {(['going', 'not_sure', 'cant_go', 'none'] as const).map((status) => {
+                                        const label = status === 'going' ? 'Going' : status === 'not_sure' ? 'Maybe' : status === 'cant_go' ? "Can't Go" : 'None';
+                                        const isSelected = editAttendeeRsvp === status;
+                                        return (
+                                            <button
+                                                key={status}
+                                                type="button"
+                                                onClick={() => setEditAttendeeRsvp(status)}
+                                                className={`py-2 px-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer border ${
+                                                    isSelected
+                                                        ? status === 'going'
+                                                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                                                            : status === 'not_sure'
+                                                            ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
+                                                            : status === 'cant_go'
+                                                            ? 'bg-red-600 text-white border-red-600 shadow-sm'
+                                                            : 'bg-zinc-600 text-white border-zinc-600 shadow-sm'
+                                                        : 'bg-zinc-50 dark:bg-zinc-800/60 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100'
+                                                }`}
+                                            >
+                                                {label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Check-in Toggle */}
+                            <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-800">
+                                <div>
+                                    <div className="text-xs font-black uppercase tracking-wider text-zinc-900 dark:text-white">
+                                        Check-in Status
+                                    </div>
+                                    <div className="text-[11px] text-zinc-400">
+                                        Mark as checked in at event
+                                    </div>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={editAttendeeCheckedIn}
+                                        onChange={(e) => setEditAttendeeCheckedIn(e.target.checked)}
+                                        className="sr-only peer"
+                                    />
+                                    <div className="w-11 h-6 bg-zinc-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-zinc-600 peer-checked:bg-emerald-600"></div>
+                                </label>
+                            </div>
+
+                            {/* Payment Fields (if Paid Meeting) */}
+                            {isPaid ? (
+                                <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-800 space-y-3">
+                                    <div className="text-xs font-black uppercase tracking-wider text-zinc-900 dark:text-white flex items-center justify-between">
+                                        <span className="flex items-center gap-1.5">
+                                            <CurrencyRupeeIcon className="w-4 h-4 text-emerald-600" />
+                                            Payment Details
+                                        </span>
+                                        {selectedAttendeeForEdit.payment_proof_url && (
+                                            <a
+                                                href={selectedAttendeeForEdit.payment_proof_url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 font-bold lowercase"
+                                            >
+                                                <span>view proof</span>
+                                                <ArrowTopRightOnSquareIcon className="w-3 h-3" />
+                                            </a>
+                                        )}
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-zinc-500 mb-1">
+                                                Payment Status
+                                            </label>
+                                            <select
+                                                value={editAttendeePaymentStatus}
+                                                onChange={(e) => setEditAttendeePaymentStatus(e.target.value)}
+                                                className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs font-medium text-zinc-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                                            >
+                                                <option value="pending">Pending</option>
+                                                <option value="paid_online">Paid Online</option>
+                                                <option value="paid_cash">Pay Cash at venue</option>
+                                                <option value="paid">Paid</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-zinc-500 mb-1">
+                                                Paid Amount (₹)
+                                            </label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                step="any"
+                                                value={editAttendeePaidAmount}
+                                                onChange={(e) => setEditAttendeePaidAmount(e.target.value)}
+                                                className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs font-medium text-zinc-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : null}
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="p-4 bg-zinc-50/50 dark:bg-zinc-900/50 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-end gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setShowEditAttendeeModal(false)}
+                                className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleSaveEditAttendee}
+                                disabled={submittingEditAttendee}
+                                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-600/20 disabled:opacity-50 disabled:pointer-events-none transition-all active:scale-[0.98] cursor-pointer"
+                            >
+                                {submittingEditAttendee ? (
+                                    <>
+                                        <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                                        <span>Updating...</span>
+                                    </>
+                                ) : (
+                                    <span>Update Attendee</span>
+                                )}
+                            </button>
                         </div>
                     </div>
                 </div>

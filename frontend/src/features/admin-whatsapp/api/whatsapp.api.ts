@@ -61,3 +61,9 @@ export const retryWhatsAppBroadcast = async (id: number) => {
     const response = await axios.post(`/admin/whatsapp/broadcasts/${id}/retry`);
     return response.data;
 };
+
+export const stopWhatsAppBroadcast = async (id: number) => {
+    const response = await axios.post(`/admin/whatsapp/broadcasts/${id}/stop`);
+    return response.data;
+};
+

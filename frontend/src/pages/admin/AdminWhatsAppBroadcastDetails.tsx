@@ -8,11 +8,12 @@ import {
     ClockIcon,
     MegaphoneIcon,
     ArrowPathIcon,
-    PhotoIcon
+    PhotoIcon,
+    StopIcon
 } from '@heroicons/react/24/outline';
 import { formatDateTime } from '../../utils/date';
 import { Card } from '../../shared/components/ui/Card';
-import { getWhatsAppBroadcastById, retryWhatsAppBroadcast } from '../../features/admin-whatsapp/api/whatsapp.api';
+import { getWhatsAppBroadcastById, retryWhatsAppBroadcast, stopWhatsAppBroadcast } from '../../features/admin-whatsapp/api/whatsapp.api';
 
 interface BroadcastLogMember {
     first_name: string;
@@ -40,6 +41,7 @@ interface WhatsAppBroadcastDetail {
 const AdminWhatsAppBroadcastDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const [retrying, setRetrying] = React.useState(false);
+    const [stopping, setStopping] = React.useState(false);
     const [toast, setToast] = React.useState('');
     
     const { data: broadcast, isLoading, refetch } = useQuery<WhatsAppBroadcastDetail>({
@@ -51,6 +53,21 @@ const AdminWhatsAppBroadcastDetails: React.FC = () => {
     const showToast = (msg: string) => {
         setToast(msg);
         setTimeout(() => setToast(''), 3000);
+    };
+
+    const handleStop = async () => {
+        if (!window.confirm('Are you sure you want to stop this ongoing broadcast? Any unsent messages will not be dispatched.')) return;
+        setStopping(true);
+        try {
+            await stopWhatsAppBroadcast(Number(id));
+            showToast('Broadcast queue stopped');
+            refetch();
+        } catch (err) {
+            console.error('Stop failed:', err);
+            showToast('Failed to stop broadcast');
+        } finally {
+            setStopping(false);
+        }
     };
 
     const handleRetry = async () => {
@@ -136,6 +153,26 @@ const AdminWhatsAppBroadcastDetails: React.FC = () => {
                                 <p className="text-xs font-medium text-zinc-300 leading-relaxed italic">"{broadcast.content || (broadcast.image_url ? '[Photo Only]' : '')}"</p>
                             </div>
                         </div>
+
+                        {broadcast.status === 'ONGOING' && (
+                            <button
+                                onClick={handleStop}
+                                disabled={stopping}
+                                className="w-full py-4 bg-rose-600 hover:bg-rose-700 disabled:bg-zinc-800 disabled:text-zinc-500 rounded-xl text-xs font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-xl shadow-rose-500/20 text-white"
+                            >
+                                {stopping ? (
+                                    <>
+                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                        Stopping...
+                                    </>
+                                ) : (
+                                    <>
+                                        <StopIcon className="w-4 h-4" />
+                                        Stop Broadcast Queue
+                                    </>
+                                )}
+                            </button>
+                        )}
 
                         {broadcast.status !== 'ONGOING' && broadcast.logs?.some((log) => log.status.startsWith('failed')) && (
                             <button

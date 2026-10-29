@@ -40,11 +40,15 @@ export class WhatsAppService {
                 ],
                 headless: true
             },
-            userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+            userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
         };
 
         this.client = new Client(this.clientOptions);
         this.setupEventListeners();
+    }
+
+    public getIsReady(): boolean {
+        return this.isReady;
     }
 
     public static getInstance(): WhatsAppService {
@@ -249,23 +253,7 @@ export class WhatsAppService {
 
     public async refresh() {
         console.log('Manual Refresh Requested...');
-        if (this.client.pupPage) {
-            // Check if stuck on "Log out" reconnect screen
-            const clickedLogout = await this.client.pupPage.evaluate(() => {
-                const elements = Array.from(document.querySelectorAll('button, div[role="button"], span, a'));
-                const btn = elements.find(el => (el.textContent || '').trim().toLowerCase() === 'log out');
-                if (btn) {
-                    (btn as HTMLElement).click();
-                    return true;
-                }
-                return false;
-            }).catch(() => false);
-
-            if (clickedLogout) {
-                console.log('[WhatsApp] Clicked "Log out" button on WhatsApp Web screen!');
-                return true;
-            }
-
+        if (this.client?.pupPage) {
             await this.client.pupPage.reload({ waitUntil: 'networkidle0' }).catch(() => {});
             console.log('Page Reloaded Successfully');
             return true;
@@ -422,12 +410,13 @@ export class WhatsAppService {
     }
 
     /**
-     * Send a single message with retry logic for "detached frame" errors
+     * Send a single message with timeout protection and retry logic
      */
     public async sendMessage(to: string, content: string, memberId?: number, retryCount = 0, broadcastId?: number, mediaPath?: string): Promise<any> {
         try {
             // 1. Clean the number
             let cleanTo = to.replace(/\D/g, '');
+            if (cleanTo.length === 11 && cleanTo.startsWith('0')) cleanTo = cleanTo.slice(1);
             if (cleanTo.length === 10) cleanTo = '91' + cleanTo;
 
             // Check if WhatsApp browser page is initialized and ready
@@ -435,71 +424,68 @@ export class WhatsAppService {
                 throw new Error('WhatsApp service is currently reconnecting. Please try again shortly or sign in with your email address.');
             }
 
-            // 2. STABILITY: Try to use saved whatsapp_id from Member table first
-            let formattedTo: string | null = null;
+            // 2. Canonical recipient destination:
+            // In whatsapp-web.js, outgoing messages to individual contacts MUST use @c.us JIDs (e.g. 917773989325@c.us).
+            // Sending directly to @lid identifiers causes client.sendMessage to hang indefinitely because WhatsApp Web's
+            // internal Chat store is not indexed by LID for direct sends.
+            let formattedTo = `${cleanTo}@c.us`;
+
+            // Optionally verify WhatsApp registration with a 2.5s fail-safe timeout
+            try {
+                const numberIdPromise = this.client.getNumberId(cleanTo);
+                const timeoutNumberPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500));
+                const numberId: any = await Promise.race([numberIdPromise, timeoutNumberPromise]);
+                if (numberId?._serialized && !numberId._serialized.includes('@lid')) {
+                    formattedTo = numberId._serialized;
+                }
+            } catch {
+                formattedTo = `${cleanTo}@c.us`;
+            }
+
+            console.log(`[WhatsApp] Dispatching message to ${formattedTo} (Member ID: ${memberId || 'N/A'})...`);
+
+            // 3. Send with media or text, wrapped with fail-safe timeout to prevent hanging HTTP requests
+            const SEND_TIMEOUT_MS = 8000;
+            let sendPromise: Promise<any>;
+
+            if (mediaPath && fs.existsSync(mediaPath)) {
+                try {
+                    const media = MessageMedia.fromFilePath(path.resolve(mediaPath));
+                    sendPromise = this.client.sendMessage(formattedTo, media, { caption: content });
+                } catch (mediaErr) {
+                    console.error('[WhatsApp] Failed to attach media, falling back to text only:', mediaErr);
+                    sendPromise = this.client.sendMessage(formattedTo, content, { linkPreview: false });
+                }
+            } else {
+                sendPromise = this.client.sendMessage(formattedTo, content, { linkPreview: false });
+            }
+
+            let timeoutHandle: any;
+            const timeoutPromise = new Promise<never>((_, reject) => {
+                timeoutHandle = setTimeout(() => {
+                    reject(new Error('WhatsApp message delivery timed out after 8s'));
+                }, SEND_TIMEOUT_MS);
+            });
+
+            let response: any;
+            try {
+                response = await Promise.race([sendPromise, timeoutPromise]);
+            } finally {
+                clearTimeout(timeoutHandle);
+            }
+            
+            // 4. Save phone number as whatsapp_id if missing
             if (memberId) {
                 const member = await prisma.member.findUnique({
                     where: { id: memberId },
                     select: { whatsapp_id: true }
                 });
-                if (member?.whatsapp_id) {
-                    if (member.whatsapp_id.includes('@')) {
-                        formattedTo = member.whatsapp_id;
-                    } else if (member.whatsapp_id.length >= 14) {
-                        formattedTo = `${member.whatsapp_id}@lid`;
-                    } else {
-                        formattedTo = `${member.whatsapp_id}@c.us`;
-                    }
-                    console.log(`[WhatsApp] Using resolved member destination: ${formattedTo}`);
+                if (member && !member.whatsapp_id) {
+                    await prisma.member.update({
+                        where: { id: memberId },
+                        data: { whatsapp_id: cleanTo }
+                    }).catch(() => {});
                 }
-            }
-
-            // 3. Fallback to getNumberId if no ID saved
-            if (!formattedTo) {
-                console.log(`[WhatsApp] Resolving WhatsApp ID for: ${cleanTo}`);
-                try {
-                    const numberId = await this.client.getNumberId(cleanTo);
-                    if (numberId?._serialized) {
-                        formattedTo = numberId._serialized;
-                    } else {
-                        formattedTo = `${cleanTo}@c.us`;
-                    }
-                } catch {
-                    formattedTo = `${cleanTo}@c.us`;
-                }
-            }
-
-            // 4. Send (with media if mediaPath is provided)
-            let response: any;
-            if (mediaPath && fs.existsSync(mediaPath)) {
-                try {
-                    const media = MessageMedia.fromFilePath(path.resolve(mediaPath));
-                    response = await this.client.sendMessage(formattedTo, media, { caption: content });
-                } catch (mediaErr) {
-                    console.error('[WhatsApp] Failed to attach media, falling back to text only:', mediaErr);
-                    response = await this.client.sendMessage(formattedTo, content, { linkPreview: false });
-                }
-            } else {
-                try {
-                    response = await this.client.sendMessage(formattedTo, content, { linkPreview: false });
-                } catch (sendErr: any) {
-                    if (formattedTo !== `${cleanTo}@c.us`) {
-                        console.log(`[WhatsApp] Delivery to ${formattedTo} failed, retrying with direct phone ${cleanTo}@c.us...`);
-                        formattedTo = `${cleanTo}@c.us`;
-                        response = await this.client.sendMessage(formattedTo, content, { linkPreview: false });
-                    } else {
-                        throw sendErr;
-                    }
-                }
-            }
-            
-            // 5. Save the resolved ID back to the member record for next time
-            if (memberId && formattedTo) {
-                const idToSave = formattedTo.includes('@lid') ? formattedTo.split('@')[0] : cleanTo;
-                await prisma.member.update({
-                    where: { id: memberId },
-                    data: { whatsapp_id: idToSave }
-                }).catch(() => {});
             }
 
             await prisma.whatsAppLog.create({
@@ -528,26 +514,14 @@ export class WhatsAppService {
                                errorMsg.includes('reading \'evaluate\'') ||
                                errorMsg.includes('cannot read properties of null');
 
-            if (isDetached && retryCount < 3) {
-                console.log(`[WhatsApp] 🔄 DETACHED FRAME / BROWSER GLITCH DETECTED (Attempt ${retryCount + 1}). RECOVERING...`);
-                
+            if (isDetached && retryCount < 1) {
+                console.log(`[WhatsApp] 🔄 DETACHED FRAME DETECTED (Attempt ${retryCount + 1}). Recovering session...`);
                 try {
-                    if (retryCount === 2) {
-                        // THIRD STRIKE: Full Restart
-                        console.log(`[WhatsApp] ☢️ PERSISTENT DETACHED FRAME. PERFORMING FULL CLIENT RESTART...`);
-                        await this.restart().catch(() => {});
-                        await new Promise(r => setTimeout(r, 15000)); // Wait for full init
-                    } else {
-                        // STANDARD: Refresh
-                        await this.refresh().catch(() => {}); 
-                        const waitTime = (retryCount + 1) * 8000;
-                        console.log(`[WhatsApp] Waiting ${waitTime}ms for session stabilization...`);
-                        await new Promise(r => setTimeout(r, waitTime)); 
-                    }
+                    await this.refresh().catch(() => {});
+                    await new Promise(r => setTimeout(r, 1500));
                 } catch (recoveryErr) {
                     console.error('[WhatsApp] Recovery failed:', recoveryErr);
                 }
-                
                 return this.sendMessage(to, content, memberId, retryCount + 1, broadcastId, mediaPath);
             }
             
@@ -571,6 +545,10 @@ export class WhatsAppService {
     ) {
         console.log(`[WhatsApp] Starting bulk send to ${messages.length} contacts (Retry: ${!!existingBroadcastId}, HasImage: ${!!imagePath})...`);
         
+        if (!this.isReady) {
+            throw new Error('WhatsApp service is currently disconnected. Please check Connectivity settings and scan the QR code before broadcasting.');
+        }
+
         let broadcast: any;
 
         if (existingBroadcastId) {
@@ -607,13 +585,27 @@ export class WhatsAppService {
         let processedInBatch = 0;
         
         for (const msg of messages) {
+            // Check if broadcast was stopped/cancelled by admin
+            const currentBroadcast = await prisma.whatsAppBroadcast.findUnique({
+                where: { id: broadcast.id },
+                select: { status: true }
+            });
+            if (currentBroadcast?.status === 'STOPPED' || currentBroadcast?.status === 'CANCELLED') {
+                console.log(`[WhatsApp] Broadcast #${broadcast.id} was stopped by admin. Halting queue.`);
+                return;
+            }
+
             try {
                 // 1. STABILITY: Ensure page is healthy before each message
                 const isHealthy = await this.checkHealth();
-                if (!isHealthy) {
+                if (!isHealthy || !this.isReady) {
                     console.log('[WhatsApp] Page unhealthy during bulk, attempting refresh...');
                     await this.refresh();
-                    await new Promise(r => setTimeout(r, 5000));
+                    await new Promise(r => setTimeout(r, 4000));
+                    if (!this.isReady) {
+                        console.error('[WhatsApp] WhatsApp is disconnected during bulk. Aborting remaining messages.');
+                        break;
+                    }
                 }
 
                 // 2. Fetch member details for personalization and stability
@@ -653,17 +645,16 @@ export class WhatsAppService {
                 // Count attempts within current batch run for pacing
                 processedInBatch++;
 
-                // If we've processed 5 messages in this run and there are more messages left, take a random break between 8 and 10 minutes
+                // After every 5 messages, take a random break between 3 and 5 minutes
                 if (processedInBatch % 5 === 0 && processedInBatch < messages.length) {
-                    const batchBreakMs = Math.floor(Math.random() * (10 * 60 * 1000 - 8 * 60 * 1000 + 1)) + 8 * 60 * 1000;
+                    const batchBreakMs = Math.floor(Math.random() * (5 * 60 * 1000 - 3 * 60 * 1000 + 1)) + 3 * 60 * 1000;
                     const breakMinutes = (batchBreakMs / 60000).toFixed(1);
                     console.log(`[WhatsApp] 🛑 Batch threshold reached (${processedInBatch}/${messages.length}). Taking a ${breakMinutes}-minute break to protect account...`);
                     await new Promise(resolve => setTimeout(resolve, batchBreakMs));
                 } else if (processedInBatch < messages.length) {
-                    // 60-second delay with a slight random jitter (55s - 65s)
-                    const delay = Math.floor(Math.random() * (65000 - 55000 + 1)) + 55000;
-                    console.log(`Message sent to ${msg.to}. Waiting ${Math.round(delay / 1000)}s before next...`);
-                    await new Promise(resolve => setTimeout(resolve, delay));
+                    // Exactly 60-second delay between individual messages
+                    console.log(`Message sent to ${msg.to}. Waiting 60s before next...`);
+                    await new Promise(resolve => setTimeout(resolve, 60000));
                 }
             } catch (error: any) {
                 failCount++;
@@ -684,9 +675,9 @@ export class WhatsAppService {
 
                 processedInBatch++;
 
-                // If 5 messages attempted, pause between 8 and 10 minutes even if one failed
+                // After every 5 attempted messages, take a break between 3 and 5 minutes even if one failed
                 if (processedInBatch % 5 === 0 && processedInBatch < messages.length) {
-                    const batchBreakMs = Math.floor(Math.random() * (10 * 60 * 1000 - 8 * 60 * 1000 + 1)) + 8 * 60 * 1000;
+                    const batchBreakMs = Math.floor(Math.random() * (5 * 60 * 1000 - 3 * 60 * 1000 + 1)) + 3 * 60 * 1000;
                     const breakMinutes = (batchBreakMs / 60000).toFixed(1);
                     console.log(`[WhatsApp] 🛑 Batch threshold reached (${processedInBatch}/${messages.length}) after failure. Taking a ${breakMinutes}-minute break...`);
                     await new Promise(resolve => setTimeout(resolve, batchBreakMs));

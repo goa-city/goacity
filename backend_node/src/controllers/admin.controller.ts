@@ -313,10 +313,24 @@ export const createUser = async (req: Request, res: Response) => {
         const { first_name, last_name, email, phone, stream_ids, slug } = req.body;
         const cityId = (req as any).cityId || 1;
 
-        let finalSlug = slug ? slugify(slug) : await generateUniqueSlug(prisma.member, `${first_name}-${last_name}`, cityId);
+        const cleanFirstName = typeof first_name === 'string' ? first_name.trim() : first_name;
+        const cleanLastName = typeof last_name === 'string' && last_name.trim() ? last_name.trim() : null;
+        const cleanEmail = typeof email === 'string' && email.trim() ? email.trim().toLowerCase() : null;
+        const cleanPhone = typeof phone === 'string' && phone.trim() ? phone.trim() : null;
+
+        const slugBase = [cleanFirstName, cleanLastName].filter(Boolean).join('-') || 'member';
+        let finalSlug = slug && typeof slug === 'string' && slug.trim() ? slugify(slug) : await generateUniqueSlug(prisma.member, slugBase, cityId);
 
         const member = await prisma.member.create({
-            data: { first_name, last_name, email, phone, role: 'member', is_onboarded: 0, slug: finalSlug }
+            data: { 
+                first_name: cleanFirstName, 
+                last_name: cleanLastName, 
+                email: cleanEmail, 
+                phone: cleanPhone, 
+                role: 'member', 
+                is_onboarded: 0, 
+                slug: finalSlug 
+            }
         });
         if (stream_ids && Array.isArray(stream_ids)) {
             await prisma.streamMember.createMany({
@@ -326,6 +340,9 @@ export const createUser = async (req: Request, res: Response) => {
         return res.json({ message: 'Member created', id: member.id, slug: finalSlug });
     } catch (error: any) {
         console.error('createUser Error:', error);
+        if (error.code === 'P2002') {
+            return res.status(400).json({ message: 'A member with this email, phone, or slug already exists.' });
+        }
         return res.status(500).json({ message: error.message });
     }
 };
@@ -338,15 +355,51 @@ export const updateUser = async (req: Request, res: Response) => {
         
         // Only update direct fields if provided
         const updateData: any = {};
-        if (first_name !== undefined) updateData.first_name = first_name;
-        if (last_name !== undefined) updateData.last_name = last_name;
-        if (email !== undefined) updateData.email = email;
-        if (phone !== undefined) updateData.phone = phone;
-        if (slug !== undefined) updateData.slug = slugify(slug);
-        if (is_mentor !== undefined) updateData.is_mentor = is_mentor;
+        if (first_name !== undefined) {
+            updateData.first_name = typeof first_name === 'string' ? first_name.trim() : first_name;
+        }
+        if (last_name !== undefined) {
+            updateData.last_name = typeof last_name === 'string' && last_name.trim() ? last_name.trim() : null;
+        }
+        if (email !== undefined) {
+            updateData.email = typeof email === 'string' && email.trim() ? email.trim().toLowerCase() : null;
+        }
+        if (phone !== undefined) {
+            updateData.phone = typeof phone === 'string' && phone.trim() ? phone.trim() : null;
+        }
+        if (slug !== undefined) {
+            const cleanSlug = typeof slug === 'string' && slug.trim() ? slugify(slug) : null;
+            if (cleanSlug) {
+                const existing = await prisma.member.findFirst({
+                    where: {
+                        slug: cleanSlug,
+                        id: { not: memberId }
+                    }
+                });
+                if (existing) {
+                    return res.status(400).json({ message: `The profile handle "${cleanSlug}" is already taken.` });
+                }
+                updateData.slug = cleanSlug;
+            }
+        }
+        if (is_mentor !== undefined) updateData.is_mentor = Boolean(is_mentor);
 
         if (Object.keys(updateData).length > 0) {
             await prisma.member.update({ where: { id: memberId }, data: updateData });
+
+            // Sync MemberProfile name entries if present
+            if (updateData.first_name !== undefined) {
+                await prisma.memberProfile.updateMany({
+                    where: { user_id: memberId, profile_key: { in: ['first_name', 'q_1777535957750'] } },
+                    data: { profile_value: updateData.first_name }
+                });
+            }
+            if (updateData.last_name !== undefined) {
+                await prisma.memberProfile.updateMany({
+                    where: { user_id: memberId, profile_key: { in: ['last_name', 'q_1777535965235'] } },
+                    data: { profile_value: updateData.last_name || '' }
+                });
+            }
         }
 
         if (stream_ids && Array.isArray(stream_ids)) {
@@ -360,6 +413,9 @@ export const updateUser = async (req: Request, res: Response) => {
         return res.json({ message: 'Member updated' });
     } catch (error: any) {
         console.error('updateUser Error:', error);
+        if (error.code === 'P2002') {
+            return res.status(400).json({ message: 'A member with this email, phone, or slug already exists.' });
+        }
         return res.status(500).json({ message: error.message });
     }
 };

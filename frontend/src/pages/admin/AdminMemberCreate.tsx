@@ -6,7 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 interface AdminMemberCreateForm {
     first_name: string;
-    last_name: string;
+    last_name?: string;
     email?: string;
     phone?: string;
     role: string;
@@ -51,8 +51,14 @@ const AdminMemberCreate: React.FC = () => {
         setLoading(true);
         setError(null);
 
-        if (!formData.email || !formData.phone) {
-            setError("Both Email and Phone are required.");
+        if (!formData.first_name?.trim()) {
+            setError("First Name is required.");
+            setLoading(false);
+            return;
+        }
+
+        if (!formData.phone?.trim() && !formData.email?.trim()) {
+            setError("Please provide at least a Phone number or Email address.");
             setLoading(false);
             return;
         }
@@ -66,6 +72,10 @@ const AdminMemberCreate: React.FC = () => {
         try {
             await api.post('/admin/users', {
                 ...formData,
+                first_name: formData.first_name.trim(),
+                last_name: formData.last_name?.trim() || null,
+                email: formData.email?.trim() || null,
+                phone: formData.phone?.trim() || null,
                 stream_ids: selectedStreamIds
             });
             queryClient.invalidateQueries({ queryKey: ['admin-members'] });
@@ -115,12 +125,12 @@ const AdminMemberCreate: React.FC = () => {
                     </div>
 
                     <div>
-                        <label htmlFor="last_name" className="block text-sm font-medium text-gray-700">Last Name *</label>
+                        <label htmlFor="last_name" className="block text-sm font-medium text-gray-700">Last Name</label>
                         <input
                             type="text"
                             name="last_name"
                             id="last_name"
-                            required
+                            placeholder="Optional"
                             value={formData.last_name}
                             onChange={handleChange}
                             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
@@ -129,12 +139,12 @@ const AdminMemberCreate: React.FC = () => {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email *</label>
+                            <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
                             <input
                                 type="email"
                                 name="email"
                                 id="email"
-                                required
+                                placeholder="Optional"
                                 value={formData.email}
                                 onChange={handleChange}
                                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
@@ -142,12 +152,12 @@ const AdminMemberCreate: React.FC = () => {
                         </div>
 
                         <div>
-                            <label htmlFor="phone" className="block text-sm font-medium text-gray-700">Phone *</label>
+                            <label htmlFor="phone" className="block text-sm font-medium text-gray-700">Phone</label>
                             <input
                                 type="text"
                                 name="phone"
                                 id="phone"
-                                required
+                                placeholder="Optional if email provided"
                                 value={formData.phone}
                                 onChange={handleChange}
                                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"

@@ -14,10 +14,12 @@ import {
     getMeetings, uploadMeetingResource, createMeeting, 
     archiveMeeting, deleteMeeting, getMeetingResponses, deleteMeetingResponse,
     getMeetingActions, notifyMeetingMembers, deleteMeetingResource,
+    getMeetingRecipients,
+    addMeetingAttendee, updateMeetingAttendee, deleteMeetingAttendee,
     getStats, getVideoAnalytics, uploadRecapGalleryPhotos, publishRecapToNews
 } from '../controllers/meetings.controller.js';
 import { getAdminPages, createPage, updatePage, getAdminPageById, deletePage } from '../controllers/pages.controller.js';
-import { getWhatsAppStatus, sendWhatsAppMessage, getWhatsAppLogs, broadcastWhatsApp, sendMeetingAlert, refreshWhatsApp, restartWhatsApp, getWhatsAppBroadcasts, getWhatsAppBroadcastById, hideWhatsAppBroadcast, retryWhatsAppBroadcast } from '../controllers/whatsapp.controller.js';
+import { getWhatsAppStatus, sendWhatsAppMessage, getWhatsAppLogs, broadcastWhatsApp, sendMeetingAlert, refreshWhatsApp, restartWhatsApp, getWhatsAppBroadcasts, getWhatsAppBroadcastById, hideWhatsAppBroadcast, retryWhatsAppBroadcast, stopWhatsAppBroadcast } from '../controllers/whatsapp.controller.js';
 import { getTemplates as getEmailTemplates, createTemplate as createEmailTemplate, updateTemplate as updateEmailTemplate, deleteTemplate as deleteEmailTemplate, getTemplateById as getEmailTemplateById } from '../controllers/email-template.controller.js';
 import { getTemplates as getWhatsAppTemplates, createTemplate as createWhatsAppTemplate, updateTemplate as updateWhatsAppTemplate, deleteTemplate as deleteWhatsAppTemplate, getTemplateById as getWhatsAppTemplateById } from '../controllers/whatsapp-template.controller.js';
 import { getAdminMentorships, toggleMentorApproval, exportMentorshipReport, getAdminMentorshipRequests, getAdminMentorshipRequestById, getAdminMentors, adminMatchMentorship, getAdminMentorProfiles, getMentorshipById, updateMentorshipStatus, notifyMentorshipRelation, updateMentorshipMentor, deleteMentorshipRelation, updateMentorshipDetails } from '../controllers/mentorship.controller.js';
@@ -30,7 +32,7 @@ import {
 } from '../validations/template.schema.js';
 import { createMemberSchema, updateMemberSchema } from '../validations/member.schema.js';
 import { createAdminSchema, updateAdminSchema } from '../validations/admin.schema.js';
-import { createMeetingSchema, updateMeetingSchema, notifyMeetingSchema, publishRecapNewsSchema } from '../validations/meeting.schema.js';
+import { createMeetingSchema, updateMeetingSchema, notifyMeetingSchema, publishRecapNewsSchema, addMeetingAttendeeSchema, updateMeetingAttendeeSchema } from '../validations/meeting.schema.js';
 import { createStreamSchema, updateStreamSchema } from '../validations/stream.schema.js';
 import { createPageSchema, updatePageSchema } from '../validations/page.schema.js';
 import { createJobSchema, updateJobSchema } from '../validations/job.schema.js';
@@ -150,6 +152,10 @@ router.delete('/meetings', deleteMeeting);
 router.get('/meetings/:id/responses', getMeetingResponses);
 router.delete('/meetings/:id/responses/:responseId', deleteMeetingResponse);
 router.get('/meetings/:id/actions', getMeetingActions);
+router.post('/meetings/:id/attendees', validate(addMeetingAttendeeSchema), addMeetingAttendee);
+router.put('/meetings/:id/attendees/:responseId', validate(updateMeetingAttendeeSchema), updateMeetingAttendee);
+router.delete('/meetings/:id/attendees/:responseId', deleteMeetingAttendee);
+router.get('/meetings/:id/recipients', getMeetingRecipients);
 router.post('/meetings/:id/notify', validate(notifyMeetingSchema), notifyMeetingMembers);
 router.post('/meetings/:id/resources', upload.single('file'), uploadMeetingResource);
 router.delete('/meetings/resources/:id', deleteMeetingResource);
@@ -179,6 +185,7 @@ router.get('/whatsapp/broadcasts', getWhatsAppBroadcasts);
 router.delete('/whatsapp/broadcasts/:id', hideWhatsAppBroadcast);
 router.get('/whatsapp/broadcasts/:id', getWhatsAppBroadcastById);
 router.post('/whatsapp/broadcasts/:id/retry', retryWhatsAppBroadcast);
+router.post('/whatsapp/broadcasts/:id/stop', stopWhatsAppBroadcast);
 
 // Mentorship
 router.get('/mentorship', getAdminMentorships);

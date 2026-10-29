@@ -46,7 +46,9 @@ export const notifyMeetingSchema = z.object({
         type: z.enum(['email', 'whatsapp']),
         templateId: z.union([z.string(), z.number()]).optional(),
         targetAudience: z.enum(['all', 'going', 'going_unpaid', 'maybe', 'no', 'paid', 'checked_in', 'no_response', 'test_stream']).optional().default('all'),
-        isTest: z.boolean().optional()
+        isTest: z.boolean().optional(),
+        excludeMemberIds: z.array(z.coerce.number()).optional().default([]),
+        excludeGuestEmails: z.array(z.string()).optional().default([])
     })
 });
 
@@ -72,4 +74,29 @@ export const publishRecapNewsSchema = z.object({
         video_description: z.string().optional().nullable()
     }).optional()
 });
+
+export const addMeetingAttendeeSchema = z.object({
+    body: z.object({
+        userId: z.coerce.number().int().positive('Member ID is required'),
+        rsvpStatus: z.enum(['going', 'not_sure', 'cant_go', 'none']).optional().default('going'),
+        checkedIn: z.union([z.coerce.number().min(0).max(1), z.boolean()])
+            .transform(val => (typeof val === 'boolean' ? (val ? 1 : 0) : Number(val)))
+            .optional()
+            .default(0),
+        paymentStatus: z.enum(['pending', 'paid_online', 'paid_cash', 'paid']).optional().default('pending'),
+        paidAmount: z.coerce.number().min(0).optional().default(0)
+    })
+});
+
+export const updateMeetingAttendeeSchema = z.object({
+    body: z.object({
+        rsvpStatus: z.enum(['going', 'not_sure', 'cant_go', 'none']).optional(),
+        checkedIn: z.union([z.coerce.number().min(0).max(1), z.boolean()])
+            .transform(val => (typeof val === 'boolean' ? (val ? 1 : 0) : Number(val)))
+            .optional(),
+        paymentStatus: z.enum(['pending', 'paid_online', 'paid_cash', 'paid']).optional(),
+        paidAmount: z.coerce.number().min(0).optional()
+    })
+});
+
 
